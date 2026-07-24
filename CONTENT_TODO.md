@@ -6,8 +6,8 @@ Run `npm run stripe:check` at any time for the current, verified status.
 
 - `wynnessentialsllc.us` — this site, on Vercel. Used for `metadataBase`, the
   sitemap, `robots.txt`, and the schema.org organization URL.
-- `wynnessentials.us` — the existing Shopify store. The 23
-  `wynnessentials.us/products/...` links in `app/WynnShop.tsx` point there on
+- `wynnessentialsllc.us` — the Wynn Essentials storefront. The
+  `wynnessentialsllc.us/products/...` links in `app/WynnShop.tsx` point there on
   purpose, for items this site does not sell through Stripe: bonnets, hair
   bundles, and the wellness bundle. Do not rewrite them to the Vercel domain.
 
