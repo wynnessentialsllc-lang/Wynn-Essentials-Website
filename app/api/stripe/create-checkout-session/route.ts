@@ -20,14 +20,20 @@ export async function POST(request: Request) {
 
     const body = await request.json() as { items?: IncomingItem[]; invitationAccepted?: boolean; routineRecommendationId?: string };
     if (!Array.isArray(body.items) || body.items.length < 1 || body.items.length > commerceConfig.maxLineItems) return NextResponse.json({ error: "Your bag is empty or contains too many items." }, { status: 400 });
+    let subtotalCents = 0;
     const resolved = body.items.map(item => {
       if (typeof item.productId !== "string" || typeof item.variantId !== "string" || !Number.isInteger(item.quantity) || Number(item.quantity) < 1 || Number(item.quantity) > commerceConfig.maxQuantityPerItem) throw new Error("INVALID_ITEM");
       const product = products.find(p => p.slug === item.productId);
       if (!product || product.variantId !== item.variantId) throw new Error("INVALID_ITEM");
       if (!product.stripePriceId || !/^price_[A-Za-z0-9]+$/.test(product.stripePriceId)) throw new Error("UNCONFIGURED_ITEM");
+      // Subtotal comes from the server catalog, never from the client payload.
+      subtotalCents += Math.round((product.price ?? 0) * 100) * Number(item.quantity);
       return { price: product.stripePriceId, quantity: Number(item.quantity) };
     });
-    const shipping = [commerceConfig.standardShippingRateId, commerceConfig.expeditedShippingRateId].filter((x): x is string => Boolean(x)).map(shipping_rate => ({ shipping_rate }));
+    // Honors the "free U.S. shipping over $50" promise made on the storefront.
+    const qualifiesForFreeShipping = commerceConfig.freeShippingRateId !== null && subtotalCents >= commerceConfig.freeShippingThresholdCents;
+    const groundRateId = qualifiesForFreeShipping ? commerceConfig.freeShippingRateId : commerceConfig.standardShippingRateId;
+    const shipping = [groundRateId, commerceConfig.expeditedShippingRateId].filter((x): x is string => Boolean(x)).map(shipping_rate => ({ shipping_rate }));
     if (!shipping.length) return NextResponse.json({ error: "Shipping is not configured yet." }, { status: 503 });
     const cartId = crypto.randomUUID();
     const session = await getStripe().checkout.sessions.create({

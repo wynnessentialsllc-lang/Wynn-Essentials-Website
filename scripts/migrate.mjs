@@ -1,0 +1,62 @@
+#!/usr/bin/env node
+/**
+ * Applies every SQL file in drizzle/ to the orders database, in order.
+ *
+ *   npm run db:migrate
+ *
+ * Each file is applied inside a transaction and recorded in `_migrations`, so
+ * re-running only applies what is new. Reads ORDERS_DATABASE_URL from the
+ * environment, falling back to .env.local for local runs.
+ */
+import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
+import postgres from "postgres";
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const envPath = resolve(root, ".env.local");
+
+let url = process.env.ORDERS_DATABASE_URL;
+if (!url && existsSync(envPath)) {
+  url = readFileSync(envPath, "utf8").match(/^\s*ORDERS_DATABASE_URL\s*=\s*(.+)$/m)?.[1]?.trim();
+}
+if (!url) {
+  console.error("\n  ✗ ORDERS_DATABASE_URL is not set (checked the environment and .env.local).\n");
+  process.exit(1);
+}
+
+const sql = postgres(url, { prepare: false, max: 1 });
+
+try {
+  await sql`CREATE TABLE IF NOT EXISTS _migrations (
+    name text PRIMARY KEY,
+    applied_at timestamptz NOT NULL DEFAULT now()
+  )`;
+
+  const applied = new Set((await sql`SELECT name FROM _migrations`).map(r => r.name));
+  const files = readdirSync(resolve(root, "drizzle")).filter(f => f.endsWith(".sql")).sort();
+
+  let count = 0;
+  for (const file of files) {
+    if (applied.has(file)) {
+      console.log(`  · ${file} (already applied)`);
+      continue;
+    }
+    const body = readFileSync(resolve(root, "drizzle", file), "utf8");
+    // Drizzle's marker separates statements, but postgres.js can run the whole
+    // file as one simple query, which keeps DO $$ blocks intact.
+    await sql.begin(async tx => {
+      await tx.unsafe(body.split("--> statement-breakpoint").join("\n"));
+      await tx`INSERT INTO _migrations (name) VALUES (${file})`;
+    });
+    console.log(`  + ${file}`);
+    count++;
+  }
+
+  console.log(`\n  ✓ ${count} migration${count === 1 ? "" : "s"} applied, ${files.length - count} already present.\n`);
+} catch (error) {
+  console.error(`\n  ✗ Migration failed: ${error.message}\n`);
+  process.exitCode = 1;
+} finally {
+  await sql.end();
+}
