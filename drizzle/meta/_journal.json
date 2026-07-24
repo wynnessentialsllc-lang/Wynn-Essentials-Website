@@ -8,6 +8,13 @@
       "when": 1784908097182,
       "tag": "0000_complex_wrecking_crew",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784931765158,
+      "tag": "0002_add_subscribers",
+      "breakpoints": true
     }
   ]
 }
