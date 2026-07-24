@@ -3,7 +3,7 @@ import { products } from "../../../data";
 import { getStripe } from "../../../../lib/stripe";
 import { commerceConfig } from "../../../../lib/commerce-config";
 
-type IncomingItem = { productId?: unknown; variantId?: unknown; quantity?: unknown };
+type IncomingItem = { productId?: unknown; variantId?: unknown; quantity?: unknown; color?: unknown };
 const attempts = new Map<string, { count: number; reset: number }>();
 
 export async function POST(request: Request) {
@@ -25,9 +25,15 @@ export async function POST(request: Request) {
       if (typeof item.productId !== "string" || typeof item.variantId !== "string" || !Number.isInteger(item.quantity) || Number(item.quantity) < 1 || Number(item.quantity) > commerceConfig.maxQuantityPerItem) throw new Error("INVALID_ITEM");
       const product = products.find(p => p.slug === item.productId);
       if (!product || product.variantId !== item.variantId) throw new Error("INVALID_ITEM");
+      // A product with color options requires a valid, in-catalog color choice.
+      const color = typeof item.color === "string" ? item.color : undefined;
+      if (product.colors?.length && (!color || !product.colors.includes(color))) throw new Error("INVALID_ITEM");
       if (!product.stripePriceId || !/^price_[A-Za-z0-9]+$/.test(product.stripePriceId)) throw new Error("UNCONFIGURED_ITEM");
       // Subtotal comes from the server catalog, never from the client payload.
       subtotalCents += Math.round((product.price ?? 0) * 100) * Number(item.quantity);
+      // Colored items ship at the same price, so an inline price carries the chosen
+      // color onto the line item (and into the recorded order) without a per-color Stripe price.
+      if (color) return { price_data: { currency: "usd", unit_amount: Math.round((product.price ?? 0) * 100), product_data: { name: `${product.name} — ${product.subtitle} · ${color}`, metadata: { wynn_slug: product.slug, color } } }, quantity: Number(item.quantity) };
       return { price: product.stripePriceId, quantity: Number(item.quantity) };
     });
     // Honors the "free U.S. shipping over $50" promise made on the storefront.

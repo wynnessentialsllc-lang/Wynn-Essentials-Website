@@ -6,10 +6,16 @@ Run `npm run stripe:check` at any time for the current, verified status.
 
 - `wynnessentialsllc.us` — this site, on Vercel. Used for `metadataBase`, the
   sitemap, `robots.txt`, and the schema.org organization URL.
-- `wynnessentialsllc.us` — the Wynn Essentials storefront. The
-  `wynnessentialsllc.us/products/...` links in `app/WynnShop.tsx` point there on
-  purpose, for items this site does not sell through Stripe: bonnets, hair
-  bundles, and the wellness bundle. Do not rewrite them to the Vercel domain.
+- `wynnessentialsllc.us` — the Wynn Essentials storefront. The remaining
+  `wynnessentialsllc.us/products/...` links in `app/WynnShop.tsx` (Boho Hair and
+  the Essential Oils Care video shortcuts) point there on purpose. Do not rewrite
+  them to the Vercel domain.
+
+The Soft Life Bonnet, Heritage Hold Satin Scrunchie Set, and Hair Wellness
+Bundle are now first-class catalog products in `app/data.ts` and sell through
+Stripe checkout like the hair products. The bonnet offers a color choice; all
+colors ship at one price, so a single Stripe price covers them and the selected
+color rides on the checkout line item via `price_data`.
 
 The canonical host is the apex, `wynnessentialsllc.us`. Vercel 307-redirects
 `www` to it, so customers browse the apex.
@@ -19,7 +25,7 @@ with no `www` and no trailing slash. Checkout compares the browser origin
 against it and returns 403 on a mismatch, which does not look like a domain
 problem when debugging.
 
-Prices, sizes, directions, and ingredient lists are in place for all nine products. Stripe Product and Price IDs are created by `npm run stripe:setup` — see `STRIPE_TESTING.md`. Checkout remains disabled until every item in a customer's bag is configured.
+Prices and sizes are in place for all twelve catalog items (nine hair products plus the bonnet, scrunchie set, and bundle); directions and ingredient lists are in place for the nine hair products. Stripe Product and Price IDs are created by `npm run stripe:setup` — see `STRIPE_TESTING.md`. Checkout remains disabled until every item in a customer's bag is configured.
 
 Commerce setup still required:
 
