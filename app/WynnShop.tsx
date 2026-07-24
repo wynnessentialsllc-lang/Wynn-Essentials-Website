@@ -14,23 +14,25 @@ const bohoHair = [
   { name: "Deep Wave", image: "/collections/boho-deep-wave.avif", alt: "Official Wynn Essentials 18-inch Deep Wave human hair bulk product image", href: "https://wynnessentialsllc.us/products/18-deep-wave-human-hair-bulk-natural-color-defined-texture-for-elevated-braid-styles" },
   { name: "Spanish Curl", image: "/collections/boho-spanish-curl.avif", alt: "Official Wynn Essentials 18-inch Spanish Curl human hair bulk product image", href: "https://wynnessentialsllc.us/products/18-spanish-curl-human-hair-bulk-natural-color-signature-boho-texture" },
 ];
-const shoppableCare = [
-  { name: "Nourish", detail: "Organic Oil Blend", image: "/shoppable/nourish-orange.png", alt: "Nourish Organic Oil Blend held against a vivid orange background", href: "https://wynnessentialsllc.us/products/nourish-hair-oil" },
-  { name: "Grow", detail: "Organic Hair Growth Oil", image: "/shoppable/grow-model.jpeg", alt: "Model with voluminous textured hair holding Grow Oil", href: "https://wynnessentialsllc.us/products/organic-hair-grow-oil" },
-  { name: "Grow", detail: "Scalp & Length Support", image: "/shoppable/grow-lineup.png", alt: "Grow Oil bottle held in front of a coordinated product lineup", href: "https://wynnessentialsllc.us/products/organic-hair-grow-oil" },
-  { name: "Soft Life Bonnet", detail: "Satin Hair Protection", image: "/shoppable/pink-scarf.jpeg", alt: "Model protecting her hair with a pink Wynn Essentials satin scarf", href: "https://wynnessentialsllc.us/products/soft-life-bonnet" },
-  { name: "Edge Control", detail: "Hydrating Styling Essential", image: "/shoppable/edge-control-model.jpeg", alt: "Model showing smooth styled edges while holding Edge Control", href: "https://wynnessentialsllc.us/products/edge-control" },
-  { name: "Heritage Hold", detail: "Satin Scrunchie Set", image: "/shoppable/heritage-hold-street.jpeg", alt: "Heritage Hold scrunchie styled around a sleek bun", href: "https://wynnessentialsllc.us/products/untitled-feb20_17-40" },
-  { name: "Nourish", detail: "Moisture-Sealing Oil", image: "/shoppable/nourish-model.jpeg", alt: "Model smiling while holding Nourish Oil", href: "https://wynnessentialsllc.us/products/nourish-hair-oil" },
-  { name: "Relief", detail: "Organic Scalp Oil", image: "/shoppable/relief-gift.jpeg", alt: "Relief Organic Oil Blend presented in Wynn Essentials gift packaging", href: "https://wynnessentialsllc.us/products/relief-hair-oil" },
-  { name: "Grow", detail: "For Stronger-Looking Hair", image: "/shoppable/grow-sleek.jpeg", alt: "Grow Oil displayed in front of long sleek hair", href: "https://wynnessentialsllc.us/products/organic-hair-grow-oil" },
-  { name: "Hydrate", detail: "Herbal Hair Mist", image: "/shoppable/hydrate-results.png", alt: "Hydrate Mist shown beside a defined curl result", href: "https://wynnessentialsllc.us/products/hydrating-herbal-leavein-hair-mist" },
-  { name: "Lathyr", detail: "Gentle Cleansing Shampoo", image: "/shoppable/lathyr-pour.jpeg", alt: "Lathyr Gentle Cleansing Shampoo being poured into a hand", href: "https://wynnessentialsllc.us/products/lathyr" },
-  { name: "Lathyr", detail: "Wash Day Essential", image: "/shoppable/lathyr-bag.jpeg", alt: "Lathyr shampoo displayed with a Wynn Essentials shopping bag", href: "https://wynnessentialsllc.us/products/lathyr" },
-  { name: "Hydrate + Nourish", detail: "Daily Moisture Pair", image: "/shoppable/hydrate-nourish.jpeg", alt: "Hydrate Mist and Nourish Oil held together", href: "https://wynnessentialsllc.us/products/wellness-bundle" },
-  { name: "Soft Life Bonnet", detail: "Satin Hair Protection", image: "/shoppable/bonnet-group.png", alt: "Four women wearing Soft Life Bonnets in different colors", href: "https://wynnessentialsllc.us/products/soft-life-bonnet" },
-  { name: "Soft Life Bonnet", detail: "Overnight Protection", image: "/shoppable/bonnet-bedroom.png", alt: "Woman adjusting a Soft Life Bonnet in her bedroom", href: "https://wynnessentialsllc.us/products/soft-life-bonnet" },
-  { name: "Uplyft", detail: "Moisture Rich Conditioner", image: "/shoppable/uplyft-texture.jpeg", alt: "Rich white conditioner texture displayed on a hand", href: "https://wynnessentialsllc.us/products/uplyft" },
+// Each card either opens an in-app product modal (slug) or scrolls to that item's
+// on-page section (anchor) for pieces not sold through this site's Stripe checkout.
+const shoppableCare: { name: string; detail: string; image: string; alt: string; slug?: string; anchor?: string }[] = [
+  { name: "Nourish", detail: "Organic Oil Blend", image: "/shoppable/nourish-orange.png", alt: "Nourish Organic Oil Blend held against a vivid orange background", slug: "nourish-oil" },
+  { name: "Grow", detail: "Organic Hair Growth Oil", image: "/shoppable/grow-model.jpeg", alt: "Model with voluminous textured hair holding Grow Oil", slug: "grow-oil" },
+  { name: "Grow", detail: "Scalp & Length Support", image: "/shoppable/grow-lineup.png", alt: "Grow Oil bottle held in front of a coordinated product lineup", slug: "grow-oil" },
+  { name: "Soft Life Bonnet", detail: "Satin Hair Protection", image: "/shoppable/pink-scarf.jpeg", alt: "Model protecting her hair with a pink Wynn Essentials satin scarf", anchor: "#hair-accessories" },
+  { name: "Edge Control", detail: "Hydrating Styling Essential", image: "/shoppable/edge-control-model.jpeg", alt: "Model showing smooth styled edges while holding Edge Control", slug: "edge-control" },
+  { name: "Heritage Hold", detail: "Satin Scrunchie Set", image: "/shoppable/heritage-hold-street.jpeg", alt: "Heritage Hold scrunchie styled around a sleek bun", anchor: "#hair-accessories" },
+  { name: "Nourish", detail: "Moisture-Sealing Oil", image: "/shoppable/nourish-model.jpeg", alt: "Model smiling while holding Nourish Oil", slug: "nourish-oil" },
+  { name: "Relief", detail: "Organic Scalp Oil", image: "/shoppable/relief-gift.jpeg", alt: "Relief Organic Oil Blend presented in Wynn Essentials gift packaging", slug: "relief-oil" },
+  { name: "Grow", detail: "For Stronger-Looking Hair", image: "/shoppable/grow-sleek.jpeg", alt: "Grow Oil displayed in front of long sleek hair", slug: "grow-oil" },
+  { name: "Hydrate", detail: "Herbal Hair Mist", image: "/shoppable/hydrate-results.png", alt: "Hydrate Mist shown beside a defined curl result", slug: "hydrate-herbal-hair-mist" },
+  { name: "Lathyr", detail: "Gentle Cleansing Shampoo", image: "/shoppable/lathyr-pour.jpeg", alt: "Lathyr Gentle Cleansing Shampoo being poured into a hand", slug: "lathyr-shampoo" },
+  { name: "Lathyr", detail: "Wash Day Essential", image: "/shoppable/lathyr-bag.jpeg", alt: "Lathyr shampoo displayed with a Wynn Essentials shopping bag", slug: "lathyr-shampoo" },
+  { name: "Hydrate + Nourish", detail: "Daily Moisture Pair", image: "/shoppable/hydrate-nourish.jpeg", alt: "Hydrate Mist and Nourish Oil held together", anchor: "#bundle" },
+  { name: "Soft Life Bonnet", detail: "Satin Hair Protection", image: "/shoppable/bonnet-group.png", alt: "Four women wearing Soft Life Bonnets in different colors", anchor: "#hair-accessories" },
+  { name: "Soft Life Bonnet", detail: "Overnight Protection", image: "/shoppable/bonnet-bedroom.png", alt: "Woman adjusting a Soft Life Bonnet in her bedroom", anchor: "#hair-accessories" },
+  { name: "Uplyft", detail: "Moisture Rich Conditioner", image: "/shoppable/uplyft-texture.jpeg", alt: "Rich white conditioner texture displayed on a hand", slug: "uplyft-conditioner" },
 ];
 const ingredientImages: Record<string, { src: string; alt: string; source: string }> = {
   Aloe: { src: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Aloe_Vera%2C.jpg?width=1000", alt: "Fresh aloe vera plant", source: "https://commons.wikimedia.org/wiki/File:Aloe_Vera,.jpg" },
@@ -282,7 +284,7 @@ export default function WynnShop() {
       <section id="shop-by-concern" className="category-section section"><p className="eyebrow">SHOP BY CONCERN</p><h2>What Does Your Hair Need?</h2><div>{["Dryness","Weakness and Breakage","Scalp Care","Protective Style Care","Definition and Styling"].map((x,i)=><a href="#shop" onClick={()=>setFilter(i===1?"Treat":i===2?"Oils":i===4?"Style":"All")} key={x}><span>{String(i+1).padStart(2,"0")}</span>{x}<b>Explore</b></a>)}</div></section>
       <section id="shop-by-style" className="style-section section"><p className="eyebrow">CURATED ROUTINES</p><h2>Shop by Style</h2><div>{["Braids","Locs","Twists","Natural Curls","Silk Press","Wigs and Weaves"].map(x=><a key={x} href="#routine-finder">{x}<span>Find a routine</span></a>)}</div></section>
       <section className="editorial-shop editorial-shop-dark section" aria-labelledby="editorial-everyday"><div className="section-heading"><div><p className="eyebrow">CARE IN REAL LIFE</p><h2 id="editorial-everyday">Wellness, Styled<br/>Your Way.</h2></div><p>From wash day to protective styling, tap any image to shop the product shown.</p></div><div className="editorial-grid editorial-grid-wide">
-        {shoppableCare.map((item,index)=><a className="editorial-card" href={item.href} key={`${item.image}-${index}`} aria-label={`Shop ${item.name}`}><img src={item.image} alt={item.alt} width="1206" height="1800" loading="lazy"/><span><b>{item.name}</b><small>{item.detail}</small><em>Shop now</em></span></a>)}
+        {shoppableCare.map((item,index)=>{const inner=<><img src={item.image} alt={item.alt} width="1206" height="1800" loading="lazy"/><span><b>{item.name}</b><small>{item.detail}</small><em>Shop now</em></span></>;return item.slug?<button className="editorial-card" onClick={()=>openProduct(products.find(p=>p.slug===item.slug)!)} key={`${item.image}-${index}`} aria-label={`Shop ${item.name}`}>{inner}</button>:<a className="editorial-card" href={item.anchor} key={`${item.image}-${index}`} aria-label={`Shop ${item.name}`}>{inner}</a>;})}
       </div></section>
       <section id="essential-oils-care" className="oil-care section" aria-labelledby="essential-oils-heading">
         <div className="section-heading"><div><p className="eyebrow">SCALP · LENGTHS · ENDS</p><h2 id="essential-oils-heading">Essential Oils Care</h2></div><p>Three purposeful blends for moisture retention, scalp comfort, and stronger-looking hair. Choose the support your routine needs.</p></div>
@@ -292,7 +294,7 @@ export default function WynnShop() {
         </div>
         <div className="oil-care-products">{products.filter(p=>p.category==="Oils").map(p=><article key={p.slug}><button className="oil-care-product-image" onClick={()=>openProduct(p)} aria-label={`View ${p.name} details`}><ProductArt product={p}/></button><p className="eyebrow">{p.name==="Grow"?"GROWTH SUPPORT":p.name==="Relief"?"SCALP COMFORT":"MOISTURE SEALING"}</p><button className="product-title" onClick={()=>openProduct(p)}><h3>{p.name}</h3><span>{p.subtitle}</span></button><p>{p.benefit}</p><strong>{money(p.price)}</strong><button className="outline-button full" onClick={()=>add(p)}>Add to Cart</button></article>)}</div>
       </section>
-      <section className="owner-collection section"><div className="section-heading"><div><p className="eyebrow">OWNER-SUPPLIED COLLECTION</p><h2>Hair & Accessories</h2></div><p>Protective accessories and premium hair offerings designed to complement an intentional routine.</p></div><div className="owner-collection-grid">
+      <section id="hair-accessories" className="owner-collection section"><div className="section-heading"><div><p className="eyebrow">OWNER-SUPPLIED COLLECTION</p><h2>Hair & Accessories</h2></div><p>Protective accessories and premium hair offerings designed to complement an intentional routine.</p></div><div className="owner-collection-grid">
         <article className="bonnet-card"><div className="bonnet-gallery">
           <img src="/collections/soft-life-bonnet-official-1.webp" alt="Soft Life Bonnet in its Wynn Essentials packaging" width="1946" height="1946" loading="lazy"/>
           <img src="/collections/soft-life-bonnet-official-2.webp" alt="Soft Life Bonnet shown on a model" width="1946" height="1946" loading="lazy"/>
