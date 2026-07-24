@@ -1,4 +1,6 @@
 import type { MetadataRoute } from "next";
 export default function robots(): MetadataRoute.Robots {
-  return { rules: { userAgent: "*", allow: "/" }, sitemap: "https://www.wynnessentials.us/sitemap.xml" };
+  // /admin is token-gated server-side; disallowing it also keeps the URL out of
+  // search results so it is not discoverable in the first place.
+  return { rules: { userAgent: "*", allow: "/", disallow: "/admin" }, sitemap: "https://www.wynnessentials.us/sitemap.xml" };
 }

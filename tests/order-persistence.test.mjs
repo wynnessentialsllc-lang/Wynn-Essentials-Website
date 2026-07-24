@@ -96,3 +96,37 @@ test("checkout honors the advertised free-shipping threshold", async () => {
     "the threshold advertised on the storefront must match the one checkout enforces"
   );
 });
+
+test("the fulfillment view keeps customer data server-side and gated", async () => {
+  const [page, actions, form, auth, robots] = await Promise.all([
+    readFile(url("../app/admin/orders/page.tsx"), "utf8"),
+    readFile(url("../app/admin/orders/actions.ts"), "utf8"),
+    readFile(url("../app/admin/orders/SignInForm.tsx"), "utf8"),
+    readFile(url("../lib/admin-auth.ts"), "utf8"),
+    readFile(url("../app/robots.ts"), "utf8"),
+  ]);
+
+  // The page renders customer names, emails, and addresses. It must be a
+  // server component, never cached, and never indexed.
+  assert.doesNotMatch(page, /^\s*"use client"/m, "the order page must stay a server component");
+  assert.match(page, /dynamic\s*=\s*"force-dynamic"/);
+  assert.match(page, /robots:\s*\{[^}]*index:\s*false/);
+  assert.match(robots, /disallow:\s*"\/admin"/);
+
+  // Only the sign-in form crosses to the client, and it receives no order data.
+  assert.match(form, /^\s*"use client"/m);
+  assert.doesNotMatch(form, /customerEmail|shippingAddress|customerName/);
+
+  // Every entry point authenticates. A server action is its own endpoint and
+  // is not protected by the page that rendered it.
+  assert.match(actions, /isAuthenticated\(\)/, "mutating actions must re-check authentication");
+  const mutate = actions.indexOf("export async function setFulfillment");
+  assert.ok(actions.slice(mutate).indexOf("isAuthenticated()") < actions.slice(mutate).indexOf("update(orders)"),
+    "setFulfillment must verify the session before writing");
+
+  // Credentials are compared in constant time and the cookie never carries the token.
+  assert.match(auth, /httpOnly:\s*true/);
+  assert.match(auth, /sameSite:\s*"strict"/);
+  assert.match(auth, /crypto\.subtle/, "the session cookie must be signed, not the raw token");
+  assert.match(auth, /mismatch \|=/, "token comparison must be constant time");
+});

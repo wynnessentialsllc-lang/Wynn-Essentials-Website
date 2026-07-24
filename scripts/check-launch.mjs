@@ -113,10 +113,15 @@ if (key && !unconfigured.length) {
   }
 }
 
+// ---------- Fulfillment view ----------
+const adminToken = env?.ADMIN_ORDERS_TOKEN;
+if (!adminToken) block.push("ADMIN_ORDERS_TOKEN is not set — /admin/orders stays closed and orders cannot be fulfilled");
+else if (adminToken.length < 16) block.push("ADMIN_ORDERS_TOKEN is shorter than 16 characters — it guards customer addresses");
+else pass.push("Fulfillment view token configured");
+
 // ---------- Manual sign-off ----------
 warn.push("Confirm return, refund, and shipping policies are published before live checkout");
 warn.push("Confirm Stripe Tax registration and nexus if STRIPE_TAX_ENABLED=true");
-warn.push("Confirm a fulfillment process exists for reading new orders out of the database");
 
 // ---------- Report ----------
 const g = s => `\x1b[32m${s}\x1b[0m`, y = s => `\x1b[33m${s}\x1b[0m`, r = s => `\x1b[31m${s}\x1b[0m`, dim = s => `\x1b[2m${s}\x1b[0m`;
