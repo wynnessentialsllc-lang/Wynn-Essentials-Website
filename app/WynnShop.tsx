@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { brandConfig, ingredientDescriptions, method, products, Product } from "./data";
 
 type CartItem = { slug: string; quantity: number };
@@ -57,7 +58,10 @@ function ProductArt({ product, small = false }: { product: Product; small?: bool
 
 function ModalShell({ label, onClose, children, className = "" }: { label: string; onClose: () => void; children: React.ReactNode; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   useEffect(() => {
+    if (!mounted) return;
     const previous = document.activeElement as HTMLElement;
     const node = ref.current;
     const items = () => Array.from(node?.querySelectorAll<HTMLElement>(focusable) ?? []);
@@ -74,8 +78,19 @@ function ModalShell({ label, onClose, children, className = "" }: { label: strin
     document.addEventListener("keydown", key);
     document.body.classList.add("locked");
     return () => { document.removeEventListener("keydown", key); document.body.classList.remove("locked"); previous?.focus(); };
-  }, [onClose]);
-  return <div className={`modal-backdrop ${className}`}><div ref={ref} role="dialog" aria-modal="true" aria-label={label} className="modal">{children}</div></div>;
+  }, [mounted, onClose]);
+  if (!mounted) return null;
+  return createPortal(
+    <div
+      className={`modal-backdrop ${className}`}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div ref={ref} role="dialog" aria-modal="true" aria-label={label} className="modal">{children}</div>
+    </div>,
+    document.body,
+  );
 }
 
 function FooterInfo({ page, onClose }: { page: FooterInfoKey; onClose: () => void }) {
