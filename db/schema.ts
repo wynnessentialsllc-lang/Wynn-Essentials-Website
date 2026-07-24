@@ -1,4 +1,4 @@
-import { pgTable, text, bigint, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, bigint, timestamp, jsonb, boolean } from "drizzle-orm/pg-core";
 
 // Every Stripe event we have already accepted. Written before an order is
 // recorded so a redelivered event can never create a second order.
@@ -34,3 +34,19 @@ export const orders = pgTable("orders", {
 });
 
 export type Order = typeof orders.$inferSelect;
+
+// Newsletter ("The Wynn Edit") signups. Holds contact PII (email, phone), so it
+// is locked to server-side access by 0002_restrict_subscribers.sql, exactly like
+// the order tables. Email is the primary key so a repeat signup updates in place
+// instead of creating a duplicate.
+export const subscribers = pgTable("subscribers", {
+  email: text("email").primaryKey(),
+  phone: text("phone"),
+  marketingConsent: boolean("marketing_consent").notNull().default(false),
+  consentText: text("consent_text"),
+  source: text("source"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type Subscriber = typeof subscribers.$inferSelect;

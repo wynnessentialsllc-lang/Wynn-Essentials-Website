@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { desc } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { orders as ordersTable } from "../../../db/schema";
@@ -64,7 +65,10 @@ export default async function AdminOrders() {
           <p className="eyebrow">FULFILLMENT</p>
           <h1>Orders</h1>
         </div>
-        <form action={signOut}><button className="outline-button" type="submit">Sign out</button></form>
+        <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+          <Link className="outline-button" href="/admin/subscribers">Subscribers</Link>
+          <form action={signOut}><button className="outline-button" type="submit">Sign out</button></form>
+        </div>
       </div>
 
       {error ? (

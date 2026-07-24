@@ -7,14 +7,16 @@ const url = p => new URL(p, import.meta.url);
 /** Extracts a { table: Set<column> } map from any CREATE TABLE statements. */
 function tableColumns(sql) {
   const tables = {};
-  const re = /CREATE TABLE (?:IF NOT EXISTS )?`?(\w+)`?\s*\(([\s\S]*?)\n\s*\)/g;
+  // Identifiers may be quoted with double quotes (postgres) or backticks; accept
+  // either (or none) so every real table is actually checked.
+  const re = /CREATE TABLE (?:IF NOT EXISTS )?["`]?(\w+)["`]?\s*\(([\s\S]*?)\n\s*\)/g;
   for (const [, name, body] of sql.matchAll(re)) {
     tables[name] = new Set(
       body
         .split("\n")
         .map(line => line.trim().replace(/,$/, ""))
         .filter(Boolean)
-        .map(line => line.match(/^`?(\w+)`?\s/)?.[1])
+        .map(line => line.match(/^["`]?(\w+)["`]?\s/)?.[1])
         .filter(Boolean)
     );
   }

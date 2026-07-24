@@ -32,7 +32,7 @@ Commerce setup still required:
 - Add Stripe test keys and webhook secret to `.env.local`.
 - Set `ADMIN_ORDERS_TOKEN` (16+ random characters) in `.env.local` and in Vercel.
 - Run `npm run stripe:setup` to create Products, Prices, and Shipping Rates.
-- Run `npx vercel env pull .env.local`, then `npm run db:migrate` to create the order tables.
+- Run `npx vercel env pull .env.local`, then `npm run db:migrate` to create the order and subscriber tables.
 - Attach the production domain and set `NEXT_PUBLIC_SITE_URL`. Stripe builds its
   success and cancel URLs from it, so checkout redirects to localhost until this is done.
 - Decide and configure Stripe promotion-code support.
@@ -49,3 +49,10 @@ since a Stripe price cannot be edited after it is created:
 Done: durable order storage on Neon Postgres with unique Stripe event/session constraints, RLS enabled on the order tables, server-side enforcement of the free-shipping threshold, and a token-gated fulfillment view at `/admin/orders`.
 
 Brand setup still required: founder details and portrait, social URLs, review provider, email/SMS provider, final consent language, and assets listed in `ASSET_REQUIREMENTS.md`.
+
+"The Wynn Edit" newsletter signups persist to the `subscribers` table
+(email, phone, marketing consent, the exact consent text shown, and source),
+locked to server-side access with the same RLS posture as the order tables.
+Run `npm run db:migrate` to create it. Storing a signup does not send anything:
+connecting the email/SMS provider above is what turns these rows into welcome
+and marketing messages.
