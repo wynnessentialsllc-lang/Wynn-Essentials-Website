@@ -187,7 +187,7 @@ function ProductDetail({ product, add, onClose }: { product: Product; add: (p: P
 }
 
 function RoutineFinder({ add, openProduct }: { add: (p: Product) => void; openProduct: (p: Product) => void }) {
-  const questions = [
+  const questions: Array<[string, string[]]> = [
     ["How are you currently wearing your hair?",["Braids","Locs","Twists","Natural curls","Silk press","Wig or weave","Other"]],
     ["What is your main concern?",["Dryness","Breakage","Scalp discomfort","Frizz","Definition","Protective-style maintenance"]],
     ["How often do you wash?",["Weekly","Every two weeks","Monthly","Less often"]],
@@ -203,7 +203,7 @@ function RoutineFinder({ add, openProduct }: { add: (p: Product) => void; openPr
     return products.filter(p=>p.featured||p.category==="Oils").slice(0,3);
   },[answers]);
   return <section id="routine-finder" className="routine-finder section"><div><p className="eyebrow">ROUTINE FINDER</p><h2>Your Hair Does Not Need Guesswork.</h2><p>Answer a few questions about your hair, current style, concerns, and routine. We’ll help identify the Wynn Essentials products that fit.</p></div>
-    <form onSubmit={e=>e.preventDefault()}>{questions.map(([q,opts],i)=><fieldset key={q}><legend>{i+1}. {q}</legend><div>{(opts as string[]).map(o=><label key={o}><input type="radio" name={`q${i}`} checked={answers[i]===o} onChange={()=>setAnswers(a=>{const n=[...a];n[i]=o;return n;})}/><span>{o}</span></label>)}</div></fieldset>)}</form>
+    <form onSubmit={e=>e.preventDefault()}>{questions.map(([q,opts],i)=><fieldset key={q}><legend>{i+1}. {q}</legend><div>{opts.map(o=><label key={o}><input type="radio" name={`q${i}`} checked={answers[i]===o} onChange={()=>setAnswers(a=>{const n=[...a];n[i]=o;return n;})}/><span>{o}</span></label>)}</div></fieldset>)}</form>
     {answers.filter(Boolean).length===4 && <div className="recommendation" aria-live="polite"><h3>Your editable routine</h3><p>Based on your answers, start with these essentials. This is routine guidance, not medical advice or diagnosis.</p>{recommendation.map(p=><div key={p.slug}><button onClick={()=>openProduct(p)}>{p.name} <span>{p.subtitle}</span></button><button className="outline-button" onClick={()=>add(p)}>Add</button></div>)}</div>}
   </section>;
 }

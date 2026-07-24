@@ -1,9 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Instrument_Serif, Manrope } from "next/font/google";
 import "./globals.css";
-
-const display = Instrument_Serif({ variable: "--font-display", subsets: ["latin"], weight: "400" });
-const sans = Manrope({ variable: "--font-sans", subsets: ["latin"] });
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#FCFBF8" };
 export const metadata: Metadata = {
@@ -17,5 +13,5 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const organization = { "@context": "https://schema.org", "@type": "Organization", name: "Wynn Essentials", url: "https://www.wynnessentials.us", foundingDate: "2025", address: { "@type": "PostalAddress", addressLocality: "Los Angeles", addressRegion: "CA", addressCountry: "US" } };
-  return <html lang="en"><body className={`${display.variable} ${sans.variable}`}><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organization) }} />{children}</body></html>;
+  return <html lang="en"><body><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organization) }} />{children}</body></html>;
 }
