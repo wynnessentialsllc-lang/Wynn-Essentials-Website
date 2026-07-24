@@ -1,0 +1,2 @@
+import Link from "next/link";
+export default function OrderCancelled(){return <main className="order-page"><p className="eyebrow">WYNN ESSENTIALS ORDER</p><h1>Your checkout was not completed.</h1><p>Your cart is still here whenever you’re ready.</p><div className="actions"><Link className="button" href="/#shop">Return to Cart</Link><Link className="outline-button" href="/">Continue Shopping</Link></div></main>}
