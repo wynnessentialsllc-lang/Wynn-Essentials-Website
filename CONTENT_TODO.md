@@ -11,9 +11,13 @@ Run `npm run stripe:check` at any time for the current, verified status.
   purpose, for items this site does not sell through Stripe: bonnets, hair
   bundles, and the wellness bundle. Do not rewrite them to the Vercel domain.
 
-`NEXT_PUBLIC_SITE_URL` must match the canonical domain exactly, including
-`www`. Checkout compares the browser origin against it and returns 403 on a
-mismatch, which does not look like a domain problem when debugging.
+The canonical host is the apex, `wynnessentialsllc.us`. Vercel 307-redirects
+`www` to it, so customers browse the apex.
+
+`NEXT_PUBLIC_SITE_URL` must therefore be exactly `https://wynnessentialsllc.us`
+with no `www` and no trailing slash. Checkout compares the browser origin
+against it and returns 403 on a mismatch, which does not look like a domain
+problem when debugging.
 
 Prices, sizes, directions, and ingredient lists are in place for all nine products. Stripe Product and Price IDs are created by `npm run stripe:setup` — see `STRIPE_TESTING.md`. Checkout remains disabled until every item in a customer's bag is configured.
 
