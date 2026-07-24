@@ -21,6 +21,8 @@ const dataPath = resolve(root, "app/data.ts");
 const LIVE = process.argv.includes("--live");
 
 // Shipping rates created on first run. Amounts are in cents.
+// Confirmed by the owner 2026-07-24. A Stripe price is immutable once created,
+// so changing these means creating new rates and updating .env.local.
 const SHIPPING_RATES = [
   { key: "STRIPE_STANDARD_SHIPPING_RATE_ID", name: "Standard Shipping (3-7 business days)", amount: 595, min: 3, max: 7 },
   { key: "STRIPE_EXPEDITED_SHIPPING_RATE_ID", name: "Expedited Shipping (1-3 business days)", amount: 1495, min: 1, max: 3 },

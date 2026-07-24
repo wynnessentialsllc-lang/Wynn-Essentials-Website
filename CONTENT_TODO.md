@@ -7,15 +7,22 @@ Prices, sizes, directions, and ingredient lists are in place for all nine produc
 Commerce setup still required:
 
 - Add Stripe test keys and webhook secret to `.env.local`.
+- Set `ADMIN_ORDERS_TOKEN` (16+ random characters) in `.env.local` and in Vercel.
 - Run `npm run stripe:setup` to create Products, Prices, and Shipping Rates.
-- Confirm the standard ($5.95) and expedited ($14.95) shipping amounts in `scripts/setup-stripe.mjs`.
-- Confirm whether the $50 free-shipping statement and threshold are accurate.
+- Run `npx vercel env pull .env.local`, then `npm run db:migrate` to create the order tables.
+- Attach the production domain and set `NEXT_PUBLIC_SITE_URL`. Stripe builds its
+  success and cancel URLs from it, so checkout redirects to localhost until this is done.
 - Decide and configure Stripe promotion-code support.
 - Confirm Stripe Tax registration, nexus, product tax codes, shipping tax treatment, and collection regions before enabling Stripe Tax.
-- Provision Neon Postgres via Vercel and set `ORDERS_DATABASE_URL`, then run `npm run db:migrate`.
-- Build a fulfillment workflow for reading new orders out of the `orders` table.
-- Confirm return, refund, shipping, and fulfillment policies.
+- Confirm return, refund, and fulfillment policies.
 
-Done: durable order storage on Neon Postgres with unique Stripe event/session constraints, RLS enabled on the order tables, and server-side enforcement of the free-shipping threshold.
+Shipping, confirmed 2026-07-24 — do not change without re-running `stripe:setup`,
+since a Stripe price cannot be edited after it is created:
+
+- Standard $5.95 (3–7 business days), expedited $14.95 (1–3 business days).
+- Free U.S. shipping once the cart subtotal reaches $50. A subtotal of exactly
+  $50.00 qualifies, matching what the cart tells the customer.
+
+Done: durable order storage on Neon Postgres with unique Stripe event/session constraints, RLS enabled on the order tables, server-side enforcement of the free-shipping threshold, and a token-gated fulfillment view at `/admin/orders`.
 
 Brand setup still required: founder details and portrait, social URLs, review provider, email/SMS provider, final consent language, and assets listed in `ASSET_REQUIREMENTS.md`.
