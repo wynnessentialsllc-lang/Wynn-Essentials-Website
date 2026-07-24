@@ -20,7 +20,7 @@ const shoppableCare: { name: string; detail: string; image: string; alt: string;
   { name: "Nourish", detail: "Organic Oil Blend", image: "/shoppable/nourish-orange.png", alt: "Nourish Organic Oil Blend held against a vivid orange background", slug: "nourish-oil" },
   { name: "Grow", detail: "Organic Hair Growth Oil", image: "/shoppable/grow-model.jpeg", alt: "Model with voluminous textured hair holding Grow Oil", slug: "grow-oil" },
   { name: "Grow", detail: "Scalp & Length Support", image: "/shoppable/grow-lineup.png", alt: "Grow Oil bottle held in front of a coordinated product lineup", slug: "grow-oil" },
-  { name: "Soft Life Bonnet", detail: "Satin Hair Protection", image: "/shoppable/pink-scarf.jpeg", alt: "Model protecting her hair with a pink Wynn Essentials satin scarf", slug: "soft-life-bonnet" },
+  { name: "Edge Control", detail: "Hydrating Styling Essential", image: "/shoppable/edge-control-hand.jpeg", alt: "Hand holding a Wynn Essentials Edge Control jar against a lavender background", slug: "edge-control" },
   { name: "Edge Control", detail: "Hydrating Styling Essential", image: "/shoppable/edge-control-model.jpeg", alt: "Model showing smooth styled edges while holding Edge Control", slug: "edge-control" },
   { name: "Heritage Hold", detail: "Satin Scrunchie Set", image: "/shoppable/heritage-hold-street.jpeg", alt: "Heritage Hold scrunchie styled around a sleek bun", slug: "heritage-hold-scrunchie-set" },
   { name: "Nourish", detail: "Moisture-Sealing Oil", image: "/shoppable/nourish-model.jpeg", alt: "Model smiling while holding Nourish Oil", slug: "nourish-oil" },
