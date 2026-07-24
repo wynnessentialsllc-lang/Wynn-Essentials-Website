@@ -16,14 +16,33 @@ import postgres from "postgres";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const envPath = resolve(root, ".env.local");
 
-let url = process.env.ORDERS_DATABASE_URL;
-if (!url && existsSync(envPath)) {
-  url = readFileSync(envPath, "utf8").match(/^\s*ORDERS_DATABASE_URL\s*=\s*(.+)$/m)?.[1]?.trim();
-}
+// Migrations run DDL, so prefer the direct (non-pooling) connection. A
+// transaction pooler can route statements across different backends and does
+// not reliably hold advisory state for a multi-statement DDL transaction.
+const CANDIDATES = [
+  "ORDERS_DATABASE_POSTGRES_URL_NON_POOLING",
+  "ORDERS_DATABASE_URL_NON_POOLING",
+  "ORDERS_DATABASE_POSTGRES_URL",
+  "ORDERS_DATABASE_URL",
+  "DATABASE_URL",
+];
+
+const envFile = existsSync(envPath) ? readFileSync(envPath, "utf8") : "";
+const fromFile = name => envFile.match(new RegExp(`^\\s*${name}\\s*=\\s*(.+)$`, "m"))?.[1]?.trim().replace(/^["']|["']$/g, "");
+
+const chosen = CANDIDATES.find(name => process.env[name] || fromFile(name));
+const url = chosen && (process.env[chosen] || fromFile(chosen));
+
 if (!url) {
-  console.error("\n  ✗ ORDERS_DATABASE_URL is not set (checked the environment and .env.local).\n");
+  console.error(`\n  ✗ No orders database connection string found.
+    Checked the environment and .env.local for:
+      ${CANDIDATES.join("\n      ")}
+
+    If Neon is connected in Vercel, pull the variables down first:
+      npx vercel env pull .env.local\n`);
   process.exit(1);
 }
+console.log(`\n  Using ${chosen}${chosen.includes("NON_POOLING") ? "" : "  (direct connection preferred for DDL)"}`);
 
 const sql = postgres(url, { prepare: false, max: 1 });
 

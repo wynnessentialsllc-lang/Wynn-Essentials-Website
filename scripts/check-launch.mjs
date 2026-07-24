@@ -64,12 +64,18 @@ if (unconfigured.length) block.push(`${unconfigured.length} of ${catalog.length}
 else pass.push(`All ${catalog.length} products have Stripe product and price IDs`);
 
 // ---------- Order persistence ----------
-if (!env?.ORDERS_DATABASE_URL) block.push("ORDERS_DATABASE_URL is not set — paid orders cannot be stored");
-else if (!/^postgres(ql)?:\/\//.test(env.ORDERS_DATABASE_URL)) block.push("ORDERS_DATABASE_URL is not a Postgres connection string");
-else {
-  pass.push("Orders database connection string present");
-  if (!/-pooler\.|pgbouncer=true|:6543\//.test(env.ORDERS_DATABASE_URL)) {
-    warn.push("ORDERS_DATABASE_URL does not look pooled — serverless functions can exhaust direct Postgres connections");
+const APP_DB_VARS = ["ORDERS_DATABASE_POSTGRES_URL", "ORDERS_DATABASE_URL", "DATABASE_URL"];
+const appDbVar = APP_DB_VARS.find(k => env?.[k]);
+const appDbUrl = appDbVar ? env[appDbVar] : null;
+
+if (!appDbUrl) {
+  block.push(`No orders database connection string (looked for ${APP_DB_VARS.join(", ")}). If Neon is connected in Vercel, run: npx vercel env pull .env.local`);
+} else if (!/^postgres(ql)?:\/\//.test(appDbUrl)) {
+  block.push(`${appDbVar} is not a Postgres connection string`);
+} else {
+  pass.push(`Orders database connection string present (${appDbVar})`);
+  if (!/-pooler\.|pgbouncer=true|:6543\//.test(appDbUrl)) {
+    warn.push(`${appDbVar} does not look pooled — serverless functions can exhaust direct Postgres connections`);
   }
 }
 

@@ -40,10 +40,24 @@ test("order tables are locked to server-side access only", async () => {
 });
 
 test("the database connection string is never exposed to the browser", async () => {
-  const src = await readFile(url("../db/index.ts"), "utf8");
+  const [dbSrc, migrateSrc, envExample] = await Promise.all([
+    readFile(url("../db/index.ts"), "utf8"),
+    readFile(url("../scripts/migrate.mjs"), "utf8"),
+    readFile(url("../.env.example"), "utf8"),
+  ]);
+
   // A NEXT_PUBLIC_ prefix would inline the credential into the client bundle.
-  assert.doesNotMatch(src, /NEXT_PUBLIC_[A-Z_]*(DATABASE|POSTGRES|SUPABASE)/);
-  assert.match(src, /ORDERS_DATABASE_URL/);
+  for (const [name, src] of [["db/index.ts", dbSrc], ["scripts/migrate.mjs", migrateSrc], [".env.example", envExample]]) {
+    assert.doesNotMatch(src, /NEXT_PUBLIC_[A-Z_]*(DATABASE|POSTGRES|SUPABASE|NEON)/, `${name} must not expose a database credential to the browser`);
+  }
+  assert.match(dbSrc, /ORDERS_DATABASE_POSTGRES_URL/);
+
+  // DDL must not run through the transaction pooler.
+  assert.match(migrateSrc, /ORDERS_DATABASE_POSTGRES_URL_NON_POOLING/);
+  assert.ok(
+    migrateSrc.indexOf("ORDERS_DATABASE_POSTGRES_URL_NON_POOLING") < migrateSrc.indexOf('"ORDERS_DATABASE_POSTGRES_URL"'),
+    "the non-pooling connection must be preferred over the pooled one for migrations"
+  );
 });
 
 test("webhook records orders idempotently", async () => {

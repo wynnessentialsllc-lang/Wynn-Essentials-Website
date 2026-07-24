@@ -7,19 +7,29 @@
 Orders are stored in a dedicated Neon Postgres database, separate from the Crown
 app's Supabase project so customer PII stays isolated.
 
-1. In the Vercel dashboard: **Storage → Create Database → Neon (Postgres)**.
-2. Attach it to this project. Vercel injects a `DATABASE_URL`.
-3. Copy the **pooled** connection string (the host contains `-pooler`) into
-   `ORDERS_DATABASE_URL`, both in `.env.local` and in Vercel's environment
-   variables for Production and Preview.
-4. Apply the schema:
+Neon is already connected to the Vercel project. The integration injects
+`ORDERS_DATABASE_POSTGRES_URL` (pooled, used by the app) and
+`ORDERS_DATABASE_POSTGRES_URL_NON_POOLING` (direct, used for migrations).
+
+1. Pull the variables down for local use:
+
+```bash
+npx vercel env pull .env.local
+```
+
+2. Apply the schema:
 
 ```bash
 npm run db:migrate
 ```
 
-`ORDERS_DATABASE_URL` is server-only. Never rename it with a `NEXT_PUBLIC_`
-prefix — that would inline the credential into the browser bundle.
+Migrations deliberately use the non-pooling connection: a transaction pooler
+can route statements across different backends, which is unsafe for
+multi-statement DDL. The app uses the pooled connection, because serverless
+functions would otherwise exhaust direct Postgres connections.
+
+Both are server-only. Never rename either with a `NEXT_PUBLIC_` prefix — that
+would inline the credential into the browser bundle.
 
 ## 1. Add your test keys
 

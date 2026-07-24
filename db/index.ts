@@ -2,10 +2,18 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema";
 
-// Server-only. This connection string carries full write access to customer
-// order data and must never be exposed to the browser, so it is deliberately
-// not prefixed with NEXT_PUBLIC_.
-const CONNECTION_ENV = "ORDERS_DATABASE_URL";
+// Server-only. These connection strings carry full write access to customer
+// order data and must never be exposed to the browser, so none is prefixed
+// with NEXT_PUBLIC_.
+//
+// First match wins. ORDERS_DATABASE_POSTGRES_URL is what the Vercel/Neon
+// integration injects; the rest keep this layer portable to any other Postgres
+// host without a code change.
+const CONNECTION_ENV = [
+  "ORDERS_DATABASE_POSTGRES_URL",
+  "ORDERS_DATABASE_URL",
+  "DATABASE_URL",
+];
 
 let client: ReturnType<typeof postgres> | null = null;
 
@@ -18,10 +26,10 @@ let client: ReturnType<typeof postgres> | null = null;
  * concurrently.
  */
 export function getDb() {
-  const url = process.env[CONNECTION_ENV];
+  const url = CONNECTION_ENV.map(name => process.env[name]).find(Boolean);
   if (!url) {
     throw new Error(
-      `${CONNECTION_ENV} is not set. Point it at the orders database's pooled connection string before handling checkout webhooks.`
+      `No orders database connection string found. Set one of ${CONNECTION_ENV.join(", ")} to the pooled connection string before handling checkout webhooks.`
     );
   }
   client ??= postgres(url, { prepare: false, max: 1, idle_timeout: 20 });
