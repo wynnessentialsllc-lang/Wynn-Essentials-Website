@@ -58,16 +58,16 @@ export const method = [
 ];
 
 export const ingredientDescriptions: Record<string, string> = {
-  Aloe: "A familiar botanical commonly used in formulas created for moisture and manageability.",
-  Rosemary: "An aromatic botanical selected for thoughtful hair and scalp formulations.",
-  Nettle: "A traditional botanical included in haircare formulations.",
-  "Jojoba Oil": "A lightweight oil used to support softness and sealing.",
-  "Sunflower Oil": "A plant oil selected for conditioning support.",
-  Chamomile: "A familiar flower used in botanical haircare blends.",
-  "Grapeseed Oil": "A light oil used in moisture-sealing routines.",
-  "Vitamin E": "A formula component often paired with purposeful plant oils.",
-  Lavender: "An aromatic botanical used in considered haircare blends.",
-  Peppermint: "An aromatic ingredient used for its fresh sensory character.",
+  Aloe: "A water-rich botanical gel that hair care leans on for lightweight, non-greasy moisture. Aloe helps soften strands and improve manageability while leaving the scalp feeling calm and comfortable.",
+  Rosemary: "An aromatic herb long associated with scalp care and a fresh, clarified feel. It brings an invigorating, herbaceous note to a blend while supporting the look of strong, healthy hair.",
+  Nettle: "A nutrient-dense botanical with a long history in traditional hair rinses and tonics. It is included to support a balanced-feeling scalp and the appearance of fuller, healthier-looking hair.",
+  "Jojoba Oil": "A lightweight liquid wax that closely mirrors the scalp's own oils, so it absorbs without heaviness. Jojoba helps seal in moisture, smooth the hair's surface, and add softness and shine.",
+  "Sunflower Oil": "A light, conditioning oil rich in vitamin E and nourishing fatty acids. It helps soften and smooth strands and supports moisture retention without weighing hair down.",
+  Chamomile: "A gentle flower extract valued for its soothing, calming character. Chamomile helps comfort the feel of a sensitive scalp and lends hair a soft, subtle brightness.",
+  "Grapeseed Oil": "A featherlight oil that layers easily to help lock in moisture. Grapeseed smooths the look of frizz and adds a healthy sheen while staying clean and non-greasy.",
+  "Vitamin E": "An antioxidant that helps protect nourishing oils and the hair's surface from everyday oxidative stress. It supports lasting softness and a conditioned, healthy-looking finish.",
+  Lavender: "A soothing, aromatic botanical prized for both its calming scent and scalp-friendly character. Lavender adds a relaxing sensory note while supporting a comfortable, balanced-feeling scalp.",
+  Peppermint: "An invigorating botanical known for its cooling, refreshing sensation on the scalp. Peppermint delivers a crisp sensory lift while helping hair and scalp feel clean and awake.",
 };
 
 export const brandConfig = {
