@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#FCFBF8" };
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.wynnessentials.us"),
+  metadataBase: new URL("https://www.wynnessentialsllc.us"),
   title: "Wynn Essentials | Healthy Hair Is a Practice",
   description: "Moisture, strength, scalp, and styling essentials created for textured hair and the routines that keep it healthy.",
   alternates: { canonical: "/" },
@@ -12,6 +12,6 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const organization = { "@context": "https://schema.org", "@type": "Organization", name: "Wynn Essentials", url: "https://www.wynnessentials.us", foundingDate: "2025", address: { "@type": "PostalAddress", addressLocality: "Los Angeles", addressRegion: "CA", addressCountry: "US" } };
+  const organization = { "@context": "https://schema.org", "@type": "Organization", name: "Wynn Essentials", url: "https://www.wynnessentialsllc.us", foundingDate: "2025", address: { "@type": "PostalAddress", addressLocality: "Los Angeles", addressRegion: "CA", addressCountry: "US" } };
   return <html lang="en"><body><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organization) }} />{children}</body></html>;
 }

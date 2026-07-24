@@ -2,6 +2,19 @@
 
 Run `npm run stripe:check` at any time for the current, verified status.
 
+## Two domains, deliberately
+
+- `wynnessentialsllc.us` — this site, on Vercel. Used for `metadataBase`, the
+  sitemap, `robots.txt`, and the schema.org organization URL.
+- `wynnessentials.us` — the existing Shopify store. The 23
+  `wynnessentials.us/products/...` links in `app/WynnShop.tsx` point there on
+  purpose, for items this site does not sell through Stripe: bonnets, hair
+  bundles, and the wellness bundle. Do not rewrite them to the Vercel domain.
+
+`NEXT_PUBLIC_SITE_URL` must match the canonical domain exactly, including
+`www`. Checkout compares the browser origin against it and returns 403 on a
+mismatch, which does not look like a domain problem when debugging.
+
 Prices, sizes, directions, and ingredient lists are in place for all nine products. Stripe Product and Price IDs are created by `npm run stripe:setup` — see `STRIPE_TESTING.md`. Checkout remains disabled until every item in a customer's bag is configured.
 
 Commerce setup still required:
