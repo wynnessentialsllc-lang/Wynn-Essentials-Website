@@ -51,32 +51,6 @@ function BrandLogo({ compact = false, transparent = false }: { compact?: boolean
   return <span className={`brand-logo ${compact ? "compact" : ""}`}><img src={transparent ? "/wynn-essentials-logo-envelope.png" : "/wynn-essentials-logo-trimmed.webp"} width="1474" height="1243" alt="Wynn Essentials"/></span>;
 }
 
-// Decorative animated liquid splatter shown on the Lathyr (shampoo) product
-// page. Purely visual: aria-hidden and pointer-events:none so it never blocks
-// the photos or buttons.
-function LiquidSplatter() {
-  return (
-    <svg className="product-splatter" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <defs>
-        <linearGradient id="lathyr-liq" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#f6f8f8" stopOpacity=".9" />
-          <stop offset=".55" stopColor="#e7edee" stopOpacity=".85" />
-          <stop offset="1" stopColor="#d3dcde" stopOpacity=".88" />
-        </linearGradient>
-      </defs>
-      <path fill="url(#lathyr-liq)" stroke="#c4ced0" strokeWidth="1.4" d="M96 108C60 132 40 178 66 214c22 30 66 30 92 52 26 22 30 54 66 56 46 3 66-42 108-56 40-13 96-8 106-54 9-42-34-64-58-96-22-30-18-70-58-84-42-15-72 22-114 26-40 4-78-30-112-6z" />
-      <ellipse className="splatter-drop" cx="118" cy="286" rx="34" ry="30" fill="url(#lathyr-liq)" stroke="#c4ced0" strokeWidth="1.3" />
-      <ellipse className="splatter-drop drop-slow" cx="386" cy="120" rx="15" ry="13" fill="url(#lathyr-liq)" stroke="#c4ced0" strokeWidth="1.1" />
-      <path d="M120 150c50-30 150-30 210 6" fill="none" stroke="#fff" strokeWidth="7" strokeLinecap="round" opacity=".5" />
-      <circle className="splatter-bubble" cx="212" cy="176" r="22" fill="none" stroke="#fff" strokeWidth="3" opacity=".9" />
-      <circle cx="205" cy="168" r="5" fill="#fff" opacity=".9" />
-      <circle className="splatter-bubble b2" cx="246" cy="196" r="14" fill="none" stroke="#fff" strokeWidth="2.6" opacity=".85" />
-      <circle className="splatter-bubble b3" cx="188" cy="202" r="11" fill="none" stroke="#fff" strokeWidth="2.4" opacity=".8" />
-      <circle className="splatter-bubble b4" cx="232" cy="160" r="8" fill="none" stroke="#fff" strokeWidth="2.2" opacity=".8" />
-    </svg>
-  );
-}
-
 function ProductArt({ product, small = false }: { product: Product; small?: boolean }) {
   if (product.images?.[0]) return <div className={`product-art product-photo ${small ? "small" : ""}`}><img src={product.images[0].src} alt={product.images[0].alt} width="1600" height="1600" loading={small ? "lazy" : undefined}/></div>;
   return <div className={`product-art ${small ? "small" : ""}`} role="img" aria-label={`Placeholder pack shot for ${product.name} ${product.subtitle}`}>
@@ -245,7 +219,7 @@ function ProductDetail({ product, add, onClose }: { product: Product; add: (p: P
   };
   return <ModalShell label={`${product.name} product details`} onClose={onClose} className="product-shell"><article className="product-modal">
     <button className="product-close" onClick={onClose}>Close</button>
-    <div className="product-gallery">{(product.images?.length ? product.images : [null, null]).map((image,index)=>image ? <div className="product-art product-photo" key={image.src}><img src={image.src} alt={image.alt} width="1600" height="1600" loading={index ? "lazy" : undefined}/></div> : <ProductArt product={product} key={index}/>)}{product.slug === "lathyr-shampoo" && <LiquidSplatter />}</div>
+    <div className="product-gallery">{(product.images?.length ? product.images : [null, null]).map((image,index)=>image ? <div className="product-art product-photo" key={image.src}><img src={image.src} alt={image.alt} width="1600" height="1600" loading={index ? "lazy" : undefined}/></div> : <ProductArt product={product} key={index}/>)}</div>
     <div className="product-info"><p className="eyebrow">{isHair ? `THE WYNN METHOD · STEP ${product.methodStep} OF 6` : product.subtitle.toUpperCase()}</p><h2>{product.name}<span>{product.subtitle}</span></h2><p className="product-price">{money(product.price)} {product.size && `· ${product.size}`}</p><p>{product.description}</p>{needsColor && <fieldset className="color-picker"><legend>Color{color ? `: ${color}` : ""}</legend>{product.colors!.map(c=><button type="button" key={c} className={color===c?"active":""} aria-pressed={color===c} onClick={()=>setColor(c)}>{c}</button>)}</fieldset>}<label>Quantity<select value={qty} onChange={e=>setQty(Number(e.target.value))}>{[1,2,3,4].map(n=><option key={n}>{n}</option>)}</select></label><button className="button full" disabled={needsColor && !color} onClick={()=>add(product,qty,color||undefined)}>{needsColor && !color ? "Select a color" : "Add to Cart"}</button>
       <h3>Why You’ll Love It</h3><ul className="benefit-list">{(product.featured ? hydrateBenefits : [product.benefit,"Supports a consistent routine","Created for textured-hair care"]).map(x=><li key={x}>{x}</li>)}</ul>
       <div className="accordions">{Object.entries(accordions).map(([title,body])=><details key={title}><summary>{title}</summary><p>{body}</p></details>)}</div>
