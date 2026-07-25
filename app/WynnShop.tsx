@@ -157,7 +157,7 @@ function Header({ count, openCart, openSearch, viewInvite }: { count: number; op
       <button className="icon-button menu-trigger" aria-label="Open menu" onClick={() => setMenu(true)}>☰</button>
       <nav aria-label="Primary">{nav.map(x => <a key={x} href={`#${x.toLowerCase().replaceAll(" ", "-")}`}>{x}</a>)}</nav>
       <a href="#" className="logo" aria-label="Wynn Essentials home"><BrandLogo compact /></a>
-      <div className="header-actions"><button onClick={openSearch}>Search</button><a href="#account">Account</a><button onClick={openCart} aria-label={`Shopping bag, ${count} items`}>Bag ({count})</button></div>
+      <div className="header-actions"><button onClick={openSearch}>Search</button><button onClick={openCart} aria-label={`Shopping bag, ${count} items`}>Bag ({count})</button></div>
     </header>
     {menu && <ModalShell label="Mobile navigation" onClose={() => setMenu(false)} className="mobile-menu">
       <div className="mobile-menu-head"><button onClick={() => setMenu(false)} aria-label="Close menu">Close</button><span className="logo"><BrandLogo compact /></span><button onClick={openCart}>Bag ({count})</button></div>
