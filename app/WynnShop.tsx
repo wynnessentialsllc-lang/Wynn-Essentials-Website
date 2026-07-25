@@ -67,7 +67,10 @@ function ModalShell({ label, onClose, children, className = "" }: { label: strin
     const previous = document.activeElement as HTMLElement;
     const node = ref.current;
     const items = () => Array.from(node?.querySelectorAll<HTMLElement>(focusable) ?? []);
-    items()[0]?.focus();
+    // preventScroll so opening a modal never scrolls its content to the first
+    // focusable element — the invitation's only button sits at the bottom, which
+    // otherwise scrolled the card past its heading on open.
+    items()[0]?.focus({ preventScroll: true });
     const key = (e: globalThis.KeyboardEvent) => {
       if (e.key === "Escape") onClose();
       if (e.key === "Tab") {
@@ -115,10 +118,10 @@ function FooterInfo({ page, onClose }: { page: FooterInfoKey; onClose: () => voi
 function Invitation({ manual, onDone }: { manual: boolean; onDone: () => void }) {
   const [stage, setStage] = useState<"sealed" | "open">("sealed");
   const heading = useRef<HTMLHeadingElement>(null);
-  const accept = () => { setStage("open"); setTimeout(() => heading.current?.focus(), 1200); };
+  const accept = () => { setStage("open"); setTimeout(() => heading.current?.focus({ preventScroll: true }), 1200); };
   const finish = () => {
     try { localStorage.setItem("wynnInvitationAcceptedAt", String(Date.now())); } catch {}
-    onDone(); setTimeout(() => document.querySelector<HTMLElement>("#main-heading")?.focus(), 0);
+    onDone(); setTimeout(() => document.querySelector<HTMLElement>("#main-heading")?.focus({ preventScroll: true }), 0);
   };
   return <ModalShell label="Wynn Essentials invitation" onClose={finish} className={`invitation ${stage}`}>
     <div className="envelope" aria-hidden="true"><div className="flap" /><div className="envelope-logo"><BrandLogo compact transparent /></div></div>
