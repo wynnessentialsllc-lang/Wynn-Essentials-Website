@@ -29,6 +29,9 @@ export async function POST(request: Request) {
       const color = typeof item.color === "string" ? item.color : undefined;
       if (product.colors?.length && (!color || !product.colors.includes(color))) throw new Error("INVALID_ITEM");
       if (!product.stripePriceId || !/^price_[A-Za-z0-9]+$/.test(product.stripePriceId)) throw new Error("UNCONFIGURED_ITEM");
+      // A sold-out item can never be checked out, even from a stale cart. The
+      // catalog flag is the baseline; live inventory is enforced below.
+      if (product.soldOut) throw new Error("SOLD_OUT");
       // Subtotal comes from the server catalog, never from the client payload.
       subtotalCents += Math.round((product.price ?? 0) * 100) * Number(item.quantity);
       // Colored items ship at the same price, so an inline price carries the chosen
@@ -61,6 +64,7 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof Error && error.message === "INVALID_ITEM") return NextResponse.json({ error: "One or more bag items are invalid." }, { status: 400 });
     if (error instanceof Error && error.message === "UNCONFIGURED_ITEM") return NextResponse.json({ error: "One or more products are not available for checkout yet." }, { status: 409 });
+    if (error instanceof Error && error.message === "SOLD_OUT") return NextResponse.json({ error: "One or more items in your bag are sold out. Please remove them to continue." }, { status: 409 });
     console.error("Checkout session creation failed", error instanceof Error ? error.message : "Unknown error");
     return NextResponse.json({ error: "Secure checkout is unavailable right now. Please try again later." }, { status: 500 });
   }

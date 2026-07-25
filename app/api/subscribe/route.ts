@@ -21,10 +21,13 @@ export async function POST(request: Request) {
     const siteOrigin = new URL(commerceConfig.siteUrl).origin;
     if (origin && origin !== siteOrigin && !origin.includes("localhost")) return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
 
-    const body = await request.json() as { email?: unknown; phone?: unknown; consent?: unknown };
+    const body = await request.json() as { email?: unknown; phone?: unknown; consent?: unknown; source?: unknown };
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
     const phone = typeof body.phone === "string" ? body.phone.trim() : "";
     const consent = body.consent === true;
+    // Whitelisted so a signup can tag itself (e.g. a product restock waitlist)
+    // without accepting arbitrary values.
+    const source = typeof body.source === "string" && /^(the-wynn-edit|waitlist:[a-z0-9-]{1,60})$/.test(body.source) ? body.source : "the-wynn-edit";
     if (!EMAIL.test(email) || email.length > 254) return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
     // Marketing consent is required to store a contact for marketing use.
     if (!consent) return NextResponse.json({ error: "Please agree to receive marketing messages to join." }, { status: 400 });
@@ -39,10 +42,10 @@ export async function POST(request: Request) {
       phone: phone || null,
       marketingConsent: consent,
       consentText: brandConfig.consent,
-      source: "the-wynn-edit",
+      source,
     }).onConflictDoUpdate({
       target: subscribers.email,
-      set: { phone: phone || null, marketingConsent: consent, consentText: brandConfig.consent, source: "the-wynn-edit", updatedAt: new Date() },
+      set: { phone: phone || null, marketingConsent: consent, consentText: brandConfig.consent, source, updatedAt: new Date() },
     });
 
     return NextResponse.json({ ok: true });

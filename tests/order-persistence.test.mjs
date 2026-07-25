@@ -29,9 +29,14 @@ test("order tables are locked to server-side access only", async () => {
   assert.ok(files.length, "expected at least one generated migration");
   const sql = (await Promise.all(files.map(f => readFile(new URL(f, dir), "utf8")))).join("\n");
 
-  // Orders carry customer email, name, and shipping address. Both tables must
-  // have RLS on, and no policy may exist that would expose them to the anon key.
+  // Tables that hold no customer data and are read by the public storefront are
+  // intentionally not locked down. Everything else carries PII and must have RLS.
+  const PUBLIC_TABLES = new Set(["product_inventory"]);
   for (const table of Object.keys(tableColumns(sql))) {
+    if (PUBLIC_TABLES.has(table)) {
+      assert.doesNotMatch(sql, new RegExp(`ALTER TABLE "${table}" ENABLE ROW LEVEL SECURITY`, "i"), `"${table}" is public and should not enable RLS`);
+      continue;
+    }
     assert.match(
       sql,
       new RegExp(`ALTER TABLE "${table}" ENABLE ROW LEVEL SECURITY`, "i"),

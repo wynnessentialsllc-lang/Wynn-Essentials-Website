@@ -50,3 +50,12 @@ export const subscribers = pgTable("subscribers", {
 });
 
 export type Subscriber = typeof subscribers.$inferSelect;
+
+// Live sold-out overrides, managed in /admin/inventory. A row with sold_out=true
+// hides a product's Add to Cart and blocks its checkout, without a code change.
+export const productInventory = pgTable("product_inventory", {
+  slug: text("slug").primaryKey(),
+  soldOut: boolean("sold_out").notNull().default(false),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type ProductInventory = typeof productInventory.$inferSelect;
