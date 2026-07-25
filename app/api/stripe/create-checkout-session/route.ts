@@ -4,6 +4,20 @@ import { getStripe } from "../../../../lib/stripe";
 import { commerceConfig } from "../../../../lib/commerce-config";
 
 type IncomingItem = { productId?: unknown; variantId?: unknown; quantity?: unknown; color?: unknown };
+
+// Live sold-out overrides (slug -> soldOut) from the inventory table. Imported
+// lazily and fails open to no overrides if the table or database is unavailable,
+// so a checkout is never blocked by an inventory read.
+async function loadInventoryOverride(): Promise<Map<string, boolean>> {
+  try {
+    const { getDb } = await import("../../../../db");
+    const { productInventory } = await import("../../../../db/schema");
+    const rows = await getDb().select().from(productInventory);
+    return new Map(rows.map(r => [r.slug, r.soldOut]));
+  } catch {
+    return new Map();
+  }
+}
 const attempts = new Map<string, { count: number; reset: number }>();
 
 export async function POST(request: Request) {
@@ -20,6 +34,9 @@ export async function POST(request: Request) {
 
     const body = await request.json() as { items?: IncomingItem[]; invitationAccepted?: boolean; routineRecommendationId?: string };
     if (!Array.isArray(body.items) || body.items.length < 1 || body.items.length > commerceConfig.maxLineItems) return NextResponse.json({ error: "Your bag is empty or contains too many items." }, { status: 400 });
+    // Live availability overrides the catalog's soldOut flag, matching the
+    // storefront. Fails open to the catalog default if inventory is unavailable.
+    const inventoryOverride = await loadInventoryOverride();
     let subtotalCents = 0;
     const resolved = body.items.map(item => {
       if (typeof item.productId !== "string" || typeof item.variantId !== "string" || !Number.isInteger(item.quantity) || Number(item.quantity) < 1 || Number(item.quantity) > commerceConfig.maxQuantityPerItem) throw new Error("INVALID_ITEM");
@@ -29,9 +46,10 @@ export async function POST(request: Request) {
       const color = typeof item.color === "string" ? item.color : undefined;
       if (product.colors?.length && (!color || !product.colors.includes(color))) throw new Error("INVALID_ITEM");
       if (!product.stripePriceId || !/^price_[A-Za-z0-9]+$/.test(product.stripePriceId)) throw new Error("UNCONFIGURED_ITEM");
-      // A sold-out item can never be checked out, even from a stale cart. The
-      // catalog flag is the baseline; live inventory is enforced below.
-      if (product.soldOut) throw new Error("SOLD_OUT");
+      // A sold-out item can never be checked out, even from a stale cart. Live
+      // inventory overrides the catalog flag; unlisted products use the flag.
+      const effectiveSoldOut = inventoryOverride.has(product.slug) ? inventoryOverride.get(product.slug)! : Boolean(product.soldOut);
+      if (effectiveSoldOut) throw new Error("SOLD_OUT");
       // Subtotal comes from the server catalog, never from the client payload.
       subtotalCents += Math.round((product.price ?? 0) * 100) * Number(item.quantity);
       // Colored items ship at the same price, so an inline price carries the chosen

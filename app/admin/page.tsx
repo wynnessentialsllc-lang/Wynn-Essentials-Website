@@ -1,0 +1,46 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { isAuthenticated, adminTokenConfigured } from "../../lib/admin-auth";
+import { signOut } from "./orders/actions";
+import SignInForm from "./orders/SignInForm";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const metadata: Metadata = {
+  title: "Admin — Wynn Essentials",
+  robots: { index: false, follow: false, nocache: true },
+};
+
+function Shell({ children }: { children: React.ReactNode }) {
+  return <main className="order-page" style={{ maxWidth: "48rem" }}>{children}</main>;
+}
+
+const SECTIONS = [
+  { href: "/admin/orders", title: "Orders", blurb: "View paid orders and mark them fulfilled." },
+  { href: "/admin/inventory", title: "Inventory", blurb: "Mark products sold out or back in stock." },
+  { href: "/admin/subscribers", title: "Subscribers", blurb: "Newsletter and product-waitlist signups." },
+];
+
+export default async function AdminHome() {
+  if (!adminTokenConfigured()) {
+    return <Shell><p className="eyebrow">ADMIN</p><h1>Admin is not configured.</h1><p>Set <code>ADMIN_ORDERS_TOKEN</code> in the Vercel environment to open this area.</p></Shell>;
+  }
+  if (!(await isAuthenticated())) return <Shell><SignInForm /></Shell>;
+
+  return (
+    <Shell>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "1rem", flexWrap: "wrap" }}>
+        <div><p className="eyebrow">WYNN ESSENTIALS</p><h1>Admin</h1></div>
+        <form action={signOut}><button className="outline-button" type="submit">Sign out</button></form>
+      </div>
+      <div style={{ display: "grid", gap: "1rem", marginTop: "1.5rem" }}>
+        {SECTIONS.map(s => (
+          <Link key={s.href} href={s.href} style={{ display: "block", padding: "1.25rem 1.5rem", border: "1px solid var(--line)", borderRadius: 4, textDecoration: "none" }}>
+            <strong style={{ fontSize: "1.15rem" }}>{s.title}</strong>
+            <div style={{ opacity: 0.75, marginTop: 4 }}>{s.blurb}</div>
+          </Link>
+        ))}
+      </div>
+    </Shell>
+  );
+}

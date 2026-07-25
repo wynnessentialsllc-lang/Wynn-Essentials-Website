@@ -266,17 +266,19 @@ export default function WynnShop() {
   const [product,setProduct]=useState<Product|null>(null);
   const [footerInfo,setFooterInfo]=useState<FooterInfoKey|null>(null);
   const [notice,setNotice]=useState("");
-  // Live sold-out slugs from /admin/inventory. Merged over the catalog's own
-  // soldOut flag so a product can be flipped without a code change. Fails open
-  // to the catalog default if the endpoint or table is unavailable.
+  // Live availability from /admin/inventory OVERRIDES the catalog's own soldOut
+  // flag: a slug in soldOutSlugs is closed, one in inStockSlugs is reopened, and
+  // anything unlisted falls back to the catalog default. Fails open if the
+  // endpoint or table is unavailable.
   const [soldOutSlugs,setSoldOutSlugs]=useState<Set<string>>(new Set());
-  const soldOut=(p:Product)=>Boolean(p.soldOut)||soldOutSlugs.has(p.slug);
+  const [inStockSlugs,setInStockSlugs]=useState<Set<string>>(new Set());
+  const soldOut=(p:Product)=>soldOutSlugs.has(p.slug)?true:inStockSlugs.has(p.slug)?false:Boolean(p.soldOut);
   useEffect(()=>{
     const hydrate = window.setTimeout(() => {
       try { const t=Number(localStorage.getItem("wynnInvitationAcceptedAt")||0); if(!t||Date.now()-t>30*864e5) setInvitation("auto"); } catch {}
       try { setCart(JSON.parse(localStorage.getItem("wynnCart")||"[]")); } catch {}
     }, 0);
-    fetch("/api/inventory").then(r=>r.ok?r.json():null).then(d=>{ if(Array.isArray(d?.soldOut)) setSoldOutSlugs(new Set(d.soldOut)); }).catch(()=>{});
+    fetch("/api/inventory").then(r=>r.ok?r.json():null).then(d=>{ if(d){ if(Array.isArray(d.soldOut)) setSoldOutSlugs(new Set(d.soldOut)); if(Array.isArray(d.inStock)) setInStockSlugs(new Set(d.inStock)); } }).catch(()=>{});
     return () => window.clearTimeout(hydrate);
   },[]);
   useEffect(()=>{ try { localStorage.setItem("wynnCart",JSON.stringify(cart)); } catch {} },[cart]);
