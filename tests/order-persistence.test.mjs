@@ -31,7 +31,7 @@ test("order tables are locked to server-side access only", async () => {
 
   // Tables that hold no customer data and are read by the public storefront are
   // intentionally not locked down. Everything else carries PII and must have RLS.
-  const PUBLIC_TABLES = new Set(["product_inventory"]);
+  const PUBLIC_TABLES = new Set(["product_inventory", "events"]);
   for (const table of Object.keys(tableColumns(sql))) {
     if (PUBLIC_TABLES.has(table)) {
       assert.doesNotMatch(sql, new RegExp(`ALTER TABLE "${table}" ENABLE ROW LEVEL SECURITY`, "i"), `"${table}" is public and should not enable RLS`);

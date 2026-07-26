@@ -1,4 +1,4 @@
-import { pgTable, text, bigint, timestamp, jsonb, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, bigint, bigserial, timestamp, jsonb, boolean } from "drizzle-orm/pg-core";
 
 // Every Stripe event we have already accepted. Written before an order is
 // recorded so a redelivered event can never create a second order.
@@ -59,3 +59,16 @@ export const productInventory = pgTable("product_inventory", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 export type ProductInventory = typeof productInventory.$inferSelect;
+
+// First-party, no-PII visitor events for the traffic dashboard. `visitorId` is a
+// random id from a first-party cookie/localStorage — no name, no cross-site
+// tracking. Public storefront writes here, so no RLS lockdown.
+export const events = pgTable("events", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  visitorId: text("visitor_id").notNull(),
+  type: text("type").notNull(),
+  path: text("path"),
+  productSlug: text("product_slug"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type Event = typeof events.$inferSelect;

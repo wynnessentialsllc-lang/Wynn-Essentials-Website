@@ -8,6 +8,15 @@ type CartItem = { slug: string; quantity: number; color?: string };
 type FooterInfoKey = "contact" | "shipping" | "returns" | "faq" | "track" | "accessibility" | "privacy" | "terms" | "refunds" | "cookies";
 const money = (value: number | null) => value == null ? "Price to be confirmed" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
 const focusable = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+// First-party, no-PII visitor tracking for the admin traffic dashboard. Uses a
+// random id from localStorage; fire-and-forget so it never blocks the UI.
+function track(type: string, data?: { path?: string; productSlug?: string }) {
+  try {
+    let vid = localStorage.getItem("wynnVid");
+    if (!vid) { vid = crypto.randomUUID(); localStorage.setItem("wynnVid", vid); }
+    fetch("/api/track", { method: "POST", headers: { "Content-Type": "application/json" }, keepalive: true, body: JSON.stringify({ visitorId: vid, type, path: data?.path ?? location.pathname, productSlug: data?.productSlug }) }).catch(() => {});
+  } catch {}
+}
 // Each card opens the matching in-app product modal by slug (sold on-site via Stripe).
 const bohoHair: { name: string; image: string; alt: string; slug: string }[] = [
   { name: "Body Wave", image: "/collections/boho-body-wave.avif", alt: "Official Wynn Essentials 18-inch Body Wave human hair bulk product image", slug: "boho-body-wave-18" },
@@ -187,6 +196,7 @@ function Cart({ items, setItems, onClose }: { items: CartItem[]; setItems: (x: C
       <button className="button full" disabled={unknown || unconfigured} onClick={async () => {
         setCheckoutError("");
         try {
+          track("begin_checkout");
           const response = await fetch("/api/stripe/create-checkout-session", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ items:detailed.map(x=>({productId:x.product.slug,variantId:x.product.variantId,quantity:x.quantity,...(x.color?{color:x.color}:{})})), invitationAccepted:true }) });
           const result = await response.json() as {url?:string;error?:string};
           if(!response.ok || !result.url) throw new Error(result.error || "Secure checkout is unavailable.");
@@ -279,11 +289,12 @@ export default function WynnShop() {
       try { setCart(JSON.parse(localStorage.getItem("wynnCart")||"[]")); } catch {}
     }, 0);
     fetch("/api/inventory").then(r=>r.ok?r.json():null).then(d=>{ if(d){ if(Array.isArray(d.soldOut)) setSoldOutSlugs(new Set(d.soldOut)); if(Array.isArray(d.inStock)) setInStockSlugs(new Set(d.inStock)); } }).catch(()=>{});
+    track("pageview");
     return () => window.clearTimeout(hydrate);
   },[]);
   useEffect(()=>{ try { localStorage.setItem("wynnCart",JSON.stringify(cart)); } catch {} },[cart]);
-  const add=(p:Product,qty=1,color?:string)=>{ if(soldOut(p)){setNotice(`${p.name} is currently sold out.`);return;} setCart(c=>{const old=c.find(x=>x.slug===p.slug&&x.color===color);return old?c.map(x=>x.slug===p.slug&&x.color===color?{...x,quantity:x.quantity+qty}:x):[...c,{slug:p.slug,quantity:qty,...(color?{color}:{})}]});setNotice(`${p.name}${color?` (${color})`:""} added to your bag.`);};
-  const openProduct=(p:Product)=>{setSearchOpen(false);setProduct(p);history.replaceState(null,"",`#product-${p.slug}`)};
+  const add=(p:Product,qty=1,color?:string)=>{ if(soldOut(p)){setNotice(`${p.name} is currently sold out.`);return;} setCart(c=>{const old=c.find(x=>x.slug===p.slug&&x.color===color);return old?c.map(x=>x.slug===p.slug&&x.color===color?{...x,quantity:x.quantity+qty}:x):[...c,{slug:p.slug,quantity:qty,...(color?{color}:{})}]});setNotice(`${p.name}${color?` (${color})`:""} added to your bag.`);track("add_to_cart",{productSlug:p.slug});};
+  const openProduct=(p:Product)=>{setSearchOpen(false);setProduct(p);track("product_view",{productSlug:p.slug});history.replaceState(null,"",`#product-${p.slug}`)};
   // Bulk hair has its own Premium Human Hair section below, so it is kept out of
   // the Shop the Essentials grid.
   const visible=(filter==="All"?products:products.filter(p=>p.category===filter)).filter(p=>p.kind!=="hair");
