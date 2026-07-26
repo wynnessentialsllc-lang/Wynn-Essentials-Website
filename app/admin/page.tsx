@@ -19,7 +19,8 @@ const SECTIONS = [
   { href: "/admin/analytics", title: "Analytics", blurb: "Sales, orders, average order value, and top products." },
   { href: "/admin/traffic", title: "Traffic", blurb: "Visitors by day and hour, viewed products, and the cart→checkout funnel." },
   { href: "/admin/orders", title: "Orders", blurb: "View paid orders and mark them fulfilled." },
-  { href: "/admin/inventory", title: "Inventory", blurb: "Mark products sold out or back in stock." },
+  { href: "/admin/inventory", title: "Inventory", blurb: "Track stock counts and mark products sold out or back in stock." },
+  { href: "/admin/support", title: "Support", blurb: "Customer messages from the contact form. Mark them resolved." },
   { href: "/admin/subscribers", title: "Subscribers", blurb: "Newsletter and product-waitlist signups." },
 ];
 

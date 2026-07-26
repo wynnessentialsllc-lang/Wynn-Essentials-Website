@@ -63,6 +63,24 @@ export const productInventory = pgTable("product_inventory", {
 });
 export type ProductInventory = typeof productInventory.$inferSelect;
 
+// Customer support / contact messages submitted from the storefront. Holds
+// contact PII (name, email), so it is locked to server-side access by
+// 0006_support_messages.sql, exactly like the order and subscriber tables.
+export const supportMessages = pgTable("support_messages", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  // Optional order reference so an order question can be tied to a purchase.
+  orderNumber: text("order_number"),
+  topic: text("topic"),
+  message: text("message").notNull(),
+  // "new" until an admin marks it "resolved" in /admin/support.
+  status: text("status").notNull().default("new"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type SupportMessage = typeof supportMessages.$inferSelect;
+
 // First-party, no-PII visitor events for the traffic dashboard. `visitorId` is a
 // random id from a first-party cookie/localStorage — no name, no cross-site
 // tracking. Public storefront writes here, so no RLS lockdown.

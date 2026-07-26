@@ -107,12 +107,92 @@ function ModalShell({ label, onClose, children, className = "" }: { label: strin
   );
 }
 
+function ContactForm() {
+  const [state, setState] = useState<"" | "sending" | "ok" | "err">("");
+  const [error, setError] = useState("");
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (state === "sending") return;
+    const form = e.currentTarget;
+    const data = new FormData(form);
+    setState("sending");
+    setError("");
+    try {
+      const res = await fetch("/api/support", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: String(data.get("name") || ""),
+          email: String(data.get("email") || ""),
+          orderNumber: String(data.get("orderNumber") || ""),
+          topic: String(data.get("topic") || "Other"),
+          message: String(data.get("message") || ""),
+        }),
+      });
+      const result = await res.json() as { ok?: boolean; error?: string };
+      if (!res.ok || !result.ok) throw new Error(result.error || "Something went wrong. Please try again.");
+      setState("ok");
+      form.reset();
+    } catch (err) {
+      setState("err");
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    }
+  };
+  return (
+    <>
+      <p>Questions about a product, routine, or order? Send us a message and we’ll reply by email — usually within 1–2 business days.</p>
+      {state === "ok" ? (
+        <p className="contact-done" role="status">Thanks for reaching out — your message is with our team and we’ll reply to your email soon.</p>
+      ) : (
+        <form className="contact-form" onSubmit={submit}>
+          <label>Name<input name="name" required maxLength={120} placeholder="Your name" /></label>
+          <label>Email<input name="email" required type="email" maxLength={254} placeholder="you@example.com" /></label>
+          <label>Topic
+            <select name="topic" defaultValue="Order">
+              {["Order", "Shipping", "Returns & Refunds", "Product Question", "Wholesale", "Other"].map(t => <option key={t}>{t}</option>)}
+            </select>
+          </label>
+          <label>Order number (optional)<input name="orderNumber" maxLength={60} placeholder="e.g. WE-2026-1A2B3C4D" /></label>
+          <label>Message<textarea name="message" required rows={5} maxLength={4000} placeholder="How can we help?" /></label>
+          <button className="button full" type="submit" disabled={state === "sending"}>{state === "sending" ? "Sending…" : "Send Message"}</button>
+          {state === "err" && <p className="contact-err" role="alert">{error}</p>}
+        </form>
+      )}
+      <p style={{ marginTop: "1rem" }}>Prefer email or phone? Reach us directly:</p>
+      <ul>
+        <li>Email: <a href="mailto:wynnessentialsllc@gmail.com">wynnessentialsllc@gmail.com</a></li>
+        <li>Phone: <a href="tel:+12132670825">(213) 267-0825</a></li>
+        <li>Mail: Wynn Essentials, LLC, 3680 Wilshire Blvd., Ste P04 A118, Los Angeles, CA 90010</li>
+      </ul>
+      <p><small>Please include your order number when contacting us about an order. Never send payment-card information by email or this form.</small></p>
+    </>
+  );
+}
+
 function FooterInfo({ page, onClose }: { page: FooterInfoKey; onClose: () => void }) {
   const content: Record<FooterInfoKey, { title: string; body: React.ReactNode }> = {
-    contact: { title: "Contact Wynn Essentials", body: <><p>Questions about a product, routine, or order? We’re here to help.</p><ul><li>Email: <a href="mailto:wynnessentialsllc@gmail.com">wynnessentialsllc@gmail.com</a></li><li>Phone: <a href="tel:+12132670825">(213) 267-0825</a></li><li>Mail: Wynn Essentials, LLC, 3680 Wilshire Blvd., Ste P04 A118, Los Angeles, CA 90010</li></ul><p>Please include your order number when contacting us about an order.</p></> },
+    contact: { title: "Contact Wynn Essentials", body: <ContactForm /> },
     shipping: { title: "Shipping Information", body: <><p>We currently ship within the United States only. Standard and expedited rates are shown at checkout, and U.S. orders over $50 qualify for free standard shipping.</p><p>Orders may require up to 3 business days for processing before shipment. Delivery estimates and available rates are shown at checkout.</p><p>Please review your shipping address carefully. Address corrections, returned packages, and reshipments may result in additional charges. When your order ships, tracking information is sent to the email used at checkout.</p><p>If a package is marked delivered but cannot be found, contact the carrier first to request a trace, then contact Wynn Essentials with your order number.</p></> },
     returns: { title: "Returns & Exchanges", body: <><p>Contact us before sending any product back. Eligibility depends on the product type, condition, and reason for the request.</p><p>For hygiene and safety, opened or used hair-care products and bulk human hair may not be returnable. Report damaged, defective, or incorrect items within 5 calendar days of delivery and include your order number and clear photos.</p><p>Email <a href="mailto:wynnessentialsllc@gmail.com">wynnessentialsllc@gmail.com</a> for authorization and instructions.</p></> },
-    faq: { title: "Frequently Asked Questions", body: <><h3>Who are the products created for?</h3><p>Wynn Essentials supports textured-hair routines, including curls, coils, braids, locs, twists, silk presses, wigs, weaves, and other protective styles.</p><h3>How do I choose products?</h3><p>Use the <a href="#routine-finder" onClick={onClose}>Routine Finder</a> or explore products by concern and routine step.</p><h3>Where is my tracking information?</h3><p>It is sent to the email address used at checkout after the carrier receives your package.</p><h3>Can I change an order?</h3><p>Contact us immediately. Changes are not guaranteed once processing or fulfillment begins.</p></> },
+    faq: { title: "Help Center", body: <><p>Answers to the questions we hear most. Still stuck? Open <button className="text-button" onClick={onClose}>Contact</button> from the Help menu and send us a message.</p>
+      <h3 className="faq-group">Orders &amp; Shipping</h3>
+      <h4>How long until my order ships?</h4><p>Orders may need up to 3 business days to process before shipment. When your order ships, tracking is emailed to the address used at checkout.</p>
+      <h4>Where is my tracking information?</h4><p>It is sent to your checkout email once the carrier receives your package. If you don’t see it, check spam and promotions, then contact us with your name and order number.</p>
+      <h4>Where do you ship?</h4><p>We currently ship within the United States only. U.S. orders over $50 qualify for free standard shipping; standard and expedited rates are shown at checkout.</p>
+      <h4>Can I change or cancel an order?</h4><p>Contact us immediately with your order number. Changes aren’t guaranteed once processing or fulfillment begins.</p>
+      <h4>A package says delivered but I can’t find it.</h4><p>Contact the carrier first to open a trace, then contact us with your order number so we can help.</p>
+      <h3 className="faq-group">Returns &amp; Refunds</h3>
+      <h4>What is your return policy?</h4><p>Contact us before sending anything back. For hygiene and safety, opened or used hair-care products and bulk human hair may not be returnable.</p>
+      <h4>My item arrived damaged or incorrect.</h4><p>Report damaged, defective, or incorrect items within 5 calendar days of delivery. Email us with your order number and clear photos and we’ll make it right.</p>
+      <h4>How are refunds issued?</h4><p>Approved refunds go back to your original payment method. Your bank’s processing time may vary after we issue the refund.</p>
+      <h3 className="faq-group">Products &amp; Routine</h3>
+      <h4>Who are the products made for?</h4><p>Wynn Essentials supports textured-hair routines — curls, coils, braids, locs, twists, silk presses, wigs, weaves, and other protective styles.</p>
+      <h4>How do I choose the right products?</h4><p>Use the <a href="#routine-finder" onClick={onClose}>Routine Finder</a>, or explore products by concern and by routine step in <a href="#the-wynn-method" onClick={onClose}>The Wynn Method</a>.</p>
+      <h4>Are your products safe for color-treated or sensitive scalps?</h4><p>Our formulas use familiar botanicals and purposeful oils, but everyone is different. Patch test first, review the ingredient list on each product page, and stop use if irritation occurs.</p>
+      <h3 className="faq-group">Payment &amp; Account</h3>
+      <h4>What payment methods do you accept?</h4><p>Checkout is handled securely by Stripe and accepts major cards. We never see or store your full card number on this website.</p>
+      <h4>Do I need an account to order?</h4><p>No — you can check out as a guest. Your confirmation and tracking are sent to the email you enter at checkout.</p>
+      <h4>Is a product sold out?</h4><p>Sold-out items show a “Join the Waitlist” option on their product page. Add your email and we’ll notify you the moment it’s restocked.</p></> },
     track: { title: "Track Your Order", body: <><p>Open the shipping-confirmation email sent after fulfillment and select the carrier’s tracking link.</p><p>If you did not receive that email, check spam or promotions, then contact <a href="mailto:wynnessentialsllc@gmail.com">wynnessentialsllc@gmail.com</a> with your name and order number. Never send payment-card information by email.</p></> },
     accessibility: { title: "Accessibility", body: <><p>Wynn Essentials is committed to making this website usable for as many people as possible, including customers who use keyboards, screen readers, magnification, or other assistive technology.</p><p>If you encounter an accessibility barrier, email <a href="mailto:wynnessentialsllc@gmail.com">wynnessentialsllc@gmail.com</a> and include the page, feature, and assistance needed.</p></> },
     privacy: { title: "Privacy Notice", body: <><p>We collect information needed to process orders and support customers, such as name, email, phone number, shipping address, order details, and site interactions. Payments are processed by Stripe; Wynn Essentials does not store full card numbers on this website.</p><p>Information may be shared with service providers that operate checkout, payments, hosting, shipping, security, and communications. We do not sell customer payment information.</p><p>To request access, correction, or deletion of eligible personal information, contact <a href="mailto:wynnessentialsllc@gmail.com">wynnessentialsllc@gmail.com</a>.</p></> },
