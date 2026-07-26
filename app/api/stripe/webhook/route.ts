@@ -1,10 +1,45 @@
 import Stripe from "stripe";
 import { NextResponse } from "next/server";
+import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { getStripe } from "../../../../lib/stripe";
 import { getDb } from "../../../../db";
-import { orders, stripeEvents } from "../../../../db/schema";
+import { orders, stripeEvents, productInventory } from "../../../../db/schema";
+import { products } from "../../../data";
 
 type Db = ReturnType<typeof getDb>;
+
+// Maps a paid line item back to our catalog slug. Regular items carry the
+// catalog's Stripe product id; colored items use an inline price whose product
+// metadata carries `wynn_slug`.
+function slugForLineItem(item: Stripe.LineItem): string | undefined {
+  const product = item.price?.product;
+  if (product && typeof product === "object" && "metadata" in product) {
+    const tagged = product.metadata?.wynn_slug;
+    if (tagged) return tagged;
+  }
+  const productId = typeof product === "string" ? product : product?.id;
+  return products.find(p => p.stripeProductId === productId)?.slug;
+}
+
+// Drops tracked stock by the quantity sold so we cannot oversell. Best-effort:
+// a failure here is logged but never blocks the order from being acknowledged
+// (the checkout-time guard is the primary protection). Untracked products
+// (stock IS NULL) are left alone.
+async function decrementStock(db: Db, session: Stripe.Checkout.Session) {
+  for (const item of session.line_items?.data ?? []) {
+    const slug = slugForLineItem(item);
+    const qty = item.quantity ?? 0;
+    if (!slug || qty <= 0) continue;
+    try {
+      await db
+        .update(productInventory)
+        .set({ stock: sql`GREATEST(${productInventory.stock} - ${qty}, 0)`, updatedAt: new Date() })
+        .where(and(eq(productInventory.slug, slug), isNotNull(productInventory.stock)));
+    } catch (error) {
+      console.error("Stock decrement failed", { slug, qty, message: error instanceof Error ? error.message : "Unknown error" });
+    }
+  }
+}
 
 // Claims the event id. Returns false when this event was already handled, which
 // is how a Stripe redelivery is prevented from writing a second order.
@@ -67,6 +102,9 @@ async function recordOrder(event: Stripe.Event, sessionId: string, status: "paid
       target: orders.sessionId,
       set: { status: row.status, paymentStatus: row.paymentStatus, updatedAt: new Date() },
     });
+
+  // Only a paid order consumes stock. Runs once per event thanks to claimEvent.
+  if (status === "paid") await decrementStock(db, session);
 
   console.info("Recorded Stripe order", { eventId: event.id, sessionId: session.id, status, orderReference: row.orderReference });
 }

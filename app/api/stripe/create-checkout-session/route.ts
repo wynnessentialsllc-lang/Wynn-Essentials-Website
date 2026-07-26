@@ -5,15 +5,16 @@ import { commerceConfig } from "../../../../lib/commerce-config";
 
 type IncomingItem = { productId?: unknown; variantId?: unknown; quantity?: unknown; color?: unknown };
 
-// Live sold-out overrides (slug -> soldOut) from the inventory table. Imported
+// Live inventory (slug -> { soldOut, stock }) from the inventory table. Imported
 // lazily and fails open to no overrides if the table or database is unavailable,
 // so a checkout is never blocked by an inventory read.
-async function loadInventoryOverride(): Promise<Map<string, boolean>> {
+type Inv = { soldOut: boolean; stock: number | null };
+async function loadInventoryOverride(): Promise<Map<string, Inv>> {
   try {
     const { getDb } = await import("../../../../db");
     const { productInventory } = await import("../../../../db/schema");
     const rows = await getDb().select().from(productInventory);
-    return new Map(rows.map(r => [r.slug, r.soldOut]));
+    return new Map(rows.map(r => [r.slug, { soldOut: r.soldOut, stock: r.stock }]));
   } catch {
     return new Map();
   }
@@ -48,8 +49,12 @@ export async function POST(request: Request) {
       if (!product.stripePriceId || !/^price_[A-Za-z0-9]+$/.test(product.stripePriceId)) throw new Error("UNCONFIGURED_ITEM");
       // A sold-out item can never be checked out, even from a stale cart. Live
       // inventory overrides the catalog flag; unlisted products use the flag.
-      const effectiveSoldOut = inventoryOverride.has(product.slug) ? inventoryOverride.get(product.slug)! : Boolean(product.soldOut);
+      const inv = inventoryOverride.get(product.slug);
+      const stock = inv?.stock ?? null;
+      const effectiveSoldOut = inv ? inv.soldOut || (stock != null && stock <= 0) : Boolean(product.soldOut);
       if (effectiveSoldOut) throw new Error("SOLD_OUT");
+      // Never let a bag exceed what is in stock, so we cannot oversell.
+      if (stock != null && Number(item.quantity) > stock) throw new Error("INSUFFICIENT_STOCK");
       // Subtotal comes from the server catalog, never from the client payload.
       subtotalCents += Math.round((product.price ?? 0) * 100) * Number(item.quantity);
       // Colored items ship at the same price, so an inline price carries the chosen
@@ -83,6 +88,7 @@ export async function POST(request: Request) {
     if (error instanceof Error && error.message === "INVALID_ITEM") return NextResponse.json({ error: "One or more bag items are invalid." }, { status: 400 });
     if (error instanceof Error && error.message === "UNCONFIGURED_ITEM") return NextResponse.json({ error: "One or more products are not available for checkout yet." }, { status: 409 });
     if (error instanceof Error && error.message === "SOLD_OUT") return NextResponse.json({ error: "One or more items in your bag are sold out. Please remove them to continue." }, { status: 409 });
+    if (error instanceof Error && error.message === "INSUFFICIENT_STOCK") return NextResponse.json({ error: "One or more items in your bag are no longer available in that quantity. Please lower the quantity and try again." }, { status: 409 });
     console.error("Checkout session creation failed", error instanceof Error ? error.message : "Unknown error");
     return NextResponse.json({ error: "Secure checkout is unavailable right now. Please try again later." }, { status: 500 });
   }

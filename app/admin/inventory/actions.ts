@@ -24,3 +24,23 @@ export async function setSoldOut(formData: FormData) {
 
   revalidatePath("/admin/inventory");
 }
+
+export async function setStock(formData: FormData) {
+  if (!(await isAuthenticated())) throw new Error("Not authorized.");
+
+  const slug = formData.get("slug");
+  const raw = formData.get("stock");
+  if (typeof slug !== "string" || !VALID_SLUGS.has(slug)) throw new Error("Unknown product.");
+
+  // Blank clears tracking (unlimited); a number sets the tracked count.
+  const trimmed = typeof raw === "string" ? raw.trim() : "";
+  const stock = trimmed === "" ? null : Math.max(0, Math.min(1_000_000, Math.floor(Number(trimmed))));
+  if (stock !== null && !Number.isFinite(stock)) throw new Error("Invalid stock value.");
+
+  await getDb()
+    .insert(productInventory)
+    .values({ slug, stock, updatedAt: new Date() })
+    .onConflictDoUpdate({ target: productInventory.slug, set: { stock, updatedAt: new Date() } });
+
+  revalidatePath("/admin/inventory");
+}

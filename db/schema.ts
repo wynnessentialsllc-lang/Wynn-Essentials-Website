@@ -1,4 +1,4 @@
-import { pgTable, text, bigint, bigserial, timestamp, jsonb, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, bigint, bigserial, integer, timestamp, jsonb, boolean } from "drizzle-orm/pg-core";
 
 // Every Stripe event we have already accepted. Written before an order is
 // recorded so a redelivered event can never create a second order.
@@ -56,6 +56,9 @@ export type Subscriber = typeof subscribers.$inferSelect;
 export const productInventory = pgTable("product_inventory", {
   slug: text("slug").primaryKey(),
   soldOut: boolean("sold_out").notNull().default(false),
+  // Units in stock. null = not tracked (treated as unlimited). When tracked and
+  // <= 0 the product is sold out. Decremented on each paid order.
+  stock: integer("stock"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 export type ProductInventory = typeof productInventory.$inferSelect;
