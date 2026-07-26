@@ -16,6 +16,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 }
 
 const SECTIONS = [
+  { href: "/admin/analytics", title: "Analytics", blurb: "Sales, orders, average order value, and top products." },
   { href: "/admin/orders", title: "Orders", blurb: "View paid orders and mark them fulfilled." },
   { href: "/admin/inventory", title: "Inventory", blurb: "Mark products sold out or back in stock." },
   { href: "/admin/subscribers", title: "Subscribers", blurb: "Newsletter and product-waitlist signups." },
