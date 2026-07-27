@@ -41,7 +41,7 @@ const shoppableCare: { name: string; detail: string; image: string; alt: string;
   { name: "Hydrate + Nourish", detail: "Daily Moisture Pair", image: "/shoppable/hydrate-nourish.jpeg", alt: "Hydrate Mist and Nourish Oil held together", slug: "hair-wellness-bundle" },
   { name: "Soft Life Bonnet", detail: "Satin Hair Protection", image: "/shoppable/bonnet-group.png", alt: "Four women wearing Soft Life Bonnets in different colors", slug: "soft-life-bonnet" },
   { name: "Soft Life Bonnet", detail: "Overnight Protection", image: "/shoppable/bonnet-bedroom.png", alt: "Woman adjusting a Soft Life Bonnet in her bedroom", slug: "soft-life-bonnet" },
-  { name: "Uplyft", detail: "Moisture Rich Conditioner", image: "/shoppable/uplyft-texture.jpeg", alt: "Rich white conditioner texture displayed on a hand", slug: "uplyft-conditioner" },
+  { name: "Uplyft", detail: "Moisture Rich Conditioner", image: "/shoppable/uplyft-peach-honey.webp", alt: "Hand holding a gold plate of peach cake and honey topped with a jar of Uplyft Moisture Rich Conditioner", slug: "uplyft-conditioner" },
 ];
 const ingredientImages: Record<string, { src: string; alt: string; source: string }> = {
   Aloe: { src: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Aloe_Vera%2C.jpg?width=1000", alt: "Fresh aloe vera plant", source: "https://commons.wikimedia.org/wiki/File:Aloe_Vera,.jpg" },
