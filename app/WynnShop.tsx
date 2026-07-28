@@ -22,7 +22,7 @@ const bohoHair: { name: string; image: string; alt: string; slug: string }[] = [
   { name: "Body Wave", image: "/collections/boho-body-wave.avif", alt: "Official Wynn Essentials 18-inch Body Wave human hair bulk product image", slug: "boho-body-wave-18" },
   { name: "Bohemian Curl", image: "/collections/boho-bohemian-curl.webp", alt: "Official Wynn Essentials 18-inch Bohemian Curl human hair bulk product image", slug: "boho-bohemian-curl-18" },
   { name: "Deep Wave", image: "/collections/boho-deep-wave.avif", alt: "Official Wynn Essentials 18-inch Deep Wave human hair bulk product image", slug: "boho-deep-wave-18" },
-  { name: "Spanish Curl", image: "/collections/boho-spanish-curl.avif", alt: "Official Wynn Essentials 18-inch Spanish Curl human hair bulk product image", slug: "boho-spanish-curl-18" },
+  { name: "Spanish Curl", image: "/collections/boho-spanish-curl-bulk.webp", alt: "Wynn Essentials 18-inch Spanish Curl human hair bulk with product tag", slug: "boho-spanish-curl-18" },
 ];
 // Every card opens the matching in-app product modal by slug.
 const shoppableCare: { name: string; detail: string; image: string; alt: string; slug: string }[] = [
