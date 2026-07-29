@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { brandConfig, ingredientDescriptions, method, products, Product } from "./data";
-import { relativeDate, reviewsFor, summarize } from "./reviews";
+import { relativeDate, Review, reviewsFor, sortReviews, summarize } from "./reviews";
 
 type CartItem = { slug: string; quantity: number; color?: string };
 type FooterInfoKey = "contact" | "shipping" | "returns" | "faq" | "track" | "accessibility" | "privacy" | "terms" | "refunds" | "cookies";
@@ -303,42 +303,93 @@ function Stars({ value, label }: { value: number; label?: string }) {
   </span>;
 }
 
+// The "Write a Review" form, shown inline under the reviews. Submissions POST to
+// /api/reviews and are held for moderation, so on success we show a pending
+// confirmation rather than adding the review to the list immediately.
+function ReviewForm({ product, onClose }: { product: Product; onClose: () => void }) {
+  const [rating, setRating] = useState(0);
+  const [hover, setHover] = useState(0);
+  const [state, setState] = useState<"" | "sending" | "ok" | "err">("");
+  const [error, setError] = useState("");
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (state === "sending") return;
+    if (!rating) { setState("err"); setError("Please choose a star rating."); return; }
+    const form = e.currentTarget;
+    const data = new FormData(form);
+    setState("sending"); setError("");
+    try {
+      const res = await fetch("/api/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productSlug: product.slug,
+          author: String(data.get("author") || ""),
+          email: String(data.get("email") || ""),
+          rating,
+          title: String(data.get("title") || ""),
+          body: String(data.get("body") || ""),
+        }),
+      });
+      const result = await res.json() as { ok?: boolean; error?: string };
+      if (!res.ok || !result.ok) throw new Error(result.error || "Something went wrong. Please try again.");
+      setState("ok"); form.reset(); setRating(0);
+    } catch (err) {
+      setState("err");
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    }
+  };
+  if (state === "ok") return <div className="review-form"><p className="contact-done" role="status">Thank you for reviewing {product.name}! Your review has been submitted and will appear here once it’s approved.</p><button className="text-button" onClick={onClose}>Close</button></div>;
+  return <form className="contact-form review-form" onSubmit={submit}>
+    <div className="review-rating-input">
+      <span className="review-rating-label">Your rating</span>
+      <div className="review-stars-pick" onMouseLeave={() => setHover(0)}>{[1, 2, 3, 4, 5].map(n => <button type="button" key={n} className={(hover || rating) >= n ? "on" : ""} aria-label={`${n} star${n > 1 ? "s" : ""}`} aria-pressed={rating === n} onMouseEnter={() => setHover(n)} onClick={() => setRating(n)}>★</button>)}</div>
+    </div>
+    <label>Name<input name="author" required maxLength={80} placeholder="First name or how you’d like to appear" /></label>
+    <label>Email<input name="email" required type="email" maxLength={254} placeholder="you@example.com" /></label>
+    <label>Title (optional)<input name="title" maxLength={120} placeholder="Sum it up in a few words" /></label>
+    <label>Your review<textarea name="body" required rows={5} maxLength={2000} placeholder={`What did you think of ${product.name}?`} /></label>
+    <button className="button full" type="submit" disabled={state === "sending"}>{state === "sending" ? "Submitting…" : "Submit Review"}</button>
+    {state === "err" && <p className="contact-err" role="alert">{error}</p>}
+    <small>Your email isn’t published — it’s only used to confirm your review and, if you’ve ordered from us, add a “Verified buyer” badge.</small>
+  </form>;
+}
+
 // The product-modal "Customer Reviews" block: an overall score with per-star
-// breakdown bars, followed by individual review cards. Falls back to an
-// invitation to review when a product has no reviews yet.
-function ProductReviews({ product }: { product: Product }) {
-  const list = reviewsFor(product.slug);
-  if (!list.length) return <section className="modal-wide reviews">
-    <h3>Customer Reviews</h3>
-    <p>No reviews yet. Be the first to share your Wynn Essentials experience.</p>
-    <button className="outline-button">Write a Review</button>
-  </section>;
+// breakdown bars, followed by individual review cards. Merges statically seeded
+// reviews with approved reviews fetched from the database. Falls back to an
+// invitation to review when a product has none yet, and always offers the form.
+function ProductReviews({ product, submitted }: { product: Product; submitted: Review[] }) {
+  const [showForm, setShowForm] = useState(false);
+  const list = sortReviews([...submitted, ...reviewsFor(product.slug)]);
   const summary = summarize(list);
   return <section className="modal-wide reviews">
     <h3>Customer Reviews</h3>
-    <div className="reviews-summary">
-      <div className="reviews-score">
-        <p className="reviews-average"><strong>{summary.average.toFixed(1)}</strong><span>/ 5</span></p>
-        <Stars value={summary.average} label={`Average rating ${summary.average} out of 5`} />
-        <span className="reviews-count">{summary.count} review{summary.count === 1 ? "" : "s"}</span>
+    {list.length ? <>
+      <div className="reviews-summary">
+        <div className="reviews-score">
+          <p className="reviews-average"><strong>{summary.average.toFixed(1)}</strong><span>/ 5</span></p>
+          <Stars value={summary.average} label={`Average rating ${summary.average} out of 5`} />
+          <span className="reviews-count">{summary.count} review{summary.count === 1 ? "" : "s"}</span>
+        </div>
+        <ul className="rating-bars">{[5, 4, 3, 2, 1].map(star => <li key={star}>
+          <span className="rating-bars-label">{star}<span aria-hidden="true">★</span></span>
+          <span className="rating-bars-track"><span className="rating-bars-fill" style={{ width: `${summary.distribution[star]}%` }} /></span>
+          <span className="rating-bars-pct">{summary.distribution[star]}%</span>
+        </li>)}</ul>
       </div>
-      <ul className="rating-bars">{[5, 4, 3, 2, 1].map(star => <li key={star}>
-        <span className="rating-bars-label">{star}<span aria-hidden="true">★</span></span>
-        <span className="rating-bars-track"><span className="rating-bars-fill" style={{ width: `${summary.distribution[star]}%` }} /></span>
-        <span className="rating-bars-pct">{summary.distribution[star]}%</span>
+      <ul className="review-list">{list.map(r => <li className="review-card" key={r.id}>
+        <div className="review-card-head"><Stars value={r.rating} />{r.date && <span className="review-date">{relativeDate(r.date)}</span>}</div>
+        <p className="review-author">{r.author}{r.location && <span className="review-location">{r.location}</span>}{r.verified && <span className="review-verified"><span aria-hidden="true">✔</span> Verified buyer</span>}</p>
+        {r.title && <p className="review-title">{r.title}</p>}
+        <p className="review-body">{r.body}</p>
       </li>)}</ul>
-    </div>
-    <ul className="review-list">{list.map(r => <li className="review-card" key={r.id}>
-      <div className="review-card-head"><Stars value={r.rating} />{r.date && <span className="review-date">{relativeDate(r.date)}</span>}</div>
-      <p className="review-author">{r.author}{r.location && <span className="review-location">{r.location}</span>}{r.verified && <span className="review-verified"><span aria-hidden="true">✔</span> Verified buyer</span>}</p>
-      {r.title && <p className="review-title">{r.title}</p>}
-      <p className="review-body">{r.body}</p>
-    </li>)}</ul>
-    <button className="outline-button">Write a Review</button>
+    </> : <p>No reviews yet. Be the first to share your Wynn Essentials experience.</p>}
+    {showForm ? <ReviewForm product={product} onClose={() => setShowForm(false)} /> : <button className="outline-button" onClick={() => setShowForm(true)}>Write a Review</button>}
   </section>;
 }
 
-function ProductDetail({ product, add, onClose, soldOut }: { product: Product; add: (p: Product, qty?: number, color?: string) => void; onClose: () => void; soldOut: boolean }) {
+function ProductDetail({ product, add, onClose, soldOut, submittedReviews }: { product: Product; add: (p: Product, qty?: number, color?: string) => void; onClose: () => void; soldOut: boolean; submittedReviews: Review[] }) {
   const [qty, setQty] = useState(1);
   const [color, setColor] = useState("");
   const [wlEmail, setWlEmail] = useState("");
@@ -367,7 +418,7 @@ function ProductDetail({ product, add, onClose, soldOut }: { product: Product; a
       <div className="accordions">{Object.entries(accordions).map(([title,body])=><details key={title}><summary>{title}</summary><p>{body}</p></details>)}</div>
     </div>
     {isHair && <section className="modal-wide method-placement"><h3>Routine Placement</h3><div>{method.map((m,i)=><span className={i+1===product.methodStep?"active":""} key={m[0]}><b>{i+1}</b>{m[0]}</span>)}</div></section>}
-    <ProductReviews product={product} />
+    <ProductReviews product={product} submitted={submittedReviews} />
   </article></ModalShell>;
 }
 
@@ -408,6 +459,9 @@ export default function WynnShop() {
   // endpoint or table is unavailable.
   const [soldOutSlugs,setSoldOutSlugs]=useState<Set<string>>(new Set());
   const [inStockSlugs,setInStockSlugs]=useState<Set<string>>(new Set());
+  // Approved customer reviews from /api/reviews, grouped by product slug and
+  // merged with the statically seeded reviews inside each product modal.
+  const [reviewsBySlug,setReviewsBySlug]=useState<Record<string,Review[]>>({});
   const soldOut=(p:Product)=>soldOutSlugs.has(p.slug)?true:inStockSlugs.has(p.slug)?false:Boolean(p.soldOut);
   useEffect(()=>{
     const hydrate = window.setTimeout(() => {
@@ -415,6 +469,7 @@ export default function WynnShop() {
       try { setCart(JSON.parse(localStorage.getItem("wynnCart")||"[]")); } catch {}
     }, 0);
     fetch("/api/inventory").then(r=>r.ok?r.json():null).then(d=>{ if(d){ if(Array.isArray(d.soldOut)) setSoldOutSlugs(new Set(d.soldOut)); if(Array.isArray(d.inStock)) setInStockSlugs(new Set(d.inStock)); } }).catch(()=>{});
+    fetch("/api/reviews").then(r=>r.ok?r.json():null).then(d=>{ if(d && Array.isArray(d.reviews)){ const grouped:Record<string,Review[]>={}; for(const r of d.reviews as Review[]){ (grouped[r.productSlug] ||= []).push(r); } setReviewsBySlug(grouped); } }).catch(()=>{});
     track("pageview");
     return () => window.clearTimeout(hydrate);
   },[]);
@@ -500,7 +555,7 @@ export default function WynnShop() {
     </footer>
     {cartOpen&&<Cart items={cart} setItems={setCart} onClose={()=>setCartOpen(false)}/>}
     {searchOpen&&<Search add={add} onClose={()=>setSearchOpen(false)} openProduct={openProduct}/>}
-    {product&&<ProductDetail product={product} add={add} soldOut={soldOut(product)} onClose={()=>{setProduct(null);history.replaceState(null,"",location.pathname)}}/>}
+    {product&&<ProductDetail product={product} add={add} soldOut={soldOut(product)} submittedReviews={reviewsBySlug[product.slug] ?? []} onClose={()=>{setProduct(null);history.replaceState(null,"",location.pathname)}}/>}
     {footerInfo&&<FooterInfo page={footerInfo} onClose={()=>setFooterInfo(null)}/>}
   </div>;
 }

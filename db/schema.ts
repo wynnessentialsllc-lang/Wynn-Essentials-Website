@@ -81,6 +81,33 @@ export const supportMessages = pgTable("support_messages", {
 });
 export type SupportMessage = typeof supportMessages.$inferSelect;
 
+// Customer product reviews submitted from the storefront "Write a Review" form.
+// Holds contact PII (email) used only for moderation and buyer verification and
+// never shown publicly, so it is locked to server-side access with the same RLS
+// posture as the order, subscriber, and support tables (0007_product_reviews.sql).
+// A review is "pending" until an admin approves it in /admin/reviews; only
+// "approved" rows are served to the public storefront. `verified` is set at
+// submission time when the reviewer's email matches a paid order.
+export const productReviews = pgTable("product_reviews", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  // Matches a Product.slug in app/data.ts.
+  productSlug: text("product_slug").notNull(),
+  // Public display name for the reviewer.
+  author: text("author").notNull(),
+  // Optional location or descriptor shown next to the name.
+  location: text("location"),
+  rating: integer("rating").notNull(),
+  title: text("title"),
+  body: text("body").notNull(),
+  // Contact email — used to verify a purchase and follow up; never public.
+  email: text("email").notNull(),
+  verified: boolean("verified").notNull().default(false),
+  status: text("status").notNull().default("pending"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type ProductReview = typeof productReviews.$inferSelect;
+
 // First-party, no-PII visitor events for the traffic dashboard. `visitorId` is a
 // random id from a first-party cookie/localStorage — no name, no cross-site
 // tracking. Public storefront writes here, so no RLS lockdown.

@@ -32,7 +32,7 @@ Commerce setup still required:
 - Add Stripe test keys and webhook secret to `.env.local`.
 - Set `ADMIN_ORDERS_TOKEN` (16+ random characters) in `.env.local` and in Vercel.
 - Run `npm run stripe:setup` to create Products, Prices, and Shipping Rates.
-- Run `npx vercel env pull .env.local`, then `npm run db:migrate` to create the order and subscriber tables.
+- Run `npx vercel env pull .env.local`, then `npm run db:migrate` to create the order, subscriber, support, and product-review tables. The `product_reviews` table (migration `0007`) backs the storefront "Write a Review" form; submissions are held for moderation in `/admin/reviews` and only approved reviews appear on the storefront.
 - Attach the production domain and set `NEXT_PUBLIC_SITE_URL`. Stripe builds its
   success and cancel URLs from it, so checkout redirects to localhost until this is done.
 - Decide and configure Stripe promotion-code support.
@@ -48,7 +48,7 @@ since a Stripe price cannot be edited after it is created:
 
 Done: durable order storage on Neon Postgres with unique Stripe event/session constraints, RLS enabled on the order tables, server-side enforcement of the free-shipping threshold, and a token-gated fulfillment view at `/admin/orders`.
 
-Brand setup still required: founder details and portrait, social URLs, review provider, email/SMS provider, final consent language, and assets listed in `ASSET_REQUIREMENTS.md`.
+Brand setup still required: founder details and portrait, social URLs, email/SMS provider, final consent language, and assets listed in `ASSET_REQUIREMENTS.md`. Customer reviews are first-party: historical reviews are seeded in `app/reviews.ts`, and new ones are collected through the on-site "Write a Review" form, stored in `product_reviews`, and published after approval in `/admin/reviews` — no third-party review provider is required.
 
 "The Wynn Edit" newsletter signups persist to the `subscribers` table
 (email, phone, marketing consent, the exact consent text shown, and source),

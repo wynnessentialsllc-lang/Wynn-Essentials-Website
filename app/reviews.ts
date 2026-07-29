@@ -77,17 +77,21 @@ export type ReviewSummary = {
   distribution: Record<number, number>;
 };
 
-// All reviews for a product: dated reviews newest first, then any undated ones
-// in their listed order.
+// Orders a review list: dated reviews newest first, then any undated ones in
+// their given order. Used to merge statically seeded reviews with approved
+// reviews fetched from /api/reviews.
+export function sortReviews(list: Review[]): Review[] {
+  return [...list].sort((a, b) => {
+    if (a.date && b.date) return a.date < b.date ? 1 : a.date > b.date ? -1 : 0;
+    if (a.date) return -1;
+    if (b.date) return 1;
+    return 0;
+  });
+}
+
+// Statically seeded reviews for a product, sorted for display.
 export function reviewsFor(slug: string): Review[] {
-  return reviews
-    .filter((r) => r.productSlug === slug)
-    .sort((a, b) => {
-      if (a.date && b.date) return a.date < b.date ? 1 : a.date > b.date ? -1 : 0;
-      if (a.date) return -1;
-      if (b.date) return 1;
-      return 0;
-    });
+  return sortReviews(reviews.filter((r) => r.productSlug === slug));
 }
 
 // Rolls a product's reviews into the numbers the summary panel needs.
