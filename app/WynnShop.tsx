@@ -68,6 +68,27 @@ function ProductArt({ product, small = false }: { product: Product; small?: bool
   </div>;
 }
 
+// Plays a muted video when it scrolls into view and pauses it when it leaves,
+// so a below-the-fold clip starts on scroll instead of autoplaying (and
+// finishing) off-screen. No loop — it plays through while in view.
+function ScrollPlayVideo({ src, poster, ariaLabel }: { src: string; poster?: string; ariaLabel?: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (!("IntersectionObserver" in window)) { el.play().catch(() => {}); return; }
+    const io = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) el.play().catch(() => {});
+        else el.pause();
+      }
+    }, { threshold: 0.4 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return <video ref={ref} src={src} poster={poster} muted playsInline preload="metadata" aria-label={ariaLabel} />;
+}
+
 function ModalShell({ label, onClose, children, className = "" }: { label: string; onClose: () => void; children: React.ReactNode; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
@@ -501,7 +522,7 @@ export default function WynnShop() {
       ].map(([src,name,subtitle,alt])=><button className="editorial-card" key={name} onClick={()=>openProduct(products.find(p=>p.name===name)!)} aria-label={`Shop ${name}`}><img src={src} alt={alt} width="1206" height="1800" loading="lazy"/><span><b>{name}</b><small>{subtitle}</small><em>Shop now</em></span></button>)}</div></section>
       <section id="shop" className="shop section"><div className="section-heading"><p className="eyebrow">THE COLLECTION</p><h2>Shop the Essentials</h2></div><div className="filters" aria-label="Filter products">{["All","Cleanse","Condition","Treat","Moisturize","Oils","Style","Accessories","Bundles"].map(x=><button aria-pressed={filter===x} onClick={()=>setFilter(x)} key={x}>{x}</button>)}</div><div className="product-grid">{visible.map(p=><article className={`product-card${soldOut(p)?" is-sold-out":""}`} key={p.slug}><button className="art-button" onClick={()=>openProduct(p)} aria-label={`View ${p.name} details`}><ProductArt product={p}/>{soldOut(p) && <span className="sold-out-badge">Sold Out</span>}</button><div><p className="eyebrow">{p.kind ? p.category.toUpperCase() : `STEP ${p.methodStep} · ${p.category.toUpperCase()}`}</p><button className="product-title" onClick={()=>openProduct(p)}><h3>{p.name}</h3><span>{p.subtitle}</span></button><p>{p.benefit}</p><small>{p.size ?? "Size to be confirmed"}</small><strong>{money(p.price)}</strong>{soldOut(p) ? <button className="outline-button full sold-out-cta" onClick={()=>openProduct(p)}>Sold Out · Join the Waitlist</button> : p.colors?.length ? <button className="outline-button full" onClick={()=>openProduct(p)}>Select Options</button> : <button className="outline-button full" onClick={()=>add(p)}>Add to Cart</button>}</div></article>)}</div></section>
       <section id="the-wynn-method" className="method section kraft-panel"><div className="section-heading"><p className="eyebrow">ONE ROUTINE. EVERY ESSENTIAL.</p><h2>The Wynn Method</h2></div><div className="method-grid">{method.map((m,i)=><article key={m[0]}><div className="method-image"><span>{String(i+1).padStart(2,"0")}</span><ProductArt product={products.find(p=>p.methodStep===i+1)!}/></div><h3>{m[0]}</h3><p>{m[1]}</p></article>)}</div><div className="center-actions"><a className="button" href="#shop">Explore the Wynn Method</a><span>Not sure where to start?</span><a className="outline-button" href="#routine-finder">Build My Routine</a></div></section>
-      <section className="campaign hydrate"><div><p className="eyebrow">HYDRATE HERBAL HAIR MIST</p><h2>Moisture Does Not Stop<br />When the Style Begins.</h2><p>Hydrate Herbal Hair Mist supports daily moisture for curls, coils, braids, locs, twists, and protective styles.</p><div className="actions"><button className="button" onClick={()=>openProduct(products[0])}>Shop Hydrate</button><button className="outline-button" onClick={()=>openProduct(products[0])}>See How to Use It</button></div><small>Lightweight moisture. No routine reset required.</small></div><div className="product-art product-photo campaign-video"><video src="/products/hydrate-campaign-v2.mov" poster="/products/hydrate-official.png" muted playsInline autoPlay preload="metadata" aria-label="Hydrate Herbal Hair Mist used while styling textured hair"/></div></section>
+      <section className="campaign hydrate"><div><p className="eyebrow">HYDRATE HERBAL HAIR MIST</p><h2>Moisture Does Not Stop<br />When the Style Begins.</h2><p>Hydrate Herbal Hair Mist supports daily moisture for curls, coils, braids, locs, twists, and protective styles.</p><div className="actions"><button className="button" onClick={()=>openProduct(products[0])}>Shop Hydrate</button><button className="outline-button" onClick={()=>openProduct(products[0])}>See How to Use It</button></div><small>Lightweight moisture. No routine reset required.</small></div><div className="product-art product-photo campaign-video"><ScrollPlayVideo src="/products/hydrate-campaign-v2.mov" poster="/products/hydrate-official.png" ariaLabel="Hydrate Herbal Hair Mist used while styling textured hair" /></div></section>
       <section id="shop-by-concern" className="category-section section"><p className="eyebrow">SHOP BY CONCERN</p><h2>What Does Your Hair Need?</h2><div>{["Dryness","Weakness and Breakage","Scalp Care","Protective Style Care","Definition and Styling"].map((x,i)=><a href="#shop" onClick={()=>setFilter(i===1?"Treat":i===2?"Oils":i===4?"Style":"All")} key={x}><span>{String(i+1).padStart(2,"0")}</span>{x}<b>Explore</b></a>)}</div></section>
       <section id="shop-by-style" className="style-section section"><p className="eyebrow">CURATED ROUTINES</p><h2>Shop by Style</h2><div>{["Braids","Locs","Twists","Natural Curls","Silk Press","Wigs and Weaves"].map(x=><a key={x} href="#routine-finder">{x}<span>Find a routine</span></a>)}</div></section>
       <section className="editorial-shop editorial-shop-dark section" aria-labelledby="editorial-everyday"><div className="section-heading"><div><p className="eyebrow">CARE IN REAL LIFE</p><h2 id="editorial-everyday">Wellness, Styled<br/>Your Way.</h2></div><p>From wash day to protective styling, tap any image to shop the product shown.</p></div><div className="editorial-grid editorial-grid-wide">
