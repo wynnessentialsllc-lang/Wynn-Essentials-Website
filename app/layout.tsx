@@ -7,8 +7,8 @@ export const metadata: Metadata = {
   title: "Wynn Essentials | Healthy Hair Is a Practice",
   description: "Moisture, strength, scalp, and styling essentials created for textured hair and the routines that keep it healthy.",
   alternates: { canonical: "/" },
-  openGraph: { title: "Wynn Essentials | Healthy Hair Is a Practice", description: "Intentional textured-hair wellness for every stage of your routine.", url: "/", siteName: "Wynn Essentials", images: [{ url: "/og-nourish.jpg", width: 1200, height: 630, alt: "Wynn Essentials Nourish Organic Oil Blend nestled in styled natural hair against a gold backdrop" }], type: "website" },
-  twitter: { card: "summary_large_image", title: "Wynn Essentials | Healthy Hair Is a Practice", description: "Intentional textured-hair wellness for every stage of your routine.", images: ["/og-nourish.jpg"] },
+  openGraph: { title: "Wynn Essentials | Healthy Hair Is a Practice", description: "Intentional textured-hair wellness for every stage of your routine.", url: "/", siteName: "Wynn Essentials", images: [{ url: "/og-nourish-landscape.jpg", width: 1200, height: 630, alt: "Wynn Essentials Nourish Organic Oil Blend nestled in styled natural hair against a gold backdrop" }], type: "website" },
+  twitter: { card: "summary_large_image", title: "Wynn Essentials | Healthy Hair Is a Practice", description: "Intentional textured-hair wellness for every stage of your routine.", images: ["/og-nourish-landscape.jpg"] },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
