@@ -363,6 +363,7 @@ function ProductReviews({ product, submitted }: { product: Product; submitted: R
   const [showForm, setShowForm] = useState(false);
   const list = sortReviews([...submitted, ...reviewsFor(product.slug)]);
   const summary = summarize(list);
+  const media = list.filter(r => r.video);
   return <section className="modal-wide reviews">
     <h3>Customer Reviews</h3>
     {list.length ? <>
@@ -378,6 +379,10 @@ function ProductReviews({ product, submitted }: { product: Product; submitted: R
           <span className="rating-bars-pct">{summary.distribution[star]}%</span>
         </li>)}</ul>
       </div>
+      {media.length > 0 && <div className="review-media">{media.map(r => <figure className="review-media-item" key={`${r.id}-media`}>
+        <video src={r.video} controls playsInline preload="metadata" aria-label={`Customer video from ${r.author}`} />
+        <figcaption>{r.author}{r.location ? ` · ${r.location}` : ""}</figcaption>
+      </figure>)}</div>}
       <ul className="review-list">{list.map(r => <li className="review-card" key={r.id}>
         <div className="review-card-head"><Stars value={r.rating} />{r.date && <span className="review-date">{relativeDate(r.date)}</span>}</div>
         <p className="review-author">{r.author}{r.location && <span className="review-location">{r.location}</span>}{r.verified && <span className="review-verified"><span aria-hidden="true">✔</span> Verified buyer</span>}</p>
