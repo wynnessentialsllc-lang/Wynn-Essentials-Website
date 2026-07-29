@@ -41,6 +41,9 @@ export type Review = {
   // Optional customer video (path under /public). When present, the review also
   // appears in the product's "Customer videos" gallery above the review cards.
   video?: string;
+  // Optional still image shown in place of the video before it plays, so the
+  // gallery tile isn't a black box. Path under /public.
+  videoPoster?: string;
 };
 
 // Genuine Wynn Essentials customer reviews, migrated from the brand's Square
@@ -66,7 +69,7 @@ export const reviews: Review[] = [
   // Grow
   { id: "grow-chanda", productSlug: "grow-oil", author: "Chanda", rating: 5, verified: true, body: "Growing out a pixie is not easy but this formula paired with my braids is getting the job done." },
   // Relief
-  { id: "relief-ariel", productSlug: "relief-oil", author: "Ariel", location: "Los Angeles, CA", rating: 5, verified: true, date: "2025-09-30", body: "My scalp is less dry for sure — usually she be hella flaky.", video: "/reviews/relief-ariel.mp4" },
+  { id: "relief-ariel", productSlug: "relief-oil", author: "Ariel", location: "Los Angeles, CA", rating: 5, verified: true, date: "2025-09-30", body: "My scalp is less dry for sure — usually she be hella flaky.", video: "/reviews/relief-ariel.mp4", videoPoster: "/reviews/relief-ariel-poster.jpg" },
   { id: "relief-stacey-a", productSlug: "relief-oil", author: "Stacey A.", rating: 5, verified: true, date: "2024-01-04", body: "Absolutely love this product. It’s so lightweight, non-sticky, and doesn’t make my skin break out or become greasy. I have sensitive skin so this has been a game changer!" },
   // Body Wave (boho human hair)
   { id: "bodywave-jessica-hale", productSlug: "boho-body-wave-18", author: "Jessica Hale", location: "Scottsdale, Arizona", rating: 5, verified: true, date: "2024-01-16", body: "They have some of the best human hair for boho braids! I’ve had my Body Wave hair installed twice and I always get compliments on how pretty it is." },
