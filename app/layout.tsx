@@ -7,8 +7,8 @@ export const metadata: Metadata = {
   title: "Wynn Essentials | Healthy Hair Is a Practice",
   description: "Moisture, strength, scalp, and styling essentials created for textured hair and the routines that keep it healthy.",
   alternates: { canonical: "/" },
-  openGraph: { title: "Wynn Essentials | Healthy Hair Is a Practice", description: "Intentional textured-hair wellness for every stage of your routine.", url: "/", siteName: "Wynn Essentials", images: [{ url: "/og-basket-logo.jpg", width: 1200, height: 630, alt: "Wynn Essentials — Healthy Hair Is a Practice — logo and a gift basket of Lathyr, Uplyft, Hydrate, Nourish, and Edge Control" }], type: "website" },
-  twitter: { card: "summary_large_image", title: "Wynn Essentials | Healthy Hair Is a Practice", description: "Intentional textured-hair wellness for every stage of your routine.", images: ["/og-basket-logo.jpg"] },
+  openGraph: { title: "Wynn Essentials | Healthy Hair Is a Practice", description: "Intentional textured-hair wellness for every stage of your routine.", url: "/", siteName: "Wynn Essentials", images: [{ url: "/og-basket-espresso.jpg", width: 1200, height: 630, alt: "Wynn Essentials — Healthy Hair Is a Practice — logo and a gift basket of Lathyr, Uplyft, Hydrate, Nourish, and Edge Control on an espresso backdrop" }], type: "website" },
+  twitter: { card: "summary_large_image", title: "Wynn Essentials | Healthy Hair Is a Practice", description: "Intentional textured-hair wellness for every stage of your routine.", images: ["/og-basket-espresso.jpg"] },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
