@@ -380,7 +380,7 @@ function ProductReviews({ product, submitted }: { product: Product; submitted: R
         </li>)}</ul>
       </div>
       {media.length > 0 && <div className="review-media">{media.map(r => <figure className="review-media-item" key={`${r.id}-media`}>
-        <video src={r.video} controls playsInline preload="metadata" aria-label={`Customer video from ${r.author}`} />
+        <video src={r.video} poster={r.videoPoster} controls playsInline preload="metadata" aria-label={`Customer video from ${r.author}`} />
         <figcaption>{r.author}{r.location ? ` · ${r.location}` : ""}</figcaption>
       </figure>)}</div>}
       <ul className="review-list">{list.map(r => <li className="review-card" key={r.id}>
