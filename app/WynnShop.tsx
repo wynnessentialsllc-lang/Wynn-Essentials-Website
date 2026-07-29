@@ -329,8 +329,8 @@ function ProductReviews({ product }: { product: Product }) {
       </li>)}</ul>
     </div>
     <ul className="review-list">{list.map(r => <li className="review-card" key={r.id}>
-      <div className="review-card-head"><Stars value={r.rating} /><span className="review-date">{relativeDate(r.date)}</span></div>
-      <p className="review-author">{r.author}{r.verified && <span className="review-verified"><span aria-hidden="true">✔</span> Verified buyer</span>}</p>
+      <div className="review-card-head"><Stars value={r.rating} />{r.date && <span className="review-date">{relativeDate(r.date)}</span>}</div>
+      <p className="review-author">{r.author}{r.location && <span className="review-location">{r.location}</span>}{r.verified && <span className="review-verified"><span aria-hidden="true">✔</span> Verified buyer</span>}</p>
       {r.title && <p className="review-title">{r.title}</p>}
       <p className="review-body">{r.body}</p>
     </li>)}</ul>
