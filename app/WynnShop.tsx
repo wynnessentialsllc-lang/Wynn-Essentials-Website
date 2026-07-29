@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { brandConfig, ingredientDescriptions, method, products, Product } from "./data";
+import { relativeDate, reviewsFor, summarize } from "./reviews";
 
 type CartItem = { slug: string; quantity: number; color?: string };
 type FooterInfoKey = "contact" | "shipping" | "returns" | "faq" | "track" | "accessibility" | "privacy" | "terms" | "refunds" | "cookies";
@@ -292,6 +293,51 @@ function Search({ add, onClose, openProduct }: { add: (p: Product) => void; onCl
   return <ModalShell label="Search products" onClose={onClose} className="search-shell"><div className="search-modal"><header><h2>Search Wynn Essentials</h2><button onClick={onClose}>Close</button></header><label>Search products, concerns, styles, and ingredients<input autoFocus value={q} onChange={e => setQ(e.target.value)} type="search" /></label>{q && !results.length && <p>No products match “{q}”. Try a concern such as dryness or a style such as braids.</p>}<div className="search-results">{q && results.map(p=><div key={p.slug}><button className="search-name" onClick={() => openProduct(p)}>{p.name} <small>{p.subtitle}</small></button><button onClick={()=>add(p)}>Add to Cart</button></div>)}</div></div></ModalShell>;
 }
 
+// Star row with a fractional gold overlay so an average like 4.9 renders a
+// partly-filled fifth star, while whole ratings fill exactly.
+function Stars({ value, label }: { value: number; label?: string }) {
+  const pct = Math.max(0, Math.min(100, (value / 5) * 100));
+  return <span className="stars" role="img" aria-label={label ?? `${value} out of 5 stars`}>
+    <span className="stars-track" aria-hidden="true">★★★★★</span>
+    <span className="stars-fill" style={{ width: `${pct}%` }} aria-hidden="true">★★★★★</span>
+  </span>;
+}
+
+// The product-modal "Customer Reviews" block: an overall score with per-star
+// breakdown bars, followed by individual review cards. Falls back to an
+// invitation to review when a product has no reviews yet.
+function ProductReviews({ product }: { product: Product }) {
+  const list = reviewsFor(product.slug);
+  if (!list.length) return <section className="modal-wide reviews">
+    <h3>Customer Reviews</h3>
+    <p>No reviews yet. Be the first to share your Wynn Essentials experience.</p>
+    <button className="outline-button">Write a Review</button>
+  </section>;
+  const summary = summarize(list);
+  return <section className="modal-wide reviews">
+    <h3>Customer Reviews</h3>
+    <div className="reviews-summary">
+      <div className="reviews-score">
+        <p className="reviews-average"><strong>{summary.average.toFixed(1)}</strong><span>/ 5</span></p>
+        <Stars value={summary.average} label={`Average rating ${summary.average} out of 5`} />
+        <span className="reviews-count">{summary.count} review{summary.count === 1 ? "" : "s"}</span>
+      </div>
+      <ul className="rating-bars">{[5, 4, 3, 2, 1].map(star => <li key={star}>
+        <span className="rating-bars-label">{star}<span aria-hidden="true">★</span></span>
+        <span className="rating-bars-track"><span className="rating-bars-fill" style={{ width: `${summary.distribution[star]}%` }} /></span>
+        <span className="rating-bars-pct">{summary.distribution[star]}%</span>
+      </li>)}</ul>
+    </div>
+    <ul className="review-list">{list.map(r => <li className="review-card" key={r.id}>
+      <div className="review-card-head"><Stars value={r.rating} /><span className="review-date">{relativeDate(r.date)}</span></div>
+      <p className="review-author">{r.author}{r.verified && <span className="review-verified"><span aria-hidden="true">✔</span> Verified buyer</span>}</p>
+      {r.title && <p className="review-title">{r.title}</p>}
+      <p className="review-body">{r.body}</p>
+    </li>)}</ul>
+    <button className="outline-button">Write a Review</button>
+  </section>;
+}
+
 function ProductDetail({ product, add, onClose, soldOut }: { product: Product; add: (p: Product, qty?: number, color?: string) => void; onClose: () => void; soldOut: boolean }) {
   const [qty, setQty] = useState(1);
   const [color, setColor] = useState("");
@@ -321,7 +367,7 @@ function ProductDetail({ product, add, onClose, soldOut }: { product: Product; a
       <div className="accordions">{Object.entries(accordions).map(([title,body])=><details key={title}><summary>{title}</summary><p>{body}</p></details>)}</div>
     </div>
     {isHair && <section className="modal-wide method-placement"><h3>Routine Placement</h3><div>{method.map((m,i)=><span className={i+1===product.methodStep?"active":""} key={m[0]}><b>{i+1}</b>{m[0]}</span>)}</div></section>}
-    <section className="modal-wide reviews"><h3>Customer Reviews</h3><p>No reviews yet. Be the first to share your Wynn Essentials experience.</p><button className="outline-button">Write a Review</button></section>
+    <ProductReviews product={product} />
   </article></ModalShell>;
 }
 
