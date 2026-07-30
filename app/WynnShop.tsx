@@ -507,6 +507,8 @@ export default function WynnShop() {
     return () => window.clearTimeout(hydrate);
   },[]);
   useEffect(()=>{ try { localStorage.setItem("wynnCart",JSON.stringify(cart)); } catch {} },[cart]);
+  // Auto-dismiss the on-screen notice (add-to-cart toast, etc.) after a few seconds.
+  useEffect(()=>{ if(!notice) return; const t=window.setTimeout(()=>setNotice(""),3500); return ()=>window.clearTimeout(t); },[notice]);
   const add=(p:Product,qty=1,color?:string)=>{ if(soldOut(p)){setNotice(`${p.name} is currently sold out.`);return;} setCart(c=>{const old=c.find(x=>x.slug===p.slug&&x.color===color);return old?c.map(x=>x.slug===p.slug&&x.color===color?{...x,quantity:x.quantity+qty}:x):[...c,{slug:p.slug,quantity:qty,...(color?{color}:{})}]});setNotice(`${p.name}${color?` (${color})`:""} added to your bag.`);track("add_to_cart",{productSlug:p.slug});};
   const openProduct=(p:Product)=>{setSearchOpen(false);setProduct(p);track("product_view",{productSlug:p.slug});history.replaceState(null,"",`#product-${p.slug}`)};
   // Bulk hair has its own Premium Human Hair section below, so it is kept out of
@@ -522,7 +524,7 @@ export default function WynnShop() {
   const scroll=(id:string)=>document.getElementById(id)?.scrollIntoView({behavior:"smooth"});
   return <div className="site">
     <a className="skip-link" href="#main">Skip to content</a>
-    <div className="sr-only" aria-live="polite">{notice}</div>
+    <div className={`toast${notice ? " show" : ""}`} role="status" aria-live="polite">{notice}</div>
     {invitation && <Invitation manual={invitation==="manual"} onDone={()=>setInvitation(false)}/>}
     <Header count={cart.reduce((s,i)=>s+i.quantity,0)} openCart={()=>setCartOpen(true)} openSearch={()=>setSearchOpen(true)} viewInvite={()=>setInvitation("manual")}/>
     <main id="main">
