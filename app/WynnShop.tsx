@@ -71,22 +71,25 @@ function ProductArt({ product, small = false }: { product: Product; small?: bool
 // Plays a muted video when it scrolls into view and pauses it when it leaves,
 // so a below-the-fold clip starts on scroll instead of autoplaying (and
 // finishing) off-screen. No loop — it plays through while in view.
-function ScrollPlayVideo({ src, poster, ariaLabel }: { src: string; poster?: string; ariaLabel?: string }) {
+function ScrollPlayVideo({ src, poster, ariaLabel, loop = false, preload = "metadata", rootMargin = "0px" }: { src: string; poster?: string; ariaLabel?: string; loop?: boolean; preload?: "auto" | "metadata" | "none"; rootMargin?: string }) {
   const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     if (!("IntersectionObserver" in window)) { el.play().catch(() => {}); return; }
+    // rootMargin extends the trigger area beyond the viewport so a clip starts
+    // loading/playing before it's actually on screen — removing the buffering
+    // stall when it comes into view.
     const io = new IntersectionObserver((entries) => {
       for (const entry of entries) {
         if (entry.isIntersecting) el.play().catch(() => {});
         else el.pause();
       }
-    }, { threshold: 0.4 });
+    }, { threshold: 0, rootMargin });
     io.observe(el);
     return () => io.disconnect();
-  }, []);
-  return <video ref={ref} src={src} poster={poster} muted playsInline preload="metadata" aria-label={ariaLabel} />;
+  }, [rootMargin]);
+  return <video ref={ref} src={src} poster={poster} muted loop={loop} playsInline preload={preload} aria-label={ariaLabel} />;
 }
 
 function ModalShell({ label, onClose, children, className = "" }: { label: string; onClose: () => void; children: React.ReactNode; className?: string }) {
@@ -542,8 +545,8 @@ export default function WynnShop() {
       <section id="essential-oils-care" className="oil-care section" aria-labelledby="essential-oils-heading">
         <div className="section-heading"><div><p className="eyebrow">SCALP · LENGTHS · ENDS</p><h2 id="essential-oils-heading">Essential Oils Care</h2></div><p>Three purposeful blends for moisture retention, scalp comfort, and stronger-looking hair. Choose the support your routine needs.</p></div>
         <div className="oil-care-videos">
-          <article className="oil-care-video" aria-label="Explore Wynn Essentials oil care"><video src="/shoppable/care-video-2.mov" muted loop playsInline autoPlay preload="metadata"/><div><p className="eyebrow">YOUR OIL ROUTINE</p><h3>Grow · Relief · Nourish</h3><p>Target the scalp, support moisture, and finish your routine with intentional oil care.</p><div className="oil-care-links"><button onClick={()=>openProduct(products.find(p=>p.slug==="grow-oil")!)}>Shop Grow</button><button onClick={()=>openProduct(products.find(p=>p.slug==="relief-oil")!)}>Shop Relief</button><button onClick={()=>openProduct(products.find(p=>p.slug==="nourish-oil")!)}>Shop Nourish</button></div></div></article>
-          <button className="oil-care-video" onClick={()=>openProduct(products.find(p=>p.slug==="relief-oil")!)} aria-label="Shop Relief Organic Scalp Oil"><video src="/shoppable/care-video-3.mov" muted loop playsInline autoPlay preload="metadata"/><div><p className="eyebrow">SCALP COMFORT</p><h3>Relief</h3><p>Targeted hydration for dry, itchy, or irritated areas—especially while wearing protective styles.</p><b>Shop Relief</b></div></button>
+          <article className="oil-care-video" aria-label="Explore Wynn Essentials oil care"><ScrollPlayVideo src="/shoppable/care-video-2.mov" loop preload="auto" rootMargin="600px 0px" /><div><p className="eyebrow">YOUR OIL ROUTINE</p><h3>Grow · Relief · Nourish</h3><p>Target the scalp, support moisture, and finish your routine with intentional oil care.</p><div className="oil-care-links"><button onClick={()=>openProduct(products.find(p=>p.slug==="grow-oil")!)}>Shop Grow</button><button onClick={()=>openProduct(products.find(p=>p.slug==="relief-oil")!)}>Shop Relief</button><button onClick={()=>openProduct(products.find(p=>p.slug==="nourish-oil")!)}>Shop Nourish</button></div></div></article>
+          <button className="oil-care-video" onClick={()=>openProduct(products.find(p=>p.slug==="relief-oil")!)} aria-label="Shop Relief Organic Scalp Oil"><ScrollPlayVideo src="/shoppable/care-video-3.mov" loop preload="auto" rootMargin="600px 0px" /><div><p className="eyebrow">SCALP COMFORT</p><h3>Relief</h3><p>Targeted hydration for dry, itchy, or irritated areas—especially while wearing protective styles.</p><b>Shop Relief</b></div></button>
         </div>
         <div className="oil-care-products">{products.filter(p=>p.category==="Oils").map(p=><article key={p.slug}><button className="oil-care-product-image" onClick={()=>openProduct(p)} aria-label={`View ${p.name} details`}><ProductArt product={p}/></button><p className="eyebrow">{p.name==="Grow"?"GROWTH SUPPORT":p.name==="Relief"?"SCALP COMFORT":"MOISTURE SEALING"}</p><button className="product-title" onClick={()=>openProduct(p)}><h3>{p.name}</h3><span>{p.subtitle}</span></button><p>{p.benefit}</p><strong>{money(p.price)}</strong><button className="outline-button full" onClick={()=>add(p)}>Add to Cart</button></article>)}</div>
       </section>
