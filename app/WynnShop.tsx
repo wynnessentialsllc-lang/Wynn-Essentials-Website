@@ -506,6 +506,15 @@ export default function WynnShop() {
     track("pageview");
     return () => window.clearTimeout(hydrate);
   },[]);
+  // Deep-link support: the crawlable /products/<slug> pages (and any shared
+  // "#product-<slug>" link) send shoppers to the storefront with that hash. Open
+  // the matching modal on load so the buy flow continues seamlessly.
+  useEffect(()=>{
+    const match=/^#product-(.+)$/.exec(window.location.hash);
+    if(!match) return;
+    const found=products.find(p=>p.slug===decodeURIComponent(match[1]));
+    if(found){ setProduct(found); track("product_view",{productSlug:found.slug}); }
+  },[]);
   useEffect(()=>{ try { localStorage.setItem("wynnCart",JSON.stringify(cart)); } catch {} },[cart]);
   // Auto-dismiss the on-screen notice (add-to-cart toast, etc.) after a few seconds.
   useEffect(()=>{ if(!notice) return; const t=window.setTimeout(()=>setNotice(""),3500); return ()=>window.clearTimeout(t); },[notice]);
