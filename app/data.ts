@@ -85,4 +85,9 @@ export const brandConfig = {
   shippingThreshold: 50,
   founder: { name: "The Wynn Sisters — Patricia, Sheree, and Karina Wynn", ownership: "Black women-owned", established: "Established 2020", location: "Los Angeles, California" },
   consent: "By joining, you agree to receive Wynn Essentials marketing messages. Consent is optional and can be withdrawn at any time. Message and data rates may apply.",
+  // First-order welcome offer. `code` must match a Stripe promotion code created
+  // in the dashboard (a 15%-off coupon), and STRIPE_PROMOTION_CODES_ENABLED must
+  // be "true" so the code field appears at checkout. Change the code/label here
+  // and in Stripe together.
+  firstOrder: { code: "WELCOME15", discountLabel: "15% off", headline: "15% off your first order" },
 };

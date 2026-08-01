@@ -263,6 +263,53 @@ function Invitation({ manual, onDone }: { manual: boolean; onDone: () => void })
   </ModalShell>;
 }
 
+// First-order discount popup: captures an email (and optional phone) in exchange
+// for the welcome code. On success it reveals the code on screen and the API
+// also emails it. `wynnOfferClaimed` prevents it from re-showing after a claim.
+function FirstOrderOffer({ onClose }: { onClose: () => void }) {
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [consent, setConsent] = useState(false);
+  const [state, setState] = useState<"idle" | "sending" | "done" | "err">("idle");
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (state === "sending") return;
+    if (!consent) { setState("err"); return; }
+    setState("sending");
+    try {
+      const r = await fetch("/api/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, phone, consent, source: "first-order-popup" }) });
+      const result = await r.json() as { ok?: boolean };
+      if (!r.ok || !result.ok) throw new Error("failed");
+      try { localStorage.setItem("wynnOfferClaimed", "1"); } catch {}
+      setState("done");
+    } catch { setState("err"); }
+  };
+  return <ModalShell label="First-order offer" onClose={onClose} className="offer-shell">
+    <div className="offer-modal">
+      <button className="offer-close" onClick={onClose} aria-label="Close offer">Close</button>
+      {state === "done" ? <div className="offer-done">
+        <p className="eyebrow">YOUR CODE</p>
+        <h2>{brandConfig.firstOrder.discountLabel}<span>unlocked</span></h2>
+        <p>Enter this code at checkout:</p>
+        <p className="offer-code">{brandConfig.firstOrder.code}</p>
+        <p className="offer-fine">We&rsquo;ve emailed it to you too. Valid on your first order.</p>
+        <button className="button full" onClick={onClose}>Start shopping</button>
+      </div> : <form onSubmit={submit}>
+        <p className="eyebrow">WELCOME TO WYNN ESSENTIALS</p>
+        <h2>{brandConfig.firstOrder.headline}</h2>
+        <p>Join The Wynn Edit for routine guidance and early access &mdash; and take {brandConfig.firstOrder.discountLabel} your first order.</p>
+        <label>Email address<input type="email" required placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} /></label>
+        <label>Phone number (optional)<input type="tel" placeholder="(555) 555-5555" value={phone} onChange={e => setPhone(e.target.value)} /></label>
+        <label className="offer-consent"><input type="checkbox" required checked={consent} onChange={e => setConsent(e.target.checked)} /> I agree to receive marketing messages.</label>
+        <button className="button full" type="submit" disabled={state === "sending"}>{state === "sending" ? "Getting your code…" : `Get my ${brandConfig.firstOrder.discountLabel} code`}</button>
+        {state === "err" && <p className="offer-err">Please enter a valid email and agree to messages.</p>}
+        <small>{brandConfig.consent}</small>
+        <button type="button" className="text-button offer-decline" onClick={onClose}>No thanks, I&rsquo;ll pay full price</button>
+      </form>}
+    </div>
+  </ModalShell>;
+}
+
 function Header({ count, openCart, openSearch, viewInvite }: { count: number; openCart: () => void; openSearch: () => void; viewInvite: () => void }) {
   const [menu, setMenu] = useState(false);
   const nav = ["Shop", "Best Sellers", "Shop by Concern", "The Wynn Method", "Our Story"];
@@ -476,6 +523,7 @@ function RoutineFinder({ add, openProduct }: { add: (p: Product) => void; openPr
 
 export default function WynnShop() {
   const [invitation,setInvitation]=useState<false|"auto"|"manual">(false);
+  const [offer,setOffer]=useState(false);
   const [filter,setFilter]=useState("All");
   // When set (to an ingredient library name), the shop grid shows only products
   // whose ingredient list contains that ingredient, overriding the category filter.
@@ -498,7 +546,15 @@ export default function WynnShop() {
   const soldOut=(p:Product)=>soldOutSlugs.has(p.slug)?true:inStockSlugs.has(p.slug)?false:Boolean(p.soldOut);
   useEffect(()=>{
     const hydrate = window.setTimeout(() => {
-      try { const t=Number(localStorage.getItem("wynnInvitationAcceptedAt")||0); if(!t||Date.now()-t>30*864e5) setInvitation("auto"); } catch {}
+      // Prefer the first-order offer on first visit; fall back to the brand
+      // invitation once the offer has been claimed or was dismissed recently.
+      try {
+        const claimed = localStorage.getItem("wynnOfferClaimed");
+        const seenAt = Number(localStorage.getItem("wynnOfferSeenAt")||0);
+        const invT = Number(localStorage.getItem("wynnInvitationAcceptedAt")||0);
+        if (!claimed && (!seenAt || Date.now()-seenAt > 14*864e5)) setOffer(true);
+        else if (!invT || Date.now()-invT > 30*864e5) setInvitation("auto");
+      } catch {}
       try { setCart(JSON.parse(localStorage.getItem("wynnCart")||"[]")); } catch {}
     }, 0);
     fetch("/api/inventory").then(r=>r.ok?r.json():null).then(d=>{ if(d){ if(Array.isArray(d.soldOut)) setSoldOutSlugs(new Set(d.soldOut)); if(Array.isArray(d.inStock)) setInStockSlugs(new Set(d.inStock)); } }).catch(()=>{});
@@ -534,6 +590,7 @@ export default function WynnShop() {
   return <div className="site">
     <a className="skip-link" href="#main">Skip to content</a>
     <div className={`toast${notice ? " show" : ""}`} role="status" aria-live="polite">{notice}</div>
+    {offer && <FirstOrderOffer onClose={()=>{ try{localStorage.setItem("wynnOfferSeenAt",String(Date.now()))}catch{}; setOffer(false); }}/>}
     {invitation && <Invitation manual={invitation==="manual"} onDone={()=>setInvitation(false)}/>}
     <Header count={cart.reduce((s,i)=>s+i.quantity,0)} openCart={()=>setCartOpen(true)} openSearch={()=>setSearchOpen(true)} viewInvite={()=>setInvitation("manual")}/>
     <main id="main">
