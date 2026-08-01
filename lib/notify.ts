@@ -227,6 +227,32 @@ export async function notifySubscriberWelcome({ email, productName, promoCode, p
   });
 }
 
+/** Abandoned-cart reminder: the items left behind + a link back to the shop. */
+export async function notifyAbandonedCart({ email, items, subtotal, promoCode, promoLabel }: {
+  email: string;
+  items: { name?: string | null; quantity?: number | null; price?: number | null }[];
+  subtotal?: number | null;
+  promoCode?: string | null;
+  promoLabel?: string | null;
+}): Promise<boolean> {
+  if (!email || !items?.length) return false;
+  const rows = items
+    .map(i => `<tr><td style="padding:8px 0;border-bottom:1px solid #ece6dd">${esc(i.name ?? "Item")} × ${esc(i.quantity ?? 1)}</td><td style="padding:8px 0;border-bottom:1px solid #ece6dd;text-align:right;font-weight:600">${i.price == null ? "" : money(Math.round(i.price * 100))}</td></tr>`)
+    .join("");
+  const codeLine = promoCode
+    ? `<p style="font-size:14px;margin:18px 0 0">Still deciding? Use <strong>${esc(promoCode)}</strong> for ${esc(promoLabel || "a discount")} on your first order.</p>`
+    : "";
+  const body = `<table style="width:100%;border-collapse:collapse;font-size:14px">${rows}</table>
+    ${subtotal != null ? `<p style="text-align:right;font-weight:700;margin:10px 0 0">Subtotal: ${money(subtotal)}</p>` : ""}
+    ${codeLine}
+    <p style="margin:22px 0 0"><a href="https://wynnessentialsllc.us/#shop" style="display:inline-block;background:#c8aa82;color:#111;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.06em;padding:14px 22px">RETURN TO YOUR BAG</a></p>`;
+  return sendEmail({
+    to: email,
+    subject: "You left something in your bag",
+    html: customerShell("Your bag is waiting", "Your hair-care picks are still here whenever you're ready.", body),
+  });
+}
+
 /** "Back in stock" email for a customer who joined a product's restock waitlist. */
 export async function notifyCustomerRestock({ email, productName, productUrl }: { email: string; productName: string; productUrl: string }): Promise<boolean> {
   if (!email) return false;
