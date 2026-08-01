@@ -193,7 +193,7 @@ export async function notifyCustomerOrderConfirmation(order: OrderInfo): Promise
  * restock-waitlist signup and the copy confirms we'll notify them when that
  * product is back; otherwise it's a newsletter ("The Wynn Edit") welcome.
  */
-export async function notifySubscriberWelcome({ email, productName }: { email: string; productName?: string | null }): Promise<boolean> {
+export async function notifySubscriberWelcome({ email, productName, promoCode, promoLabel }: { email: string; productName?: string | null; promoCode?: string | null; promoLabel?: string | null }): Promise<boolean> {
   if (!email) return false;
   if (productName) {
     const body = `<p style="font-size:15px;line-height:1.6;margin:0">We'll email you the moment <strong>${esc(productName)}</strong> is back in stock. No need to check back — we've got you.</p>`;
@@ -201,6 +201,21 @@ export async function notifySubscriberWelcome({ email, productName }: { email: s
       to: email,
       subject: `You're on the waitlist — ${productName}`,
       html: customerShell("You're on the list!", `Thanks for your interest in ${esc(productName)}.`, body),
+    });
+  }
+  // A first-order signup carries a discount code to feature prominently.
+  if (promoCode) {
+    const label = promoLabel || "a discount";
+    const codeBlock = `<div style="border:1px dashed #c8aa82;border-radius:8px;padding:18px;text-align:center;margin:0 0 6px">
+        <p style="margin:0 0 6px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#6d675f">Your code — ${esc(label)}</p>
+        <p style="margin:0;font-family:Georgia,serif;font-size:30px;letter-spacing:.06em">${esc(promoCode)}</p>
+      </div>
+      <p style="font-size:13px;color:#6d675f;margin:8px 0 0">Enter it at checkout to redeem. Valid on your first order.</p>
+      <p style="margin:22px 0 0"><a href="https://wynnessentialsllc.us/#shop" style="display:inline-block;background:#c8aa82;color:#111;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.06em;padding:14px 22px">SHOP THE ESSENTIALS</a></p>`;
+    return sendEmail({
+      to: email,
+      subject: `Here's your ${label} code`,
+      html: customerShell(`Welcome — here's ${label}`, "Thanks for joining Wynn Essentials. Your welcome offer is below.", codeBlock),
     });
   }
   const body = `<p style="font-size:15px;line-height:1.6;margin:0">You'll receive routine guidance, ingredient education, new product releases, and early access — straight to your inbox. Welcome to the family.</p>

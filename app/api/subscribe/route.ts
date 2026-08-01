@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     const consent = body.consent === true;
     // Whitelisted so a signup can tag itself (e.g. a product restock waitlist)
     // without accepting arbitrary values.
-    const source = typeof body.source === "string" && /^(the-wynn-edit|waitlist:[a-z0-9-]{1,60})$/.test(body.source) ? body.source : "the-wynn-edit";
+    const source = typeof body.source === "string" && /^(the-wynn-edit|first-order-popup|waitlist:[a-z0-9-]{1,60})$/.test(body.source) ? body.source : "the-wynn-edit";
     if (!EMAIL.test(email) || email.length > 254) return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
     // Marketing consent is required to store a contact for marketing use.
     if (!consent) return NextResponse.json({ error: "Please agree to receive marketing messages to join." }, { status: 400 });
@@ -56,11 +56,17 @@ export async function POST(request: Request) {
     });
 
     // Best-effort welcome email for new subscribers only. A waitlist signup
-    // ("waitlist:<slug>") gets the restock-confirmation copy for that product.
+    // ("waitlist:<slug>") gets the restock-confirmation copy for that product; a
+    // first-order popup signup gets the welcome copy plus the discount code.
     if (isNew) {
       const slug = source.startsWith("waitlist:") ? source.slice("waitlist:".length) : null;
       const product = slug ? products.find(p => p.slug === slug) : null;
-      await notifySubscriberWelcome({ email, productName: product ? `${product.name} ${product.subtitle}` : null }).catch(() => {});
+      await notifySubscriberWelcome({
+        email,
+        productName: product ? `${product.name} ${product.subtitle}` : null,
+        promoCode: source === "first-order-popup" ? brandConfig.firstOrder.code : null,
+        promoLabel: source === "first-order-popup" ? brandConfig.firstOrder.discountLabel : null,
+      }).catch(() => {});
     }
 
     return NextResponse.json({ ok: true });
