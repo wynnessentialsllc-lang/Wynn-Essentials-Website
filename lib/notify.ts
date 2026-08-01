@@ -212,6 +212,18 @@ export async function notifySubscriberWelcome({ email, productName }: { email: s
   });
 }
 
+/** "Back in stock" email for a customer who joined a product's restock waitlist. */
+export async function notifyCustomerRestock({ email, productName, productUrl }: { email: string; productName: string; productUrl: string }): Promise<boolean> {
+  if (!email) return false;
+  const body = `<p style="font-size:15px;line-height:1.6;margin:0"><strong>${esc(productName)}</strong> is back in stock — and since it sells out, we'd grab it soon.</p>
+    <p style="margin:22px 0 0"><a href="${esc(productUrl)}" style="display:inline-block;background:#c8aa82;color:#111;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.06em;padding:14px 22px">SHOP ${esc(productName.toUpperCase())}</a></p>`;
+  return sendEmail({
+    to: email,
+    subject: `${productName} is back in stock`,
+    html: customerShell("It's back!", "Good news — the product you were waiting for is available again.", body),
+  });
+}
+
 type ShippedInfo = OrderInfo & { trackingNumber?: string | null; carrier?: string | null };
 
 /** Shipping confirmation with tracking, sent when an order is marked shipped. */
