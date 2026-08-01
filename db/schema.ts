@@ -29,6 +29,11 @@ export const orders = pgTable("orders", {
   shippingAddress: jsonb("shipping_address"),
   items: jsonb("items").notNull(),
   fulfillmentStatus: text("fulfillment_status").notNull().default("unfulfilled"),
+  // Shipping details captured in /admin/orders when an order is marked shipped.
+  // Setting a tracking number is what triggers the customer shipping email.
+  trackingNumber: text("tracking_number"),
+  carrier: text("carrier"),
+  shippedAt: timestamp("shipped_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

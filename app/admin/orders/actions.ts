@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { orders } from "../../../db/schema";
 import { isAuthenticated, verifyPassword, createSession, destroySession } from "../../../lib/admin-auth";
+import { notifyCustomerShipped } from "../../../lib/notify";
 
 const attempts = new Map<string, { count: number; reset: number }>();
 
@@ -45,6 +46,42 @@ export async function setFulfillment(formData: FormData) {
     .update(orders)
     .set({ fulfillmentStatus: status, updatedAt: new Date() })
     .where(eq(orders.sessionId, sessionId));
+
+  revalidatePath("/admin/orders");
+}
+
+const CARRIERS = ["USPS", "UPS", "FedEx", "DHL", "Other"] as const;
+
+// Marks an order shipped: records the carrier + tracking number, flips
+// fulfillment to "fulfilled", and emails the customer their tracking link.
+// The email is best-effort and never blocks the status update.
+export async function setShipped(formData: FormData) {
+  if (!(await isAuthenticated())) throw new Error("Not authorized.");
+
+  const sessionId = formData.get("sessionId");
+  const carrier = formData.get("carrier");
+  const trackingNumber = formData.get("trackingNumber");
+  if (typeof sessionId !== "string" || !/^cs_[A-Za-z0-9_]+$/.test(sessionId)) throw new Error("Invalid order.");
+  const carrierValue = typeof carrier === "string" && CARRIERS.includes(carrier as (typeof CARRIERS)[number]) ? carrier : null;
+  const tracking = typeof trackingNumber === "string" ? trackingNumber.trim().slice(0, 100) : "";
+  if (!tracking) throw new Error("Enter a tracking number.");
+
+  const db = getDb();
+  const [updated] = await db
+    .update(orders)
+    .set({ fulfillmentStatus: "fulfilled", carrier: carrierValue, trackingNumber: tracking, shippedAt: new Date(), updatedAt: new Date() })
+    .where(eq(orders.sessionId, sessionId))
+    .returning();
+
+  if (updated) {
+    await notifyCustomerShipped({
+      customerEmail: updated.customerEmail,
+      customerName: updated.customerName,
+      orderReference: updated.orderReference,
+      carrier: updated.carrier,
+      trackingNumber: updated.trackingNumber,
+    }).catch(() => {});
+  }
 
   revalidatePath("/admin/orders");
 }
