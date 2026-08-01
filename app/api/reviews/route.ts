@@ -4,6 +4,7 @@ import { getDb } from "../../../db";
 import { productReviews, orders } from "../../../db/schema";
 import { products } from "../../data";
 import { commerceConfig } from "../../../lib/commerce-config";
+import { notifyNewReview } from "../../../lib/notify";
 
 // GET is public (approved reviews for the storefront); POST accepts a new
 // review and holds it at "pending" for admin moderation in /admin/reviews.
@@ -89,6 +90,18 @@ export async function POST(request: Request) {
       body: reviewBody,
       verified,
     });
+
+    // Best-effort owner alert. Never blocks the submission: a notify failure is
+    // swallowed so the reviewer still gets a success response.
+    const product = products.find(p => p.slug === productSlug);
+    await notifyNewReview({
+      productName: product ? `${product.name} ${product.subtitle}` : productSlug,
+      author,
+      rating,
+      title: title || null,
+      body: reviewBody,
+      verified,
+    }).catch(() => {});
 
     return NextResponse.json({ ok: true });
   } catch (error) {

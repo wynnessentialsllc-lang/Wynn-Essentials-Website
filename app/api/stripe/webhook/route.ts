@@ -5,6 +5,7 @@ import { getStripe } from "../../../../lib/stripe";
 import { getDb } from "../../../../db";
 import { orders, stripeEvents, productInventory } from "../../../../db/schema";
 import { products } from "../../../data";
+import { notifyNewOrder } from "../../../../lib/notify";
 
 type Db = ReturnType<typeof getDb>;
 
@@ -104,7 +105,12 @@ async function recordOrder(event: Stripe.Event, sessionId: string, status: "paid
     });
 
   // Only a paid order consumes stock. Runs once per event thanks to claimEvent.
-  if (status === "paid") await decrementStock(db, session);
+  if (status === "paid") {
+    await decrementStock(db, session);
+    // Best-effort owner alert, guaranteed once per order by claimEvent above.
+    // Wrapped so a notify failure never turns into a 500 (which Stripe retries).
+    await notifyNewOrder(row).catch(() => {});
+  }
 
   console.info("Recorded Stripe order", { eventId: event.id, sessionId: session.id, status, orderReference: row.orderReference });
 }
