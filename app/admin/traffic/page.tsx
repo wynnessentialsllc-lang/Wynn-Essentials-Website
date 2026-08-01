@@ -7,6 +7,7 @@ import { products } from "../../data";
 import { isAuthenticated, adminTokenConfigured } from "../../../lib/admin-auth";
 import { signOut } from "../orders/actions";
 import SignInForm from "../orders/SignInForm";
+import TrafficCharts, { type Bar } from "./TrafficCharts";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -17,25 +18,19 @@ export const metadata: Metadata = {
 
 const RANGES = [7, 30, 90];
 const NAME = new Map(products.map(p => [p.slug, p.name]));
+const productName = (slug: string) => NAME.get(slug) ?? slug;
+const when = (value: Date | null) =>
+  value ? new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(value) : "—";
 
 function Shell({ children }: { children: React.ReactNode }) {
   return <main className="order-page" style={{ maxWidth: "72rem" }}>{children}</main>;
 }
 
-function Bars({ data, labelEvery = 1 }: { data: { label: string; value: number }[]; labelEvery?: number }) {
-  const max = Math.max(1, ...data.map(d => d.value));
-  return (
-    <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 160, border: "1px solid var(--line)", borderRadius: 6, padding: "10px 8px 0", overflowX: "auto" }}>
-      {data.map((d, i) => (
-        <div key={i} style={{ flex: "1 0 auto", minWidth: 8, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", height: "100%" }} title={`${d.label}: ${d.value}`}>
-          <span style={{ fontSize: 9, opacity: d.value ? 0.7 : 0, marginBottom: 2 }}>{d.value || ""}</span>
-          <div style={{ width: "70%", maxWidth: 26, height: `${(d.value / max) * 100}%`, minHeight: d.value ? 3 : 0, background: "var(--kraft-dark)", borderRadius: "2px 2px 0 0" }} />
-          <span style={{ fontSize: 9, opacity: 0.55, marginTop: 3, whiteSpace: "nowrap" }}>{i % labelEvery === 0 ? d.label : ""}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
+// Per-bucket tally: unique visitors plus a count of each event type, used for
+// the clickable chart breakdowns.
+type Bucket = { visitors: Set<string>; pageview: number; product_view: number; add_to_cart: number; begin_checkout: number };
+const newBucket = (): Bucket => ({ visitors: new Set(), pageview: 0, product_view: 0, add_to_cart: 0, begin_checkout: 0 });
+const bucketBreakdown = (b: Bucket) => ({ "Page views": b.pageview, "Product views": b.product_view, "Add to cart": b.add_to_cart, "Reached checkout": b.begin_checkout });
 
 export default async function AdminTraffic({ searchParams }: { searchParams: Promise<{ days?: string }> }) {
   if (!adminTokenConfigured()) return <Shell><p className="eyebrow">TRAFFIC</p><h1>Traffic is not configured.</h1><p>Set <code>ADMIN_ORDERS_TOKEN</code> in Vercel to open this page.</p></Shell>;
@@ -67,17 +62,44 @@ export default async function AdminTraffic({ searchParams }: { searchParams: Pro
   const abandonedCart = Math.max(0, addedToCart - beganCheckout);
   const abandonedCheckout = Math.max(0, beganCheckout - purchases);
 
-  // Daily unique visitors across the range.
-  const dayKey = (d: Date) => d.toISOString().slice(0, 10);
-  const dailySets = new Map<string, Set<string>>();
-  for (let i = 0; i < days; i++) dailySets.set(dayKey(new Date(since.getTime() + i * 86_400_000)), new Set());
-  for (const r of rows) { if (!r.createdAt) continue; const k = dayKey(r.createdAt); dailySets.get(k)?.add(r.visitorId); }
-  const daily = [...dailySets.entries()].map(([k, s]) => ({ label: k.slice(5), value: s.size }));
+  const bump = (b: Bucket, r: typeof rows[number]) => {
+    b.visitors.add(r.visitorId);
+    if (r.type === "pageview" || r.type === "product_view" || r.type === "add_to_cart" || r.type === "begin_checkout") b[r.type] += 1;
+  };
 
-  // Unique visitors by hour of day (0–23), across the whole range.
-  const hourSets = Array.from({ length: 24 }, () => new Set<string>());
-  for (const r of rows) { if (!r.createdAt) continue; hourSets[r.createdAt.getHours()].add(r.visitorId); }
-  const hourly = hourSets.map((s, h) => ({ label: `${h}`, value: s.size }));
+  // Daily unique visitors (with event breakdown) across the range.
+  const dayKey = (d: Date) => d.toISOString().slice(0, 10);
+  const dailyBuckets = new Map<string, Bucket>();
+  for (let i = 0; i < days; i++) dailyBuckets.set(dayKey(new Date(since.getTime() + i * 86_400_000)), newBucket());
+  for (const r of rows) { if (!r.createdAt) continue; const b = dailyBuckets.get(dayKey(r.createdAt)); if (b) bump(b, r); }
+  const daily: Bar[] = [...dailyBuckets.entries()].map(([k, b]) => ({ label: k.slice(5), value: b.visitors.size, breakdown: bucketBreakdown(b) }));
+
+  // Unique visitors by hour of day (0–23, with breakdown), across the range.
+  const hourBuckets = Array.from({ length: 24 }, newBucket);
+  for (const r of rows) { if (!r.createdAt) continue; bump(hourBuckets[r.createdAt.getHours()], r); }
+  const hourly: Bar[] = hourBuckets.map((b, h) => ({ label: `${h}`, value: b.visitors.size, breakdown: bucketBreakdown(b) }));
+
+  // Abandoned carts: visitors who added something but never reached checkout.
+  // Each add_to_cart event carries the product, so we can show exactly what was
+  // left behind. begin_checkout carries no product, hence the "added but no
+  // checkout" definition here.
+  type Cart = { added: Map<string, number>; checkout: boolean; last: Date | null };
+  const carts = new Map<string, Cart>();
+  for (const r of rows) {
+    let c = carts.get(r.visitorId);
+    if (!c) { c = { added: new Map(), checkout: false, last: null }; carts.set(r.visitorId, c); }
+    if (r.type === "add_to_cart" && r.productSlug) c.added.set(r.productSlug, (c.added.get(r.productSlug) ?? 0) + 1);
+    if (r.type === "begin_checkout") c.checkout = true;
+    if (r.createdAt && (!c.last || r.createdAt > c.last)) c.last = r.createdAt;
+  }
+  const abandonedCarts = [...carts.values()]
+    .filter(c => c.added.size > 0 && !c.checkout)
+    .map(c => ({ items: [...c.added.keys()], last: c.last }))
+    .sort((a, b) => (b.last?.getTime() ?? 0) - (a.last?.getTime() ?? 0));
+  // Which products show up most often in abandoned carts.
+  const abandonedProducts = new Map<string, number>();
+  for (const c of abandonedCarts) for (const slug of c.items) abandonedProducts.set(slug, (abandonedProducts.get(slug) ?? 0) + 1);
+  const topAbandoned = [...abandonedProducts.entries()].sort((a, b) => b[1] - a[1]);
 
   const countBy = (type: string, key: (r: typeof rows[number]) => string | null) => {
     const m = new Map<string, number>();
@@ -117,12 +139,7 @@ export default async function AdminTraffic({ searchParams }: { searchParams: Pro
         {tiles.map(t => <div key={t.label} style={{ border: "1px solid var(--line)", borderRadius: 6, padding: "1rem 1.1rem" }}><div style={{ fontSize: 12, opacity: 0.7 }}>{t.label}</div><div style={{ fontSize: 26, fontWeight: 600, marginTop: 4 }}>{t.value}</div></div>)}
       </div>
 
-      <h2 style={{ fontSize: "1.4rem", margin: "0 0 0.6rem" }}>Visitors per day</h2>
-      <div style={{ marginBottom: "2rem" }}><Bars data={daily} labelEvery={Math.ceil(days / 12)} /></div>
-
-      <h2 style={{ fontSize: "1.4rem", margin: "0 0 0.6rem" }}>Visitors by hour of day</h2>
-      <p style={{ opacity: 0.7, marginTop: 0 }}>When people tend to visit (all days combined, 0–23h).</p>
-      <div style={{ marginBottom: "2rem" }}><Bars data={hourly} labelEvery={2} /></div>
+      <TrafficCharts daily={daily} hourly={hourly} dailyLabelEvery={Math.ceil(days / 12)} />
 
       <h2 style={{ fontSize: "1.4rem", margin: "0 0 0.75rem" }}>Conversion funnel</h2>
       <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "0.5rem", fontSize: "0.95rem" }}>
@@ -137,6 +154,39 @@ export default async function AdminTraffic({ searchParams }: { searchParams: Pro
       <p style={{ opacity: 0.85, marginBottom: "2rem" }}>
         <strong>{addedToCart ? Math.round((abandonedCart / addedToCart) * 100) : 0}%</strong> abandoned cart ({abandonedCart} added but never reached checkout) · <strong>{beganCheckout ? Math.round((abandonedCheckout / beganCheckout) * 100) : 0}%</strong> abandoned checkout ({abandonedCheckout} reached checkout but didn’t purchase).
       </p>
+
+      <h2 style={{ fontSize: "1.4rem", margin: "0 0 0.6rem" }}>Abandoned carts</h2>
+      {abandonedCarts.length === 0 ? (
+        <p style={{ opacity: 0.7, marginBottom: "2rem" }}>No abandoned carts in this range — everyone who added to cart reached checkout.</p>
+      ) : (
+        <div style={{ display: "grid", gap: "2rem", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", marginBottom: "2rem" }}>
+          <div>
+            <h3 style={{ fontSize: "1.05rem", margin: "0 0 0.5rem" }}>Most-abandoned products</h3>
+            <p style={{ opacity: 0.7, marginTop: 0, fontSize: 13 }}>Items added to cart but left behind, ranked by how often.</p>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
+              <tbody>{topAbandoned.map(([slug, c]) => (
+                <tr key={slug} style={{ borderBottom: "1px solid rgba(128,128,128,0.2)" }}>
+                  <td style={{ padding: "0.5rem" }}>{productName(slug)}</td>
+                  <td style={{ padding: "0.5rem", textAlign: "right", fontWeight: 600 }}>{c}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+          <div>
+            <h3 style={{ fontSize: "1.05rem", margin: "0 0 0.5rem" }}>Recent abandoned carts ({abandonedCarts.length})</h3>
+            <p style={{ opacity: 0.7, marginTop: 0, fontSize: 13 }}>What each shopper left in their cart, newest first.</p>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
+              <thead><tr>{["Items left in cart", "Last active"].map(h => <th key={h} style={{ textAlign: "left", padding: "0.5rem", borderBottom: "2px solid currentColor" }}>{h}</th>)}</tr></thead>
+              <tbody>{abandonedCarts.slice(0, 40).map((c, i) => (
+                <tr key={i} style={{ borderBottom: "1px solid rgba(128,128,128,0.2)", verticalAlign: "top" }}>
+                  <td style={{ padding: "0.5rem" }}>{c.items.map(productName).join(", ")}</td>
+                  <td style={{ padding: "0.5rem", whiteSpace: "nowrap", opacity: 0.75 }}>{when(c.last)}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div style={{ display: "grid", gap: "2rem", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))" }}>
         <div>
