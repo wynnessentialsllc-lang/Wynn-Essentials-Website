@@ -2,11 +2,12 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import { brandConfig, ingredientDescriptions, method, products, Product } from "./data";
 import { relativeDate, Review, reviewsFor, sortReviews, summarize } from "./reviews";
 import PayInFour from "./PayInFour";
 
-type CartItem = { slug: string; quantity: number; color?: string };
+type CartItem = { slug: string; quantity: number; color?: string; variantId?: string };
 type FooterInfoKey = "contact" | "shipping" | "returns" | "faq" | "track" | "accessibility" | "privacy" | "terms" | "refunds" | "cookies" | "credits";
 const money = (value: number | null) => value == null ? "Price to be confirmed" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
 const focusable = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
@@ -337,13 +338,14 @@ function Header({ count, wishCount, openCart, openSearch, openWishlist, viewInvi
 
 function Cart({ items, setItems, onClose }: { items: CartItem[]; setItems: (x: CartItem[]) => void; onClose: () => void }) {
   const detailed = items.map(i => ({ ...i, product: products.find(p => p.slug === i.slug)! }));
-  const subtotal = detailed.reduce((sum, x) => sum + (x.product.price ?? 0) * x.quantity, 0);
+  const unitPrice = (x: { product: Product; variantId?: string }) => x.product.variants?.find(v => v.id === x.variantId)?.price ?? x.product.price ?? null;
+  const subtotal = detailed.reduce((sum, x) => sum + (unitPrice(x) ?? 0) * x.quantity, 0);
   const unknown = detailed.some(x => x.product.price == null);
   const unconfigured = detailed.some(x => !x.product.stripePriceId || !x.product.size);
   const [checkoutError, setCheckoutError] = useState("");
   const [showOffer, setShowOffer] = useState(false);
-  const change = (slug: string, color: string | undefined, delta: number) => setItems(items.map(i => i.slug === slug && i.color === color ? { ...i, quantity: Math.max(0, i.quantity + delta) } : i).filter(i => i.quantity));
-  const remove = (slug: string, color: string | undefined) => setItems(items.filter(i => !(i.slug === slug && i.color === color)));
+  const change = (slug: string, color: string | undefined, variantId: string | undefined, delta: number) => setItems(items.map(i => i.slug === slug && i.color === color && i.variantId === variantId ? { ...i, quantity: Math.max(0, i.quantity + delta) } : i).filter(i => i.quantity));
+  const remove = (slug: string, color: string | undefined, variantId: string | undefined) => setItems(items.filter(i => !(i.slug === slug && i.color === color && i.variantId === variantId)));
   // The first-order offer appears once when a shopper starts checkout, unless
   // they've already claimed it or dismissed it within the last 14 days.
   const offerShouldShow = () => {
@@ -364,7 +366,7 @@ function Cart({ items, setItems, onClose }: { items: CartItem[]; setItems: (x: C
     } catch {}
     try {
       track("begin_checkout");
-      const response = await fetch("/api/stripe/create-checkout-session", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ items:detailed.map(x=>({productId:x.product.slug,variantId:x.product.variantId,quantity:x.quantity,...(x.color?{color:x.color}:{})})), invitationAccepted:true }) });
+      const response = await fetch("/api/stripe/create-checkout-session", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ items:detailed.map(x=>({productId:x.product.slug,variantId:x.variantId ?? x.product.variantId,quantity:x.quantity,...(x.color?{color:x.color}:{})})), invitationAccepted:true }) });
       const result = await response.json() as {url?:string;error?:string};
       if(!response.ok || !result.url) throw new Error(result.error || "Secure checkout is unavailable.");
       window.location.assign(result.url);
@@ -373,7 +375,7 @@ function Cart({ items, setItems, onClose }: { items: CartItem[]; setItems: (x: C
   return <ModalShell label="Shopping bag" onClose={onClose} className="drawer-shell"><aside className="drawer">
     <header><h2>Your Bag</h2><button onClick={onClose}>Close</button></header>
     {!items.length ? <div className="empty"><p>Your bag is ready for an intentional routine.</p><button className="button" onClick={onClose}>Continue Shopping</button></div> :
-      <>{detailed.map(({ product, quantity, color }) => <div className="cart-line" key={`${product.slug}-${color ?? ""}`}><ProductArt product={product} small /><div><b>{product.name}</b><span>{product.subtitle}</span>{color && <span>Color: {color}</span>}<span>{product.size ?? "Size to be confirmed"}</span><div className="quantity"><button onClick={() => change(product.slug, color, -1)} aria-label={`Decrease ${product.name}`}>−</button><span>{quantity}</span><button onClick={() => change(product.slug, color, 1)} aria-label={`Increase ${product.name}`}>+</button></div><button className="remove" onClick={() => remove(product.slug, color)}>Remove</button></div><strong>{money(product.price == null ? null : product.price * quantity)}</strong></div>)}
+      <>{detailed.map(({ product, quantity, color, variantId }) => { const v = product.variants?.find(vv => vv.id === variantId); const unit = v?.price ?? product.price; return <div className="cart-line" key={`${product.slug}-${color ?? ""}-${variantId ?? ""}`}><ProductArt product={product} small /><div><b>{product.name}</b><span>{product.subtitle}</span>{color && <span>Color: {color}</span>}{v ? <span>{v.length} · {v.color}</span> : <span>{product.size ?? "Size to be confirmed"}</span>}<div className="quantity"><button onClick={() => change(product.slug, color, variantId, -1)} aria-label={`Decrease ${product.name}`}>−</button><span>{quantity}</span><button onClick={() => change(product.slug, color, variantId, 1)} aria-label={`Increase ${product.name}`}>+</button></div><button className="remove" onClick={() => remove(product.slug, color, variantId)}>Remove</button></div><strong>{money(unit == null ? null : unit * quantity)}</strong></div>; })}
       <div className="shipping-progress"><span style={{ width: `${Math.min(100, subtotal / brandConfig.shippingThreshold * 100)}%` }} /></div><p>{unknown ? "Shipping progress will appear after prices are verified." : subtotal >= brandConfig.shippingThreshold ? "You qualify for free U.S. shipping." : `${money(brandConfig.shippingThreshold - subtotal)} from free U.S. shipping.`}</p>
       <div className="subtotal"><span>Subtotal</span><strong>{unknown ? "Pending verified prices" : money(subtotal)}</strong></div>
       <p className="payment-note">Available payment options are shown securely at checkout. Discounts, shipping, and tax are validated by Stripe.</p>
@@ -512,14 +514,27 @@ function ProductReviews({ product, submitted }: { product: Product; submitted: R
   </section>;
 }
 
-function ProductDetail({ product, add, onClose, soldOut, submittedReviews, wished, onToggleWish }: { product: Product; add: (p: Product, qty?: number, color?: string) => void; onClose: () => void; soldOut: boolean; submittedReviews: Review[]; wished: boolean; onToggleWish: () => void }) {
+function ProductDetail({ product, add, onClose, soldOut, submittedReviews, wished, onToggleWish }: { product: Product; add: (p: Product, qty?: number, color?: string, variantId?: string) => void; onClose: () => void; soldOut: boolean; submittedReviews: Review[]; wished: boolean; onToggleWish: () => void }) {
   const [qty, setQty] = useState(1);
   const [color, setColor] = useState("");
+  const [len, setLen] = useState(product.variants?.[0]?.length ?? "");
+  const [vcolor, setVcolor] = useState(product.variants?.[0]?.color ?? "");
   const [wlEmail, setWlEmail] = useState("");
   const [wlState, setWlState] = useState<"" | "sending" | "ok" | "err">("");
   const joinWaitlist = async (e: FormEvent<HTMLFormElement>) => { e.preventDefault(); if (wlState === "sending") return; setWlState("sending"); try { const r = await fetch("/api/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: wlEmail, consent: true, source: `waitlist:${product.slug}` }) }); setWlState(r.ok ? "ok" : "err"); } catch { setWlState("err"); } };
   const isHair = !product.kind;
   const needsColor = Boolean(product.colors?.length);
+  // Braiding-hair length/color variants. Selectors appear only when there is
+  // more than one length or color to choose from.
+  const variants = product.variants ?? [];
+  const hasVariants = variants.length > 0;
+  const lengths = [...new Set(variants.map(v => v.length))];
+  const colorOpts = [...new Set(variants.map(v => v.color))];
+  const showLen = lengths.length > 1;
+  const showCol = colorOpts.length > 1;
+  const selVariant = hasVariants ? (variants.find(v => v.length === len && v.color === vcolor) ?? variants.find(v => v.length === len) ?? variants.find(v => v.color === vcolor) ?? variants[0]) : undefined;
+  const displayPrice = selVariant ? selVariant.price : product.price;
+  const variantSoldOut = Boolean(selVariant?.soldOut);
   const hydrateBenefits = ["Adds lightweight moisture","Helps soften dry-feeling hair","Refreshes curls and protective styles","Supports easier daily maintenance","Made for multiple textured-hair styles"];
   const accordions = {
     "Description": product.description,
@@ -536,7 +551,7 @@ function ProductDetail({ product, add, onClose, soldOut, submittedReviews, wishe
   return <ModalShell label={`${product.name} product details`} onClose={onClose} className="product-shell"><article className="product-modal">
     <button className="product-close" onClick={onClose}>Close</button>
     <div className="product-gallery">{product.video && <div className="product-art product-photo product-video" key="video"><video src={product.video} muted loop playsInline autoPlay preload="metadata" aria-label={`${product.name} product video`}/></div>}{(product.images?.length ? product.images : [null, null]).map((image,index)=>image ? <div className="product-art product-photo" key={image.src}><img src={image.src} alt={image.alt} width="1600" height="1600" loading={index ? "lazy" : undefined}/></div> : <ProductArt product={product} key={index}/>)}</div>
-    <div className="product-info"><p className="eyebrow">{isHair ? `THE WYNN METHOD · STEP ${product.methodStep} OF 6` : product.subtitle.toUpperCase()}</p><h2>{product.name}<span>{product.subtitle}</span></h2><p className="product-price">{money(product.price)} {product.size && `· ${product.size}`}</p><PayInFour price={product.price} /><p>{product.description}</p>{needsColor && <fieldset className="color-picker"><legend>Color{color ? `: ${color}` : ""}</legend>{product.colors!.map(c=><button type="button" key={c} className={color===c?"active":""} aria-pressed={color===c} onClick={()=>setColor(c)}>{c}</button>)}</fieldset>}{soldOut ? <div className="waitlist"><p className="waitlist-heading">Sold Out</p>{wlState==="ok" ? <p className="waitlist-done">You’re on the list — we’ll email you the moment {product.name} is back in stock.</p> : <form onSubmit={joinWaitlist}><label htmlFor="wl-email">Join the waitlist and we’ll email you when it’s restocked.</label><input id="wl-email" type="email" required placeholder="Enter your email" value={wlEmail} onChange={e=>setWlEmail(e.target.value)} /><button className="button full" type="submit" disabled={wlState==="sending"}>{wlState==="sending"?"Joining…":"Join the Waitlist"}</button>{wlState==="err" && <p className="waitlist-err">Something went wrong — please try again.</p>}<small>{brandConfig.consent}</small></form>}</div> : <><label>Quantity<select value={qty} onChange={e=>setQty(Number(e.target.value))}>{[1,2,3,4].map(n=><option key={n}>{n}</option>)}</select></label><button className="button full" disabled={needsColor && !color} onClick={()=>add(product,qty,color||undefined)}>{needsColor && !color ? "Select a color" : "Add to Cart"}</button><button type="button" className="outline-button full wish-toggle" aria-pressed={wished} onClick={onToggleWish}>{wished ? "♥ Saved to favorites" : "♡ Save to favorites"}</button></>}
+    <div className="product-info"><p className="eyebrow">{isHair ? `THE WYNN METHOD · STEP ${product.methodStep} OF 6` : product.subtitle.toUpperCase()}</p><h2>{product.name}<span>{product.subtitle}</span></h2><p className="product-price">{money(displayPrice)}{selVariant ? ` · ${selVariant.length}` : product.size ? ` · ${product.size}` : ""}</p><PayInFour price={displayPrice} /><p>{product.description}</p>{needsColor && <fieldset className="color-picker"><legend>Color{color ? `: ${color}` : ""}</legend>{product.colors!.map(c=><button type="button" key={c} className={color===c?"active":""} aria-pressed={color===c} onClick={()=>setColor(c)}>{c}</button>)}</fieldset>}{showLen && <fieldset className="color-picker"><legend>Length{len ? `: ${len}` : ""}</legend>{lengths.map(l=><button type="button" key={l} className={len===l?"active":""} aria-pressed={len===l} onClick={()=>setLen(l)}>{l}</button>)}</fieldset>}{showCol && <fieldset className="color-picker"><legend>Color{vcolor ? `: ${vcolor}` : ""}</legend>{colorOpts.map(c=><button type="button" key={c} className={vcolor===c?"active":""} aria-pressed={vcolor===c} onClick={()=>setVcolor(c)}>{c}</button>)}</fieldset>}{soldOut ?<div className="waitlist"><p className="waitlist-heading">Sold Out</p>{wlState==="ok" ? <p className="waitlist-done">You’re on the list — we’ll email you the moment {product.name} is back in stock.</p> : <form onSubmit={joinWaitlist}><label htmlFor="wl-email">Join the waitlist and we’ll email you when it’s restocked.</label><input id="wl-email" type="email" required placeholder="Enter your email" value={wlEmail} onChange={e=>setWlEmail(e.target.value)} /><button className="button full" type="submit" disabled={wlState==="sending"}>{wlState==="sending"?"Joining…":"Join the Waitlist"}</button>{wlState==="err" && <p className="waitlist-err">Something went wrong — please try again.</p>}<small>{brandConfig.consent}</small></form>}</div> : <><label>Quantity<select value={qty} onChange={e=>setQty(Number(e.target.value))}>{[1,2,3,4].map(n=><option key={n}>{n}</option>)}</select></label><button className="button full" disabled={(needsColor && !color) || variantSoldOut} onClick={()=>add(product,qty,color||undefined,selVariant?.id)}>{variantSoldOut ? "This option is sold out" : needsColor && !color ? "Select a color" : "Add to Cart"}</button><button type="button" className="outline-button full wish-toggle" aria-pressed={wished} onClick={onToggleWish}>{wished ? "♥ Saved to favorites" : "♡ Save to favorites"}</button></>}
       <h3>Why You’ll Love It</h3><ul className="benefit-list">{(product.featured ? hydrateBenefits : [product.benefit,"Supports a consistent routine","Created for textured-hair care"]).map(x=><li key={x}>{x}</li>)}</ul>
       <div className="accordions">{Object.entries(accordions).map(([title,body])=><details key={title}><summary>{title}</summary><p>{body}</p></details>)}</div>
     </div>
@@ -618,7 +633,7 @@ export default function WynnShop() {
   const inWishlist=(slug:string)=>wishlist.includes(slug);
   // Auto-dismiss the on-screen notice (add-to-cart toast, etc.) after a few seconds.
   useEffect(()=>{ if(!notice) return; const t=window.setTimeout(()=>setNotice(""),3500); return ()=>window.clearTimeout(t); },[notice]);
-  const add=(p:Product,qty=1,color?:string)=>{ if(soldOut(p)){setNotice(`${p.name} is currently sold out.`);return;} setCart(c=>{const old=c.find(x=>x.slug===p.slug&&x.color===color);return old?c.map(x=>x.slug===p.slug&&x.color===color?{...x,quantity:x.quantity+qty}:x):[...c,{slug:p.slug,quantity:qty,...(color?{color}:{})}]});setNotice(`${p.name}${color?` (${color})`:""} added to your bag.`);track("add_to_cart",{productSlug:p.slug});};
+  const add=(p:Product,qty=1,color?:string,variantId?:string)=>{ if(soldOut(p)){setNotice(`${p.name} is currently sold out.`);return;} const vid=variantId ?? (p.variants?.length ? (p.variants.find(v=>!v.soldOut)?.id ?? p.variants[0].id) : undefined); setCart(c=>{const old=c.find(x=>x.slug===p.slug&&x.color===color&&x.variantId===vid);return old?c.map(x=>x.slug===p.slug&&x.color===color&&x.variantId===vid?{...x,quantity:x.quantity+qty}:x):[...c,{slug:p.slug,quantity:qty,...(color?{color}:{}),...(vid?{variantId:vid}:{})}]});setNotice(`${p.name}${color?` (${color})`:""} added to your bag.`);track("add_to_cart",{productSlug:p.slug});};
   const openProduct=(p:Product)=>{setSearchOpen(false);setProduct(p);track("product_view",{productSlug:p.slug});history.replaceState(null,"",`#product-${p.slug}`)};
   // Bulk hair has its own Premium Human Hair section below, so it is kept out of
   // the Shop the Essentials grid.
@@ -679,7 +694,7 @@ export default function WynnShop() {
           ].map(([number,alt])=><img key={number} src={`/collections/heritage-hold-official-${number}.webp`} alt={alt} width="2048" height="2048" loading="lazy"/>)}
         </div><p className="eyebrow">GENTLE SATIN HOLD</p><h3>The Heritage Hold Satin Scrunchie Set</h3><p className="bonnet-description">A refined three-piece satin set created to secure curls, protective styles, and silk presses with less friction and tension.</p><strong>$14.99</strong><span>Uptown Navy · Legacy Silver · Reserve Noir</span><button className="outline-button" onClick={()=>openProduct(products.find(p=>p.slug==="heritage-hold-scrunchie-set")!)}>Shop the Scrunchie Set</button></article>
       </div></section>
-      <section id="boho-hair" className="boho-hair section" aria-labelledby="boho-hair-heading"><div className="section-heading"><div><p className="eyebrow">PREMIUM HUMAN HAIR</p><h2 id="boho-hair-heading">Boho Hair</h2></div><p>Four signature textures in premium 18-inch human hair bulk, ready for lightweight boho braids, knotless styles, and dimensional custom installs.</p></div><div className="boho-lifestyle"><figure><img src="/collections/boho-lifestyle-street.jpeg" alt="Model with long honey-blonde boho braids and wavy ends in golden evening light" width="1126" height="1265" loading="lazy"/></figure><figure><img src="/collections/boho-lifestyle-home.jpeg" alt="Model at home running her hands through voluminous dark boho braids with wavy ends" width="1206" height="1663" loading="lazy"/></figure></div><div className="boho-grid">
+      <section id="boho-hair" className="boho-hair section" aria-labelledby="boho-hair-heading"><div className="section-heading"><div><p className="eyebrow">PREMIUM HUMAN HAIR</p><h2 id="boho-hair-heading">Boho Hair</h2></div><div><p>Four signature textures in premium 18-inch human hair bulk, ready for lightweight boho braids, knotless styles, and dimensional custom installs.</p><Link className="boho-collection-link" href="/braiding-hair">Shop all braiding hair &amp; bundle guide →</Link></div></div><div className="boho-lifestyle"><figure><img src="/collections/boho-lifestyle-street.jpeg" alt="Model with long honey-blonde boho braids and wavy ends in golden evening light" width="1126" height="1265" loading="lazy"/></figure><figure><img src="/collections/boho-lifestyle-home.jpeg" alt="Model at home running her hands through voluminous dark boho braids with wavy ends" width="1206" height="1663" loading="lazy"/></figure></div><div className="boho-grid">
         {bohoHair.map(item=>{const product=products.find(p=>p.slug===item.slug)!;return <article className={`boho-card${soldOut(product)?" is-sold-out":""}`} key={item.slug}><button className="art-button" onClick={()=>openProduct(product)} aria-label={`View ${item.name} details`}><div><img src={item.image} alt={item.alt} width="1200" height="1500" loading="lazy"/><span>18″ · Natural Color</span></div>{soldOut(product) && <span className="sold-out-badge">Sold Out</span>}</button><p className="eyebrow">BOHO BRAID HAIR</p><h3>{item.name}</h3><p>Premium human hair bulk with soft movement, natural blending, and braid-ready texture.</p><strong>{money(product.price)}</strong>{soldOut(product) ? <button className="outline-button full sold-out-cta" onClick={()=>openProduct(product)}>Sold Out · Join the Waitlist</button> : <button className="outline-button full" onClick={()=>add(product)}>Add to Cart</button>}</article>;})}
       </div></section>
       <section className="philosophy section"><div><p className="eyebrow">OUR FORMULATION PHILOSOPHY</p><h2>Traditional Ingredients.<br /><em>Modern Hair Wellness.</em></h2><p>Wynn Essentials combines familiar botanicals, purposeful oils, and thoughtfully designed formulas to support moisture, strength, manageability, and consistent care.</p><a href="#ingredients" className="button">Learn About Our Formulas</a></div><ol>{["Moisture Support","Strength-Focused Care","Scalp-Conscious Ingredients","Protective-Style Maintenance"].map((x,i)=><li key={x}><span>0{i+1}</span>{x}</li>)}</ol></section>

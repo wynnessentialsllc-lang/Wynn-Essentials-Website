@@ -1,5 +1,18 @@
 export type Category = "Cleanse" | "Condition" | "Treat" | "Moisturize" | "Oils" | "Style" | "Accessories" | "Bundles" | "Hair";
 
+// A purchasable variant of a braiding-hair product (a length + color combo).
+// Each variant has its own price and Stripe price id, so lengths/colors can be
+// priced independently. `id` is unique within the product and is what the cart
+// and checkout carry. See the example below the catalog for how to add more.
+export type HairVariant = {
+  id: string;
+  length: string;
+  color: string;
+  price: number;
+  stripePriceId: string | null;
+  soldOut?: boolean;
+};
+
 export type Product = {
   slug: string;
   name: string;
@@ -32,6 +45,9 @@ export type Product = {
   kind?: "accessory" | "bundle" | "hair";
   colors?: string[];
   bundleIncludes?: string[];
+  // Braiding-hair length/color variants. If omitted on a "hair" product, a
+  // single default variant is auto-seeded from the fields above (see below).
+  variants?: HairVariant[];
 };
 
 // Catalog details are sourced from the matching product pages on wynnessentialsllc.us.
@@ -79,6 +95,27 @@ export const ingredientDescriptions: Record<string, string> = {
   Lavender: "A soothing, aromatic botanical prized for both its calming scent and scalp-friendly character. Lavender adds a relaxing sensory note while supporting a comfortable, balanced-feeling scalp.",
   Peppermint: "An invigorating botanical known for its cooling, refreshing sensation on the scalp. Peppermint delivers a crisp sensory lift while helping hair and scalp feel clean and awake.",
 };
+
+// Ensure every braiding-hair product has at least one variant. Products that
+// don't declare `variants` get a single default seeded from their catalog
+// fields (the current 18" natural offering), so the storefront and checkout can
+// treat all hair uniformly. To offer more, declare `variants` explicitly on the
+// product, e.g.:
+//
+//   variants: [
+//     { id: "18-natural", length: "18\"", color: "Natural", price: 67.99, stripePriceId: "price_...", },
+//     { id: "22-natural", length: "22\"", color: "Natural", price: 79.99, stripePriceId: "price_...", },
+//     { id: "18-honey",   length: "18\"", color: "Honey Blonde", price: 72.99, stripePriceId: "price_...", },
+//   ]
+//
+// Each new length/color needs its own Stripe Price (create it in the dashboard
+// and paste the price_... id here). Selectors appear automatically when a
+// product has more than one length or color.
+for (const p of products) {
+  if (p.kind === "hair" && (!p.variants || p.variants.length === 0)) {
+    p.variants = [{ id: "18-natural", length: p.size ?? "18\"", color: "Natural", price: p.price ?? 0, stripePriceId: p.stripePriceId, ...(p.soldOut ? { soldOut: true } : {}) }];
+  }
+}
 
 export const brandConfig = {
   announcement: "Free U.S. shipping on orders over $50.",
