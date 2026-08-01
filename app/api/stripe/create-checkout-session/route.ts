@@ -42,25 +42,35 @@ export async function POST(request: Request) {
     const resolved = body.items.map(item => {
       if (typeof item.productId !== "string" || typeof item.variantId !== "string" || !Number.isInteger(item.quantity) || Number(item.quantity) < 1 || Number(item.quantity) > commerceConfig.maxQuantityPerItem) throw new Error("INVALID_ITEM");
       const product = products.find(p => p.slug === item.productId);
-      if (!product || product.variantId !== item.variantId) throw new Error("INVALID_ITEM");
+      if (!product) throw new Error("INVALID_ITEM");
+      // Braiding-hair products sell by length/color variant, each with its own
+      // price and Stripe price id; every other product uses its single default.
+      const variant = product.variants?.length ? product.variants.find(v => v.id === item.variantId) : undefined;
+      if (product.variants?.length) {
+        if (!variant) throw new Error("INVALID_ITEM");
+      } else if (product.variantId !== item.variantId) {
+        throw new Error("INVALID_ITEM");
+      }
       // A product with color options requires a valid, in-catalog color choice.
       const color = typeof item.color === "string" ? item.color : undefined;
       if (product.colors?.length && (!color || !product.colors.includes(color))) throw new Error("INVALID_ITEM");
-      if (!product.stripePriceId || !/^price_[A-Za-z0-9]+$/.test(product.stripePriceId)) throw new Error("UNCONFIGURED_ITEM");
+      const unitPrice = variant ? variant.price : (product.price ?? 0);
+      const priceId = variant ? variant.stripePriceId : product.stripePriceId;
+      if (!priceId || !/^price_[A-Za-z0-9]+$/.test(priceId)) throw new Error("UNCONFIGURED_ITEM");
       // A sold-out item can never be checked out, even from a stale cart. Live
       // inventory overrides the catalog flag; unlisted products use the flag.
       const inv = inventoryOverride.get(product.slug);
       const stock = inv?.stock ?? null;
-      const effectiveSoldOut = inv ? inv.soldOut || (stock != null && stock <= 0) : Boolean(product.soldOut);
+      const effectiveSoldOut = (inv ? inv.soldOut || (stock != null && stock <= 0) : Boolean(product.soldOut)) || Boolean(variant?.soldOut);
       if (effectiveSoldOut) throw new Error("SOLD_OUT");
       // Never let a bag exceed what is in stock, so we cannot oversell.
       if (stock != null && Number(item.quantity) > stock) throw new Error("INSUFFICIENT_STOCK");
       // Subtotal comes from the server catalog, never from the client payload.
-      subtotalCents += Math.round((product.price ?? 0) * 100) * Number(item.quantity);
+      subtotalCents += Math.round(unitPrice * 100) * Number(item.quantity);
       // Colored items ship at the same price, so an inline price carries the chosen
       // color onto the line item (and into the recorded order) without a per-color Stripe price.
-      if (color) return { price_data: { currency: "usd", unit_amount: Math.round((product.price ?? 0) * 100), product_data: { name: `${product.name} — ${product.subtitle} · ${color}`, metadata: { wynn_slug: product.slug, color } } }, quantity: Number(item.quantity) };
-      return { price: product.stripePriceId, quantity: Number(item.quantity) };
+      if (color) return { price_data: { currency: "usd", unit_amount: Math.round(unitPrice * 100), product_data: { name: `${product.name} — ${product.subtitle} · ${color}`, metadata: { wynn_slug: product.slug, color } } }, quantity: Number(item.quantity) };
+      return { price: priceId, quantity: Number(item.quantity) };
     });
     // Honors the "free U.S. shipping over $50" promise made on the storefront.
     const qualifiesForFreeShipping = commerceConfig.freeShippingRateId !== null && subtotalCents >= commerceConfig.freeShippingThresholdCents;
