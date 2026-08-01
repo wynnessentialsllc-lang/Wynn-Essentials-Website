@@ -16,6 +16,12 @@ const RESEND_ENDPOINT = "https://api.resend.com/emails";
 const DEFAULT_TO = "wynnessentialsllc@gmail.com";
 const DEFAULT_FROM = "Wynn Essentials <onboarding@resend.dev>";
 
+// The Resend API key, read from the environment. RESEND_API_KEY is the standard
+// name; wynnessentials_site is also accepted so the Vercel variable can be named
+// either way. First match wins.
+const API_KEY_ENV = ["RESEND_API_KEY", "wynnessentials_site"];
+const resendApiKey = () => API_KEY_ENV.map(name => process.env[name]).find(Boolean);
+
 // Minimal HTML escaping so customer-supplied text (names, review bodies, product
 // titles) can't inject markup into the notification email.
 function esc(value: unknown): string {
@@ -34,9 +40,9 @@ const money = (cents: number | null | undefined, currency = "usd") =>
  * false otherwise (including when RESEND_API_KEY is not set). Never throws.
  */
 export async function sendOwnerEmail({ subject, html }: { subject: string; html: string }): Promise<boolean> {
-  const apiKey = process.env.RESEND_API_KEY;
+  const apiKey = resendApiKey();
   if (!apiKey) {
-    console.info("Notification skipped: RESEND_API_KEY is not set", { subject });
+    console.info(`Notification skipped: no Resend API key set (${API_KEY_ENV.join(" or ")})`, { subject });
     return false;
   }
   const to = process.env.NOTIFY_TO || DEFAULT_TO;
