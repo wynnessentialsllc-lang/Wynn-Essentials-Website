@@ -284,7 +284,9 @@ function FirstOrderOffer({ onClose, onContinue }: { onClose: () => void; onConti
       const r = await fetch("/api/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, phone, consent, source: "first-order-popup" }) });
       const result = await r.json() as { ok?: boolean };
       if (!r.ok || !result.ok) throw new Error("failed");
-      try { localStorage.setItem("wynnOfferClaimed", "1"); } catch {}
+      // Remember the email so checkout can snapshot the cart for abandoned-cart
+      // recovery, and so the offer isn't shown again.
+      try { localStorage.setItem("wynnOfferClaimed", "1"); localStorage.setItem("wynnEmail", email); } catch {}
       setState("done");
     } catch { setState("err"); }
   };
@@ -354,6 +356,12 @@ function Cart({ items, setItems, onClose }: { items: CartItem[]; setItems: (x: C
   const markOfferSeen = () => { try { localStorage.setItem("wynnOfferSeenAt", String(Date.now())); } catch {} };
   const startCheckout = async () => {
     setCheckoutError("");
+    // If we know the shopper's email, snapshot the cart so an abandoned-cart
+    // reminder can go out if they don't complete the purchase. Fire-and-forget.
+    try {
+      const email = localStorage.getItem("wynnEmail");
+      if (email) fetch("/api/abandoned", { method: "POST", headers: { "Content-Type": "application/json" }, keepalive: true, body: JSON.stringify({ email, visitorId: localStorage.getItem("wynnVid") || undefined, items: detailed.map(x => ({ slug: x.product.slug, quantity: x.quantity, ...(x.color ? { color: x.color } : {}) })) }) }).catch(() => {});
+    } catch {}
     try {
       track("begin_checkout");
       const response = await fetch("/api/stripe/create-checkout-session", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ items:detailed.map(x=>({productId:x.product.slug,variantId:x.product.variantId,quantity:x.quantity,...(x.color?{color:x.color}:{})})), invitationAccepted:true }) });

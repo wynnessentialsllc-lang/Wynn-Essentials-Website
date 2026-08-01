@@ -116,6 +116,24 @@ export type ProductReview = typeof productReviews.$inferSelect;
 // First-party, no-PII visitor events for the traffic dashboard. `visitorId` is a
 // random id from a first-party cookie/localStorage — no name, no cross-site
 // tracking. Public storefront writes here, so no RLS lockdown.
+// Abandoned-cart snapshots. Written when a shopper who has given an email starts
+// checkout; a scheduled job emails a reminder if no matching paid order appears.
+// Holds an email (PII), so it is locked to server-side access like the order and
+// subscriber tables. Keyed by email so a shopper has one live snapshot.
+export const abandonedCarts = pgTable("abandoned_carts", {
+  email: text("email").primaryKey(),
+  visitorId: text("visitor_id"),
+  items: jsonb("items").notNull(),
+  subtotal: bigint("subtotal", { mode: "number" }),
+  // "pending" until emailed; "emailed" after a reminder is sent; "recovered"
+  // once a paid order from this email is seen.
+  status: text("status").notNull().default("pending"),
+  emailedAt: timestamp("emailed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type AbandonedCart = typeof abandonedCarts.$inferSelect;
+
 export const events = pgTable("events", {
   id: bigserial("id", { mode: "number" }).primaryKey(),
   visitorId: text("visitor_id").notNull(),

@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { getStripe } from "../../../../lib/stripe";
 import { getDb } from "../../../../db";
-import { orders, stripeEvents, productInventory } from "../../../../db/schema";
+import { orders, stripeEvents, productInventory, abandonedCarts } from "../../../../db/schema";
 import { products } from "../../../data";
 import { notifyNewOrder, notifyCustomerOrderConfirmation } from "../../../../lib/notify";
 
@@ -112,6 +112,11 @@ async function recordOrder(event: Stripe.Event, sessionId: string, status: "paid
     // the owner alert, and the customer's order confirmation.
     await notifyNewOrder(row).catch(() => {});
     await notifyCustomerOrderConfirmation(row).catch(() => {});
+    // Close out any abandoned-cart snapshot for this buyer so no reminder is
+    // sent after they've purchased.
+    if (row.customerEmail) {
+      try { await db.update(abandonedCarts).set({ status: "recovered", updatedAt: new Date() }).where(eq(abandonedCarts.email, row.customerEmail)); } catch {}
+    }
   }
 
   console.info("Recorded Stripe order", { eventId: event.id, sessionId: session.id, status, orderReference: row.orderReference });
