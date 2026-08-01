@@ -316,7 +316,7 @@ function FirstOrderOffer({ onClose, onContinue }: { onClose: () => void; onConti
   </ModalShell>;
 }
 
-function Header({ count, openCart, openSearch, viewInvite }: { count: number; openCart: () => void; openSearch: () => void; viewInvite: () => void }) {
+function Header({ count, wishCount, openCart, openSearch, openWishlist, viewInvite }: { count: number; wishCount: number; openCart: () => void; openSearch: () => void; openWishlist: () => void; viewInvite: () => void }) {
   const [menu, setMenu] = useState(false);
   const nav = ["Shop", "Best Sellers", "Shop by Concern", "The Wynn Method", "Our Story"];
   return <>
@@ -325,7 +325,7 @@ function Header({ count, openCart, openSearch, viewInvite }: { count: number; op
       <button className="icon-button menu-trigger" aria-label="Open menu" onClick={() => setMenu(true)}>☰</button>
       <nav aria-label="Primary">{nav.map(x => <a key={x} href={`#${x.toLowerCase().replaceAll(" ", "-")}`}>{x}</a>)}</nav>
       <a href="#" className="logo" aria-label="Wynn Essentials home"><BrandLogo compact /></a>
-      <div className="header-actions"><button onClick={openSearch}>Search</button><button className="bag-button" onClick={openCart} aria-label={`Shopping cart, ${count} items`}><span className="bag-icon-wrap"><img src="/wynn-cart-icon.png" alt="" className="bag-icon" width="331" height="280"/>{count > 0 && <span className="bag-count">{count}</span>}</span></button></div>
+      <div className="header-actions"><button onClick={openSearch}>Search</button><button onClick={openWishlist} aria-label={`Saved items, ${wishCount}`}>Saved{wishCount > 0 ? ` (${wishCount})` : ""}</button><button className="bag-button" onClick={openCart} aria-label={`Shopping cart, ${count} items`}><span className="bag-icon-wrap"><img src="/wynn-cart-icon.png" alt="" className="bag-icon" width="331" height="280"/>{count > 0 && <span className="bag-count">{count}</span>}</span></button></div>
     </header>
     {menu && <ModalShell label="Mobile navigation" onClose={() => setMenu(false)} className="mobile-menu">
       <div className="mobile-menu-head"><button onClick={() => setMenu(false)} aria-label="Close menu">Close</button><span className="logo"><BrandLogo compact /></span><button className="bag-button" onClick={openCart} aria-label={`Shopping cart, ${count} items`}><span className="bag-icon-wrap"><img src="/wynn-cart-icon.png" alt="" className="bag-icon" width="331" height="280"/>{count > 0 && <span className="bag-count">{count}</span>}</span></button></div>
@@ -384,6 +384,24 @@ function Cart({ items, setItems, onClose }: { items: CartItem[]; setItems: (x: C
         onClose={() => { markOfferSeen(); setShowOffer(false); }}
         onContinue={() => { markOfferSeen(); setShowOffer(false); startCheckout(); }}
       />}</>}
+  </aside></ModalShell>;
+}
+
+// A heart toggle for saving a product to favorites. Stops click propagation so
+// it can sit on top of a card without triggering the card's own click.
+function WishHeart({ active, onToggle, label, className = "" }: { active: boolean; onToggle: () => void; label: string; className?: string }) {
+  return <button type="button" className={`wish-heart${active ? " active" : ""} ${className}`} aria-pressed={active} aria-label={active ? `Remove ${label} from favorites` : `Save ${label} to favorites`} onClick={e => { e.stopPropagation(); onToggle(); }}>
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 21s-7.6-4.9-10.1-9.3C.2 8.8 1.6 5.4 4.8 4.9c2-.3 3.6.8 4.6 2.2C10.6 5.7 12 4.6 14 4.9c3.2.5 4.6 3.9 2.9 6.8C19.6 16.1 12 21 12 21z" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.7" /></svg>
+  </button>;
+}
+
+// The "Saved" drawer: favorited products with quick add-to-cart and remove.
+function Wishlist({ slugs, add, openProduct, onToggle, onClose }: { slugs: string[]; add: (p: Product) => void; openProduct: (p: Product) => void; onToggle: (slug: string) => void; onClose: () => void }) {
+  const saved = slugs.map(s => products.find(p => p.slug === s)).filter(Boolean) as Product[];
+  return <ModalShell label="Saved items" onClose={onClose} className="drawer-shell"><aside className="drawer">
+    <header><h2>Saved</h2><button onClick={onClose}>Close</button></header>
+    {saved.length === 0 ? <div className="empty"><p>You haven&rsquo;t saved anything yet. Tap the heart on a product to keep it here.</p><button className="button" onClick={onClose}>Browse Products</button></div> :
+      <>{saved.map(p => <div className="cart-line" key={p.slug}><button className="art-button" onClick={() => { onClose(); openProduct(p); }} aria-label={`View ${p.name}`}><ProductArt product={p} small /></button><div><b>{p.name}</b><span>{p.subtitle}</span><span>{money(p.price)}</span><button className="button" style={{ marginTop: 8 }} onClick={() => add(p)}>Add to Cart</button></div><button className="remove" onClick={() => onToggle(p.slug)}>Remove</button></div>)}</>}
   </aside></ModalShell>;
 }
 
@@ -494,7 +512,7 @@ function ProductReviews({ product, submitted }: { product: Product; submitted: R
   </section>;
 }
 
-function ProductDetail({ product, add, onClose, soldOut, submittedReviews }: { product: Product; add: (p: Product, qty?: number, color?: string) => void; onClose: () => void; soldOut: boolean; submittedReviews: Review[] }) {
+function ProductDetail({ product, add, onClose, soldOut, submittedReviews, wished, onToggleWish }: { product: Product; add: (p: Product, qty?: number, color?: string) => void; onClose: () => void; soldOut: boolean; submittedReviews: Review[]; wished: boolean; onToggleWish: () => void }) {
   const [qty, setQty] = useState(1);
   const [color, setColor] = useState("");
   const [wlEmail, setWlEmail] = useState("");
@@ -518,7 +536,7 @@ function ProductDetail({ product, add, onClose, soldOut, submittedReviews }: { p
   return <ModalShell label={`${product.name} product details`} onClose={onClose} className="product-shell"><article className="product-modal">
     <button className="product-close" onClick={onClose}>Close</button>
     <div className="product-gallery">{product.video && <div className="product-art product-photo product-video" key="video"><video src={product.video} muted loop playsInline autoPlay preload="metadata" aria-label={`${product.name} product video`}/></div>}{(product.images?.length ? product.images : [null, null]).map((image,index)=>image ? <div className="product-art product-photo" key={image.src}><img src={image.src} alt={image.alt} width="1600" height="1600" loading={index ? "lazy" : undefined}/></div> : <ProductArt product={product} key={index}/>)}</div>
-    <div className="product-info"><p className="eyebrow">{isHair ? `THE WYNN METHOD · STEP ${product.methodStep} OF 6` : product.subtitle.toUpperCase()}</p><h2>{product.name}<span>{product.subtitle}</span></h2><p className="product-price">{money(product.price)} {product.size && `· ${product.size}`}</p><PayInFour price={product.price} /><p>{product.description}</p>{needsColor && <fieldset className="color-picker"><legend>Color{color ? `: ${color}` : ""}</legend>{product.colors!.map(c=><button type="button" key={c} className={color===c?"active":""} aria-pressed={color===c} onClick={()=>setColor(c)}>{c}</button>)}</fieldset>}{soldOut ? <div className="waitlist"><p className="waitlist-heading">Sold Out</p>{wlState==="ok" ? <p className="waitlist-done">You’re on the list — we’ll email you the moment {product.name} is back in stock.</p> : <form onSubmit={joinWaitlist}><label htmlFor="wl-email">Join the waitlist and we’ll email you when it’s restocked.</label><input id="wl-email" type="email" required placeholder="Enter your email" value={wlEmail} onChange={e=>setWlEmail(e.target.value)} /><button className="button full" type="submit" disabled={wlState==="sending"}>{wlState==="sending"?"Joining…":"Join the Waitlist"}</button>{wlState==="err" && <p className="waitlist-err">Something went wrong — please try again.</p>}<small>{brandConfig.consent}</small></form>}</div> : <><label>Quantity<select value={qty} onChange={e=>setQty(Number(e.target.value))}>{[1,2,3,4].map(n=><option key={n}>{n}</option>)}</select></label><button className="button full" disabled={needsColor && !color} onClick={()=>add(product,qty,color||undefined)}>{needsColor && !color ? "Select a color" : "Add to Cart"}</button></>}
+    <div className="product-info"><p className="eyebrow">{isHair ? `THE WYNN METHOD · STEP ${product.methodStep} OF 6` : product.subtitle.toUpperCase()}</p><h2>{product.name}<span>{product.subtitle}</span></h2><p className="product-price">{money(product.price)} {product.size && `· ${product.size}`}</p><PayInFour price={product.price} /><p>{product.description}</p>{needsColor && <fieldset className="color-picker"><legend>Color{color ? `: ${color}` : ""}</legend>{product.colors!.map(c=><button type="button" key={c} className={color===c?"active":""} aria-pressed={color===c} onClick={()=>setColor(c)}>{c}</button>)}</fieldset>}{soldOut ? <div className="waitlist"><p className="waitlist-heading">Sold Out</p>{wlState==="ok" ? <p className="waitlist-done">You’re on the list — we’ll email you the moment {product.name} is back in stock.</p> : <form onSubmit={joinWaitlist}><label htmlFor="wl-email">Join the waitlist and we’ll email you when it’s restocked.</label><input id="wl-email" type="email" required placeholder="Enter your email" value={wlEmail} onChange={e=>setWlEmail(e.target.value)} /><button className="button full" type="submit" disabled={wlState==="sending"}>{wlState==="sending"?"Joining…":"Join the Waitlist"}</button>{wlState==="err" && <p className="waitlist-err">Something went wrong — please try again.</p>}<small>{brandConfig.consent}</small></form>}</div> : <><label>Quantity<select value={qty} onChange={e=>setQty(Number(e.target.value))}>{[1,2,3,4].map(n=><option key={n}>{n}</option>)}</select></label><button className="button full" disabled={needsColor && !color} onClick={()=>add(product,qty,color||undefined)}>{needsColor && !color ? "Select a color" : "Add to Cart"}</button><button type="button" className="outline-button full wish-toggle" aria-pressed={wished} onClick={onToggleWish}>{wished ? "♥ Saved to favorites" : "♡ Save to favorites"}</button></>}
       <h3>Why You’ll Love It</h3><ul className="benefit-list">{(product.featured ? hydrateBenefits : [product.benefit,"Supports a consistent routine","Created for textured-hair care"]).map(x=><li key={x}>{x}</li>)}</ul>
       <div className="accordions">{Object.entries(accordions).map(([title,body])=><details key={title}><summary>{title}</summary><p>{body}</p></details>)}</div>
     </div>
@@ -557,6 +575,9 @@ export default function WynnShop() {
   const [ingredientFilter,setIngredientFilter]=useState<string|null>(null);
   const [cart,setCart]=useState<CartItem[]>([]);
   const [cartOpen,setCartOpen]=useState(false);
+  // Device-based favorites (slugs), persisted in localStorage — no login needed.
+  const [wishlist,setWishlist]=useState<string[]>([]);
+  const [wishOpen,setWishOpen]=useState(false);
   const [searchOpen,setSearchOpen]=useState(false);
   const [product,setProduct]=useState<Product|null>(null);
   const [footerInfo,setFooterInfo]=useState<FooterInfoKey|null>(null);
@@ -575,6 +596,7 @@ export default function WynnShop() {
     const hydrate = window.setTimeout(() => {
       try { const t=Number(localStorage.getItem("wynnInvitationAcceptedAt")||0); if(!t||Date.now()-t>30*864e5) setInvitation("auto"); } catch {}
       try { setCart(JSON.parse(localStorage.getItem("wynnCart")||"[]")); } catch {}
+      try { const w=JSON.parse(localStorage.getItem("wynnWishlist")||"[]"); if(Array.isArray(w)) setWishlist(w.filter((s:unknown):s is string=>typeof s==="string")); } catch {}
     }, 0);
     fetch("/api/inventory").then(r=>r.ok?r.json():null).then(d=>{ if(d){ if(Array.isArray(d.soldOut)) setSoldOutSlugs(new Set(d.soldOut)); if(Array.isArray(d.inStock)) setInStockSlugs(new Set(d.inStock)); } }).catch(()=>{});
     fetch("/api/reviews").then(r=>r.ok?r.json():null).then(d=>{ if(d && Array.isArray(d.reviews)){ const grouped:Record<string,Review[]>={}; for(const r of d.reviews as Review[]){ (grouped[r.productSlug] ||= []).push(r); } setReviewsBySlug(grouped); } }).catch(()=>{});
@@ -591,6 +613,9 @@ export default function WynnShop() {
     if(found){ setProduct(found); track("product_view",{productSlug:found.slug}); }
   },[]);
   useEffect(()=>{ try { localStorage.setItem("wynnCart",JSON.stringify(cart)); } catch {} },[cart]);
+  useEffect(()=>{ try { localStorage.setItem("wynnWishlist",JSON.stringify(wishlist)); } catch {} },[wishlist]);
+  const toggleWish=(slug:string)=>setWishlist(w=>w.includes(slug)?w.filter(s=>s!==slug):[...w,slug]);
+  const inWishlist=(slug:string)=>wishlist.includes(slug);
   // Auto-dismiss the on-screen notice (add-to-cart toast, etc.) after a few seconds.
   useEffect(()=>{ if(!notice) return; const t=window.setTimeout(()=>setNotice(""),3500); return ()=>window.clearTimeout(t); },[notice]);
   const add=(p:Product,qty=1,color?:string)=>{ if(soldOut(p)){setNotice(`${p.name} is currently sold out.`);return;} setCart(c=>{const old=c.find(x=>x.slug===p.slug&&x.color===color);return old?c.map(x=>x.slug===p.slug&&x.color===color?{...x,quantity:x.quantity+qty}:x):[...c,{slug:p.slug,quantity:qty,...(color?{color}:{})}]});setNotice(`${p.name}${color?` (${color})`:""} added to your bag.`);track("add_to_cart",{productSlug:p.slug});};
@@ -610,7 +635,7 @@ export default function WynnShop() {
     <a className="skip-link" href="#main">Skip to content</a>
     <div className={`toast${notice ? " show" : ""}`} role="status" aria-live="polite">{notice}</div>
     {invitation && <Invitation manual={invitation==="manual"} onDone={()=>setInvitation(false)}/>}
-    <Header count={cart.reduce((s,i)=>s+i.quantity,0)} openCart={()=>setCartOpen(true)} openSearch={()=>setSearchOpen(true)} viewInvite={()=>setInvitation("manual")}/>
+    <Header count={cart.reduce((s,i)=>s+i.quantity,0)} wishCount={wishlist.length} openCart={()=>setCartOpen(true)} openSearch={()=>setSearchOpen(true)} openWishlist={()=>setWishOpen(true)} viewInvite={()=>setInvitation("manual")}/>
     <main id="main">
       <section className="hero"><div className="hero-copy"><p className="eyebrow">TEXTURED-HAIR WELLNESS, MADE INTENTIONAL</p><h1 id="main-heading" tabIndex={-1}>Healthy Hair<br />Is a Practice.</h1><p>Moisture, strength, scalp, and styling essentials created for textured hair and the routines that keep it healthy.</p><div className="actions"><button className="button" onClick={()=>scroll("shop")}>Shop the Essentials</button><button className="outline-button" onClick={()=>scroll("routine-finder")}>Find My Routine</button></div><small>Made for curls, coils, braids, locs, and protective styles.</small></div><div className="hero-image"><img src="/hero-nourish-sky.jpg" width="1206" height="2126" alt="Model holding eight Wynn Essentials Nourish boxes against a bright blue sky" fetchPriority="high"/></div></section>
       <section className="statement section"><h2>Hair care for every part<br /><em>of your routine.</em></h2><p>Wynn Essentials offers gentle shampoo, moisture-rich conditioners, daily hydration, scalp and sealing oils, styling cream, edge control, satin accessories, and premium human hair for protective styles. Choose the products that fit your hair and build a routine around what it needs.</p><a href="#shop">Explore the Collection</a></section>
@@ -620,7 +645,7 @@ export default function WynnShop() {
         ["/editorial/hydrate-mist.png","Hydrate","Herbal Hair Mist","Hydrate Herbal Hair Mist spraying against a vivid pink background"],
         ["/editorial/lathyr-foam.jpeg","Lathyr","Gentle Cleansing Shampoo","Lathyr cleansing shampoo surrounded by rich foam"],
       ].map(([src,name,subtitle,alt])=><button className="editorial-card" key={name} onClick={()=>openProduct(products.find(p=>p.name===name)!)} aria-label={`Shop ${name}`}><img src={src} alt={alt} width="1206" height="1800" loading="lazy"/><span><b>{name}</b><small>{subtitle}</small><em>Shop now</em></span></button>)}</div></section>
-      <section id="shop" className="shop section"><div className="section-heading"><p className="eyebrow">THE COLLECTION</p><h2>Shop the Essentials</h2></div><div className="filters" aria-label="Filter products">{["All","Cleanse","Condition","Treat","Moisturize","Oils","Style","Accessories","Bundles"].map(x=><button aria-pressed={filter===x && !ingredientFilter} onClick={()=>{setFilter(x);setIngredientFilter(null);}} key={x}>{x}</button>)}</div>{ingredientFilter && <p className="ingredient-filter-note" aria-live="polite">Showing products formulated with <strong>{ingredientFilter}</strong>. <button className="text-button" onClick={()=>setIngredientFilter(null)}>Show all products</button></p>}<div className="product-grid">{visible.map(p=><article className={`product-card${soldOut(p)?" is-sold-out":""}`} key={p.slug}><button className="art-button" onClick={()=>openProduct(p)} aria-label={`View ${p.name} details`}><ProductArt product={p}/>{soldOut(p) && <span className="sold-out-badge">Sold Out</span>}</button><div><p className="eyebrow">{p.kind ? p.category.toUpperCase() : `STEP ${p.methodStep} · ${p.category.toUpperCase()}`}</p><button className="product-title" onClick={()=>openProduct(p)}><h3>{p.name}</h3><span>{p.subtitle}</span></button><p>{p.benefit}</p><small>{p.size ?? "Size to be confirmed"}</small><strong>{money(p.price)}</strong>{soldOut(p) ? <button className="outline-button full sold-out-cta" onClick={()=>openProduct(p)}>Sold Out · Join the Waitlist</button> : p.colors?.length ? <button className="outline-button full" onClick={()=>openProduct(p)}>Select Options</button> : <button className="outline-button full" onClick={()=>add(p)}>Add to Cart</button>}</div></article>)}</div></section>
+      <section id="shop" className="shop section"><div className="section-heading"><p className="eyebrow">THE COLLECTION</p><h2>Shop the Essentials</h2></div><div className="filters" aria-label="Filter products">{["All","Cleanse","Condition","Treat","Moisturize","Oils","Style","Accessories","Bundles"].map(x=><button aria-pressed={filter===x && !ingredientFilter} onClick={()=>{setFilter(x);setIngredientFilter(null);}} key={x}>{x}</button>)}</div>{ingredientFilter && <p className="ingredient-filter-note" aria-live="polite">Showing products formulated with <strong>{ingredientFilter}</strong>. <button className="text-button" onClick={()=>setIngredientFilter(null)}>Show all products</button></p>}<div className="product-grid">{visible.map(p=><article className={`product-card${soldOut(p)?" is-sold-out":""}`} key={p.slug}><button className="art-button" onClick={()=>openProduct(p)} aria-label={`View ${p.name} details`}><ProductArt product={p}/>{soldOut(p) && <span className="sold-out-badge">Sold Out</span>}</button><WishHeart active={inWishlist(p.slug)} onToggle={()=>toggleWish(p.slug)} label={p.name}/><div><p className="eyebrow">{p.kind ? p.category.toUpperCase() : `STEP ${p.methodStep} · ${p.category.toUpperCase()}`}</p><button className="product-title" onClick={()=>openProduct(p)}><h3>{p.name}</h3><span>{p.subtitle}</span></button><p>{p.benefit}</p><small>{p.size ?? "Size to be confirmed"}</small><strong>{money(p.price)}</strong>{soldOut(p) ? <button className="outline-button full sold-out-cta" onClick={()=>openProduct(p)}>Sold Out · Join the Waitlist</button> : p.colors?.length ? <button className="outline-button full" onClick={()=>openProduct(p)}>Select Options</button> : <button className="outline-button full" onClick={()=>add(p)}>Add to Cart</button>}</div></article>)}</div></section>
       <section id="the-wynn-method" className="method section kraft-panel"><div className="section-heading"><p className="eyebrow">ONE ROUTINE. EVERY ESSENTIAL.</p><h2>The Wynn Method</h2></div><div className="method-grid">{method.map((m,i)=><article key={m[0]}><div className="method-image"><span>{String(i+1).padStart(2,"0")}</span><ProductArt product={products.find(p=>p.methodStep===i+1)!}/></div><h3>{m[0]}</h3><p>{m[1]}</p></article>)}</div><div className="center-actions"><a className="button" href="#shop">Explore the Wynn Method</a><span>Not sure where to start?</span><a className="outline-button" href="#routine-finder">Build My Routine</a></div></section>
       <section className="campaign hydrate"><div><p className="eyebrow">HYDRATE HERBAL HAIR MIST</p><h2>Moisture Does Not Stop<br />When the Style Begins.</h2><p>Hydrate Herbal Hair Mist supports daily moisture for curls, coils, braids, locs, twists, and protective styles.</p><div className="actions"><button className="button" onClick={()=>openProduct(products[0])}>Shop Hydrate</button><button className="outline-button" onClick={()=>openProduct(products[0])}>See How to Use It</button></div><small>Lightweight moisture. No routine reset required.</small></div><div className="product-art product-photo campaign-video"><ScrollPlayVideo src="/products/hydrate-campaign-v2.mov" ariaLabel="Hydrate Herbal Hair Mist used while styling textured hair" /></div></section>
       <section id="shop-by-concern" className="category-section section"><p className="eyebrow">SHOP BY CONCERN</p><h2>What Does Your Hair Need?</h2><div>{["Dryness","Weakness and Breakage","Scalp Care","Protective Style Care","Definition and Styling"].map((x,i)=><a href="#shop" onClick={()=>setFilter(i===1?"Treat":i===2?"Oils":i===4?"Style":"All")} key={x}><span>{String(i+1).padStart(2,"0")}</span>{x}<b>Explore</b></a>)}</div></section>
@@ -681,7 +706,8 @@ export default function WynnShop() {
     </footer>
     {cartOpen&&<Cart items={cart} setItems={setCart} onClose={()=>setCartOpen(false)}/>}
     {searchOpen&&<Search add={add} onClose={()=>setSearchOpen(false)} openProduct={openProduct}/>}
-    {product&&<ProductDetail product={product} add={add} soldOut={soldOut(product)} submittedReviews={reviewsBySlug[product.slug] ?? []} onClose={()=>{setProduct(null);history.replaceState(null,"",location.pathname)}}/>}
+    {wishOpen&&<Wishlist slugs={wishlist} add={add} openProduct={openProduct} onToggle={toggleWish} onClose={()=>setWishOpen(false)}/>}
+    {product&&<ProductDetail product={product} add={add} soldOut={soldOut(product)} submittedReviews={reviewsBySlug[product.slug] ?? []} wished={inWishlist(product.slug)} onToggleWish={()=>toggleWish(product.slug)} onClose={()=>{setProduct(null);history.replaceState(null,"",location.pathname)}}/>}
     {footerInfo&&<FooterInfo page={footerInfo} onClose={()=>setFooterInfo(null)}/>}
   </div>;
 }
