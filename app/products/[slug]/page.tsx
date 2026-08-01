@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { products, Product } from "../../data";
 import { reviewsFor, summarize } from "../../reviews";
 import { productSchema, breadcrumbSchema } from "../../seo";
+import PayInFour from "../../PayInFour";
 
 // Pre-render one static page per catalog product. Each gets its own crawlable
 // URL, unique metadata, and Product structured data — the pieces the modal-only
@@ -79,6 +80,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           <p className="eyebrow">{isHair ? `THE WYNN METHOD · STEP ${product.methodStep} OF 6` : product.subtitle.toUpperCase()}</p>
           <h1>{product.name}<span>{product.subtitle}</span></h1>
           <p className="pdp-price">{money(product.price)}{product.size && ` · ${product.size}`}</p>
+          <PayInFour price={product.price} />
 
           {summary.count > 0 && (
             <p className="pdp-rating" aria-label={`Rated ${summary.average} out of 5 from ${summary.count} reviews`}>
