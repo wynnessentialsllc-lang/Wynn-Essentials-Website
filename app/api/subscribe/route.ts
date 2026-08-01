@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { subscribers } from "../../../db/schema";
-import { brandConfig } from "../../data";
+import { brandConfig, products } from "../../data";
 import { commerceConfig } from "../../../lib/commerce-config";
+import { notifySubscriberWelcome } from "../../../lib/notify";
 
 // Basic shape check only. Deliverability is confirmed by the email provider that
 // eventually consumes this table, not here.
@@ -34,6 +36,11 @@ export async function POST(request: Request) {
     if (phone.length > 40) return NextResponse.json({ error: "That phone number looks too long." }, { status: 400 });
 
     const db = getDb();
+    // Detect a genuinely new subscriber so the welcome email is sent once, not
+    // on every re-submission of an address already on the list.
+    const existing = await db.select({ email: subscribers.email }).from(subscribers).where(eq(subscribers.email, email)).limit(1);
+    const isNew = existing.length === 0;
+
     // Email is the primary key, so a repeat signup refreshes the same row rather
     // than erroring or duplicating. The exact consent language shown is stored
     // alongside the choice for a durable compliance record.
@@ -47,6 +54,14 @@ export async function POST(request: Request) {
       target: subscribers.email,
       set: { phone: phone || null, marketingConsent: consent, consentText: brandConfig.consent, source, updatedAt: new Date() },
     });
+
+    // Best-effort welcome email for new subscribers only. A waitlist signup
+    // ("waitlist:<slug>") gets the restock-confirmation copy for that product.
+    if (isNew) {
+      const slug = source.startsWith("waitlist:") ? source.slice("waitlist:".length) : null;
+      const product = slug ? products.find(p => p.slug === slug) : null;
+      await notifySubscriberWelcome({ email, productName: product ? `${product.name} ${product.subtitle}` : null }).catch(() => {});
+    }
 
     return NextResponse.json({ ok: true });
   } catch (error) {
