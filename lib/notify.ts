@@ -188,6 +188,30 @@ export async function notifyCustomerOrderConfirmation(order: OrderInfo): Promise
   });
 }
 
+/**
+ * Welcome email for a brand-new subscriber. When productName is set, it's a
+ * restock-waitlist signup and the copy confirms we'll notify them when that
+ * product is back; otherwise it's a newsletter ("The Wynn Edit") welcome.
+ */
+export async function notifySubscriberWelcome({ email, productName }: { email: string; productName?: string | null }): Promise<boolean> {
+  if (!email) return false;
+  if (productName) {
+    const body = `<p style="font-size:15px;line-height:1.6;margin:0">We'll email you the moment <strong>${esc(productName)}</strong> is back in stock. No need to check back — we've got you.</p>`;
+    return sendEmail({
+      to: email,
+      subject: `You're on the waitlist — ${productName}`,
+      html: customerShell("You're on the list!", `Thanks for your interest in ${esc(productName)}.`, body),
+    });
+  }
+  const body = `<p style="font-size:15px;line-height:1.6;margin:0">You'll receive routine guidance, ingredient education, new product releases, and early access — straight to your inbox. Welcome to the family.</p>
+    <p style="margin:22px 0 0"><a href="https://wynnessentialsllc.us/#shop" style="display:inline-block;background:#c8aa82;color:#111;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.06em;padding:14px 22px">SHOP THE ESSENTIALS</a></p>`;
+  return sendEmail({
+    to: email,
+    subject: "Welcome to The Wynn Edit",
+    html: customerShell("Welcome to The Wynn Edit", "Thanks for joining — good hair information belongs in your inbox.", body),
+  });
+}
+
 type ShippedInfo = OrderInfo & { trackingNumber?: string | null; carrier?: string | null };
 
 /** Shipping confirmation with tracking, sent when an order is marked shipped. */
