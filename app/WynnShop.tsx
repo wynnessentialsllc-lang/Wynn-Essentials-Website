@@ -266,7 +266,10 @@ function Invitation({ manual, onDone }: { manual: boolean; onDone: () => void })
 // First-order discount popup: captures an email (and optional phone) in exchange
 // for the welcome code. On success it reveals the code on screen and the API
 // also emails it. `wynnOfferClaimed` prevents it from re-showing after a claim.
-function FirstOrderOffer({ onClose }: { onClose: () => void }) {
+// Shown when a shopper starts checkout: capture an email for the welcome code,
+// then proceed. `onClose` returns to the bag without checking out; `onContinue`
+// proceeds to Stripe (used after claiming the code or declining the offer).
+function FirstOrderOffer({ onClose, onContinue }: { onClose: () => void; onContinue: () => void }) {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [consent, setConsent] = useState(false);
@@ -292,8 +295,8 @@ function FirstOrderOffer({ onClose }: { onClose: () => void }) {
         <h2>{brandConfig.firstOrder.discountLabel}<span>unlocked</span></h2>
         <p>Enter this code at checkout:</p>
         <p className="offer-code">{brandConfig.firstOrder.code}</p>
-        <p className="offer-fine">We&rsquo;ve emailed it to you too. Valid on your first order.</p>
-        <button className="button full" onClick={onClose}>Start shopping</button>
+        <p className="offer-fine">We&rsquo;ve emailed it to you too. Enter it on the next screen.</p>
+        <button className="button full" onClick={onContinue}>Continue to checkout</button>
       </div> : <form onSubmit={submit}>
         <p className="eyebrow">WELCOME TO WYNN ESSENTIALS</p>
         <h2>{brandConfig.firstOrder.headline}</h2>
@@ -304,7 +307,7 @@ function FirstOrderOffer({ onClose }: { onClose: () => void }) {
         <button className="button full" type="submit" disabled={state === "sending"}>{state === "sending" ? "Getting your code…" : `Get my ${brandConfig.firstOrder.discountLabel} code`}</button>
         {state === "err" && <p className="offer-err">Please enter a valid email and agree to messages.</p>}
         <small>{brandConfig.consent}</small>
-        <button type="button" className="text-button offer-decline" onClick={onClose}>No thanks, I&rsquo;ll pay full price</button>
+        <button type="button" className="text-button offer-decline" onClick={onContinue}>No thanks &mdash; continue to checkout</button>
       </form>}
     </div>
   </ModalShell>;
@@ -335,8 +338,29 @@ function Cart({ items, setItems, onClose }: { items: CartItem[]; setItems: (x: C
   const unknown = detailed.some(x => x.product.price == null);
   const unconfigured = detailed.some(x => !x.product.stripePriceId || !x.product.size);
   const [checkoutError, setCheckoutError] = useState("");
+  const [showOffer, setShowOffer] = useState(false);
   const change = (slug: string, color: string | undefined, delta: number) => setItems(items.map(i => i.slug === slug && i.color === color ? { ...i, quantity: Math.max(0, i.quantity + delta) } : i).filter(i => i.quantity));
   const remove = (slug: string, color: string | undefined) => setItems(items.filter(i => !(i.slug === slug && i.color === color)));
+  // The first-order offer appears once when a shopper starts checkout, unless
+  // they've already claimed it or dismissed it within the last 14 days.
+  const offerShouldShow = () => {
+    try {
+      if (localStorage.getItem("wynnOfferClaimed")) return false;
+      const seenAt = Number(localStorage.getItem("wynnOfferSeenAt") || 0);
+      return !seenAt || Date.now() - seenAt > 14 * 864e5;
+    } catch { return false; }
+  };
+  const markOfferSeen = () => { try { localStorage.setItem("wynnOfferSeenAt", String(Date.now())); } catch {} };
+  const startCheckout = async () => {
+    setCheckoutError("");
+    try {
+      track("begin_checkout");
+      const response = await fetch("/api/stripe/create-checkout-session", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ items:detailed.map(x=>({productId:x.product.slug,variantId:x.product.variantId,quantity:x.quantity,...(x.color?{color:x.color}:{})})), invitationAccepted:true }) });
+      const result = await response.json() as {url?:string;error?:string};
+      if(!response.ok || !result.url) throw new Error(result.error || "Secure checkout is unavailable.");
+      window.location.assign(result.url);
+    } catch (error) { setCheckoutError(error instanceof Error ? error.message : "Secure checkout is unavailable."); }
+  };
   return <ModalShell label="Shopping bag" onClose={onClose} className="drawer-shell"><aside className="drawer">
     <header><h2>Your Bag</h2><button onClick={onClose}>Close</button></header>
     {!items.length ? <div className="empty"><p>Your bag is ready for an intentional routine.</p><button className="button" onClick={onClose}>Continue Shopping</button></div> :
@@ -346,16 +370,11 @@ function Cart({ items, setItems, onClose }: { items: CartItem[]; setItems: (x: C
       <p className="payment-note">Available payment options are shown securely at checkout. Discounts, shipping, and tax are validated by Stripe.</p>
       {unconfigured && <p className="config-warning">Checkout will open after Wynn Essentials verifies product prices, sizes, Stripe Price IDs, and shipping rates.</p>}
       {checkoutError && <p role="alert">{checkoutError}</p>}
-      <button className="button full" disabled={unknown || unconfigured} onClick={async () => {
-        setCheckoutError("");
-        try {
-          track("begin_checkout");
-          const response = await fetch("/api/stripe/create-checkout-session", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ items:detailed.map(x=>({productId:x.product.slug,variantId:x.product.variantId,quantity:x.quantity,...(x.color?{color:x.color}:{})})), invitationAccepted:true }) });
-          const result = await response.json() as {url?:string;error?:string};
-          if(!response.ok || !result.url) throw new Error(result.error || "Secure checkout is unavailable.");
-          window.location.assign(result.url);
-        } catch (error) { setCheckoutError(error instanceof Error ? error.message : "Secure checkout is unavailable."); }
-      }}>Checkout securely with Stripe</button></>}
+      <button className="button full" disabled={unknown || unconfigured} onClick={() => { if (offerShouldShow()) setShowOffer(true); else startCheckout(); }}>Checkout securely with Stripe</button>
+      {showOffer && <FirstOrderOffer
+        onClose={() => { markOfferSeen(); setShowOffer(false); }}
+        onContinue={() => { markOfferSeen(); setShowOffer(false); startCheckout(); }}
+      />}</>}
   </aside></ModalShell>;
 }
 
@@ -523,7 +542,6 @@ function RoutineFinder({ add, openProduct }: { add: (p: Product) => void; openPr
 
 export default function WynnShop() {
   const [invitation,setInvitation]=useState<false|"auto"|"manual">(false);
-  const [offer,setOffer]=useState(false);
   const [filter,setFilter]=useState("All");
   // When set (to an ingredient library name), the shop grid shows only products
   // whose ingredient list contains that ingredient, overriding the category filter.
@@ -546,15 +564,7 @@ export default function WynnShop() {
   const soldOut=(p:Product)=>soldOutSlugs.has(p.slug)?true:inStockSlugs.has(p.slug)?false:Boolean(p.soldOut);
   useEffect(()=>{
     const hydrate = window.setTimeout(() => {
-      // Prefer the first-order offer on first visit; fall back to the brand
-      // invitation once the offer has been claimed or was dismissed recently.
-      try {
-        const claimed = localStorage.getItem("wynnOfferClaimed");
-        const seenAt = Number(localStorage.getItem("wynnOfferSeenAt")||0);
-        const invT = Number(localStorage.getItem("wynnInvitationAcceptedAt")||0);
-        if (!claimed && (!seenAt || Date.now()-seenAt > 14*864e5)) setOffer(true);
-        else if (!invT || Date.now()-invT > 30*864e5) setInvitation("auto");
-      } catch {}
+      try { const t=Number(localStorage.getItem("wynnInvitationAcceptedAt")||0); if(!t||Date.now()-t>30*864e5) setInvitation("auto"); } catch {}
       try { setCart(JSON.parse(localStorage.getItem("wynnCart")||"[]")); } catch {}
     }, 0);
     fetch("/api/inventory").then(r=>r.ok?r.json():null).then(d=>{ if(d){ if(Array.isArray(d.soldOut)) setSoldOutSlugs(new Set(d.soldOut)); if(Array.isArray(d.inStock)) setInStockSlugs(new Set(d.inStock)); } }).catch(()=>{});
@@ -590,7 +600,6 @@ export default function WynnShop() {
   return <div className="site">
     <a className="skip-link" href="#main">Skip to content</a>
     <div className={`toast${notice ? " show" : ""}`} role="status" aria-live="polite">{notice}</div>
-    {offer && <FirstOrderOffer onClose={()=>{ try{localStorage.setItem("wynnOfferSeenAt",String(Date.now()))}catch{}; setOffer(false); }}/>}
     {invitation && <Invitation manual={invitation==="manual"} onDone={()=>setInvitation(false)}/>}
     <Header count={cart.reduce((s,i)=>s+i.quantity,0)} openCart={()=>setCartOpen(true)} openSearch={()=>setSearchOpen(true)} viewInvite={()=>setInvitation("manual")}/>
     <main id="main">
