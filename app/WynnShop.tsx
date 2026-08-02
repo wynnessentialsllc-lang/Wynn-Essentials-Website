@@ -618,14 +618,20 @@ export default function WynnShop() {
     track("pageview");
     return () => window.clearTimeout(hydrate);
   },[]);
-  // Deep-link support: the crawlable /products/<slug> pages (and any shared
-  // "#product-<slug>" link) send shoppers to the storefront with that hash. Open
-  // the matching modal on load so the buy flow continues seamlessly.
+  // Deep-link support: the /braiding-hair and /products/<slug> pages (and any
+  // shared "#product-<slug>" link) send shoppers to the storefront with that
+  // hash. Open the matching modal both on load AND on hashchange, so it works
+  // whether the hash is present at mount or set during a client-side navigation.
   useEffect(()=>{
-    const match=/^#product-(.+)$/.exec(window.location.hash);
-    if(!match) return;
-    const found=products.find(p=>p.slug===decodeURIComponent(match[1]));
-    if(found){ setProduct(found); track("product_view",{productSlug:found.slug}); }
+    const openFromHash=()=>{
+      const match=/^#product-(.+)$/.exec(window.location.hash);
+      if(!match) return;
+      const found=products.find(p=>p.slug===decodeURIComponent(match[1]));
+      if(found){ setProduct(found); track("product_view",{productSlug:found.slug}); }
+    };
+    openFromHash();
+    window.addEventListener("hashchange", openFromHash);
+    return ()=>window.removeEventListener("hashchange", openFromHash);
   },[]);
   useEffect(()=>{ try { localStorage.setItem("wynnCart",JSON.stringify(cart)); } catch {} },[cart]);
   useEffect(()=>{ try { localStorage.setItem("wynnWishlist",JSON.stringify(wishlist)); } catch {} },[wishlist]);

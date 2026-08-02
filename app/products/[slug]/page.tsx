@@ -69,7 +69,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       </nav>
 
       <main className="pdp-main">
-        <div className="pdp-gallery">
+        <div className={`pdp-gallery${product.kind === "hair" ? " pdp-gallery--contain" : ""}`}>
           {gallery.length ? gallery.map((img, i) => (
             <img key={img.src} src={img.src} alt={img.alt} width={1200} height={1200} loading={i === 0 ? undefined : "lazy"} />
           )) : (
