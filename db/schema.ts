@@ -134,6 +134,23 @@ export const abandonedCarts = pgTable("abandoned_carts", {
 });
 export type AbandonedCart = typeof abandonedCarts.$inferSelect;
 
+// Education-hub / blog posts, managed in /admin/blog. Body is Markdown, rendered
+// server-side. Only "published" posts are shown publicly. No PII, but writes are
+// server/admin-only, so it carries the same RLS posture as the other tables.
+export const blogPosts = pgTable("blog_posts", {
+  slug: text("slug").primaryKey(),
+  title: text("title").notNull(),
+  excerpt: text("excerpt"),
+  body: text("body").notNull(),
+  coverImage: text("cover_image"),
+  author: text("author").notNull().default("Wynn Essentials"),
+  status: text("status").notNull().default("draft"),
+  publishedAt: timestamp("published_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type BlogPost = typeof blogPosts.$inferSelect;
+
 export const events = pgTable("events", {
   id: bigserial("id", { mode: "number" }).primaryKey(),
   visitorId: text("visitor_id").notNull(),

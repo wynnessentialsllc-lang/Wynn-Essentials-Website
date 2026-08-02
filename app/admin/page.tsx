@@ -29,6 +29,7 @@ const SECTIONS: Section[] = [
   { href: "/admin/inventory", title: "Inventory", blurb: "Track stock counts and mark products sold out or back in stock." },
   { href: "/admin/support", title: "Support", blurb: "Customer messages from the contact form. Mark them resolved.", badge: "support" },
   { href: "/admin/reviews", title: "Reviews", blurb: "Approve, reject, or verify customer product reviews before they publish.", badge: "reviews" },
+  { href: "/admin/blog", title: "Journal", blurb: "Write and publish education-hub articles (Markdown), co-branded with Hair Wellness Lab." },
   { href: "/admin/subscribers", title: "Subscribers", blurb: "Newsletter and product-waitlist signups." },
 ];
 
