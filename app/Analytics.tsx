@@ -5,7 +5,10 @@ import Script from "next/script";
 // owner adds their ids in the hosting dashboard. Loaded afterInteractive so they
 // never block the first paint.
 const META = process.env.NEXT_PUBLIC_META_PIXEL_ID;
-const GA = process.env.NEXT_PUBLIC_GA_ID;
+// Google Analytics 4 measurement id for the Wynn Essentials web stream. A GA id
+// is public (it's exposed in the browser on every GA site), so it's baked in as
+// the default and works with no env setup; setting NEXT_PUBLIC_GA_ID overrides it.
+const GA = process.env.NEXT_PUBLIC_GA_ID || "G-MC4SES18K3";
 const TIKTOK = process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID;
 
 export default function Analytics() {
