@@ -4,7 +4,10 @@ import Script from "next/script";
 // NEXT_PUBLIC_* environment variable, so the site ships nothing extra until the
 // owner adds their ids in the hosting dashboard. Loaded afterInteractive so they
 // never block the first paint.
-const META = process.env.NEXT_PUBLIC_META_PIXEL_ID;
+// Meta (Facebook/Instagram) pixel id for Wynn Essentials. Like the GA id, a
+// pixel id is public (exposed in the browser), so it's baked in as the default
+// and needs no env setup; NEXT_PUBLIC_META_PIXEL_ID overrides it.
+const META = process.env.NEXT_PUBLIC_META_PIXEL_ID || "1029431470067779";
 // Google Analytics 4 measurement id for the Wynn Essentials web stream. A GA id
 // is public (it's exposed in the browser on every GA site), so it's baked in as
 // the default and works with no env setup; setting NEXT_PUBLIC_GA_ID overrides it.
