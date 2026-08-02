@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { products, Product } from "../../data";
 import { reviewsFor, summarize } from "../../reviews";
-import { productSchema, breadcrumbSchema } from "../../seo";
+import { productSchema, breadcrumbSchema, ldJson } from "../../seo";
 import PayInFour from "../../PayInFour";
 import WishlistButton from "../../WishlistButton";
 import WaitlistForm from "./WaitlistForm";
@@ -60,8 +60,8 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
 
   return (
     <div className="pdp">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema(product)) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema(product)) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(productSchema(product)) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(breadcrumbSchema(product)) }} />
 
       <header className="pdp-bar">
         <Link className="pdp-logo" href="/">WYNN ESSENTIALS<span>Healthy Hair Is a Practice</span></Link>

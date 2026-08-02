@@ -14,6 +14,35 @@ export const SITE_URL = "https://wynnessentialsllc.us";
 // data must use absolute URLs; relative paths are silently ignored by crawlers.
 export const abs = (path: string) => (path.startsWith("http") ? path : `${SITE_URL}${path.startsWith("/") ? "" : "/"}${path}`);
 
+// Serialize a schema object for embedding in a <script> tag. Escapes the
+// characters that could otherwise break out of the script element ("<", ">",
+// "&") plus the JS line separators, so a stray "</script>" in any field can
+// never terminate the tag. Use this everywhere instead of raw JSON.stringify.
+export const ldJson = (obj: unknown) =>
+  JSON.stringify(obj)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+
+// ItemList for the homepage shop grid, so the primary catalog is a legible
+// product list to search engines even though it renders inside a client
+// component. Excludes bundles/accessories? No — lists everything purchasable.
+export function shopItemListSchema() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: "Shop Wynn Essentials",
+    itemListElement: products.map((p, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      url: productUrl(p.slug),
+      name: `${p.name} ${p.subtitle}`,
+    })),
+  };
+}
+
 // The canonical, crawlable URL for a single product page.
 export const productUrl = (slug: string) => `${SITE_URL}/products/${slug}`;
 

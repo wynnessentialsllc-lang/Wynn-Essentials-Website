@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { blogPosts, type BlogPost } from "../../../db/schema";
-import { SITE_URL } from "../../seo";
+import { SITE_URL, ldJson } from "../../seo";
 import { renderMarkdown } from "../../../lib/markdown";
 
 export const dynamic = "force-dynamic";
@@ -55,7 +55,7 @@ export default async function BlogArticle({ params }: { params: Promise<{ slug: 
 
   return (
     <div className="collection">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(articleSchema) }} />
 
       <header className="collection-bar">
         <Link className="pdp-logo" href="/">WYNN ESSENTIALS<span>Healthy Hair Is a Practice</span></Link>
