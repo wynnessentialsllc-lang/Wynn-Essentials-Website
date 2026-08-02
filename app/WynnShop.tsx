@@ -323,12 +323,12 @@ function Header({ count, wishCount, openCart, openSearch, openWishlist, viewInvi
     <header className="site-header">
       <button className="icon-button menu-trigger" aria-label="Open menu" onClick={() => setMenu(true)}>☰</button>
       <nav aria-label="Primary">{nav.map(x => <a key={x} href={`#${x.toLowerCase().replaceAll(" ", "-")}`}>{x}</a>)}<Link href="/blog">Insights</Link></nav>
-      <a href="#" className="logo" aria-label="Wynn Essentials home"><BrandLogo compact /></a>
+      <a href="/" className="logo" aria-label="Wynn Essentials home"><BrandLogo compact /></a>
       <div className="header-actions"><button onClick={openSearch}>Search</button><button onClick={openWishlist} aria-label={`Saved items, ${wishCount}`}>Saved{wishCount > 0 ? ` (${wishCount})` : ""}</button><button className="bag-button" onClick={openCart} aria-label={`Shopping cart, ${count} items`}><span className="bag-icon-wrap"><img src="/wynn-cart-icon.png" alt="" className="bag-icon" width="331" height="280"/>{count > 0 && <span className="bag-count">{count}</span>}</span></button></div>
     </header>
     {menu && <ModalShell label="Mobile navigation" onClose={() => setMenu(false)} className="mobile-menu">
       <div className="mobile-menu-head"><button onClick={() => setMenu(false)} aria-label="Close menu">Close</button><span className="logo"><BrandLogo compact /></span><button className="bag-button" onClick={openCart} aria-label={`Shopping cart, ${count} items`}><span className="bag-icon-wrap"><img src="/wynn-cart-icon.png" alt="" className="bag-icon" width="331" height="280"/>{count > 0 && <span className="bag-count">{count}</span>}</span></button></div>
-      <nav onClick={() => setMenu(false)}><a href="#shop">Shop</a><div className="subnav">{["All Products","Cleanse","Condition","Treat","Moisturize","Oils","Style","Protective Style Care"].map(x=><a key={x} href="#shop">{x}</a>)}</div>{["The Wynn Method","Shop by Concern","Shop by Style","Routine Finder","Our Story","Contact"].map(x=><a key={x} href={`#${x.toLowerCase().replaceAll(" ","-")}`}>{x}</a>)}<Link href="/blog">Insights</Link></nav>
+      <nav onClick={() => setMenu(false)}><button type="button" className="mobile-search-link" onClick={openSearch}><span aria-hidden="true">⌕</span> Search products</button><a href="#shop">Shop</a><div className="subnav">{["All Products","Cleanse","Condition","Treat","Moisturize","Oils","Style","Protective Style Care"].map(x=><a key={x} href="#shop">{x}</a>)}</div>{["The Wynn Method","Shop by Concern","Shop by Style","Routine Finder","Our Story","Contact"].map(x=><a key={x} href={`#${x.toLowerCase().replaceAll(" ","-")}`}>{x}</a>)}<Link href="/blog">Insights</Link></nav>
       <button className="text-button invite-menu" onClick={viewInvite}>View Invitation</button>
     </ModalShell>}
   </>;
