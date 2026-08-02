@@ -6,6 +6,8 @@ import { reviewsFor, summarize } from "../../reviews";
 import { productSchema, breadcrumbSchema } from "../../seo";
 import PayInFour from "../../PayInFour";
 import WishlistButton from "../../WishlistButton";
+import WaitlistForm from "./WaitlistForm";
+import ProductPageReviews from "./ProductPageReviews";
 
 // Pre-render one static page per catalog product. Each gets its own crawlable
 // URL, unique metadata, and Product structured data — the pieces the modal-only
@@ -99,11 +101,17 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
             <p className="pdp-variants"><strong>{product.variantLabel ?? "Options"}:</strong> {product.variants.map((v) => v.length).join(" · ")} — all {money(product.variants[0].price)}. Choose your set on the shop page.</p>
           )}
 
-          {product.soldOut && <p className="pdp-soldout">Currently sold out</p>}
-          <p className="pdp-actions">
-            <Link className="button" href={shopHref}>{product.soldOut ? "Join the Waitlist" : "Shop This Product"}</Link>
-            <WishlistButton slug={product.slug} name={product.name} />
-          </p>
+          {product.soldOut ? (
+            <div className="pdp-waitlist">
+              <WaitlistForm slug={product.slug} name={product.name} />
+              <WishlistButton slug={product.slug} name={product.name} />
+            </div>
+          ) : (
+            <p className="pdp-actions">
+              <Link className="button" href={shopHref}>Shop This Product</Link>
+              <WishlistButton slug={product.slug} name={product.name} />
+            </p>
+          )}
 
           {product.directions && (
             <section className="pdp-block">
@@ -128,21 +136,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         </div>
       </main>
 
-      {reviews.length > 0 && (
-        <section className="pdp-reviews" aria-label="Customer reviews">
-          <h2>Customer Reviews</h2>
-          <p className="pdp-reviews-summary">{summary.average.toFixed(1)} out of 5 · {summary.count} review{summary.count === 1 ? "" : "s"}</p>
-          <ul>
-            {reviews.map((r) => (
-              <li key={r.id}>
-                <p className="pdp-review-head"><span aria-hidden="true">{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</span> <b>{r.author}</b>{r.verified && <span className="pdp-verified">Verified buyer</span>}</p>
-                {r.title && <p className="pdp-review-title">{r.title}</p>}
-                <p>{r.body}</p>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      <ProductPageReviews slug={product.slug} />
 
       <footer className="pdp-footer">
         <p>Part of the Wynn Essentials collection for textured hair.</p>
