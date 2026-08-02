@@ -73,6 +73,8 @@ export const reviews: Review[] = [
   { id: "relief-stacey-a", productSlug: "relief-oil", author: "Stacey A.", rating: 5, verified: true, date: "2024-01-04", body: "Absolutely love this product. It’s so lightweight, non-sticky, and doesn’t make my skin break out or become greasy. I have sensitive skin so this has been a game changer!" },
   // Body Wave (boho human hair)
   { id: "bodywave-jessica-hale", productSlug: "boho-body-wave-18", author: "Jessica Hale", location: "Scottsdale, Arizona", rating: 5, verified: true, date: "2024-01-16", body: "They have some of the best human hair for boho braids! I’ve had my Body Wave hair installed twice and I always get compliments on how pretty it is." },
+  // Deep Wave (boho human hair)
+  { id: "deepwave-kasmira", productSlug: "boho-deep-wave-18", author: "Kasmira", rating: 5, verified: true, date: "2026-08-02", title: "Best hair ever!", body: "I am absolutely in love with it. The hair is so soft, barely tangles, and detangling is super easy. It has the perfect amount of curl while still giving me the length I wanted. Definitely summer ready! ☀️✨" },
 ];
 
 export type ReviewSummary = {
