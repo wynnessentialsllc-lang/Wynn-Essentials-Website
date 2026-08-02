@@ -661,8 +661,14 @@ export default function WynnShop() {
       if(found){ setProduct(found); track("product_view",{productSlug:found.slug}); }
     };
     openFromHash();
+    // Re-check on the next tick as well: after a client-side navigation into
+    // "/#product-<slug>" (e.g. tapping a card on /braiding-hair) the hash can
+    // land a beat after mount in some browsers, so a single synchronous read
+    // would miss it and the shopper would be left on the home page.
+    const retry=window.setTimeout(openFromHash,0);
     window.addEventListener("hashchange", openFromHash);
-    return ()=>window.removeEventListener("hashchange", openFromHash);
+    window.addEventListener("popstate", openFromHash);
+    return ()=>{ window.clearTimeout(retry); window.removeEventListener("hashchange", openFromHash); window.removeEventListener("popstate", openFromHash); };
   },[]);
   useEffect(()=>{ if(!hydrated.current) return; try { localStorage.setItem("wynnCart",JSON.stringify(cart)); } catch {} },[cart]);
   useEffect(()=>{ if(!hydrated.current) return; try { localStorage.setItem("wynnWishlist",JSON.stringify(wishlist)); } catch {} },[wishlist]);
