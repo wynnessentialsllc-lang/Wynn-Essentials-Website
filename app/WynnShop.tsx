@@ -393,7 +393,7 @@ function Cart({ items, setItems, onClose }: { items: CartItem[]; setItems: (x: C
 // it can sit on top of a card without triggering the card's own click.
 function WishHeart({ active, onToggle, label, className = "" }: { active: boolean; onToggle: () => void; label: string; className?: string }) {
   return <button type="button" className={`wish-heart${active ? " active" : ""} ${className}`} aria-pressed={active} aria-label={active ? `Remove ${label} from favorites` : `Save ${label} to favorites`} onClick={e => { e.stopPropagation(); onToggle(); }}>
-    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 21s-7.6-4.9-10.1-9.3C.2 8.8 1.6 5.4 4.8 4.9c2-.3 3.6.8 4.6 2.2C10.6 5.7 12 4.6 14 4.9c3.2.5 4.6 3.9 2.9 6.8C19.6 16.1 12 21 12 21z" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.7" /></svg>
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /></svg>
   </button>;
 }
 
