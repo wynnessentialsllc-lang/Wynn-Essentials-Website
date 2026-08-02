@@ -93,11 +93,11 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           <p className="pdp-benefit">{product.benefit}</p>
           <p>{product.description}</p>
 
+          {product.soldOut && <p className="pdp-soldout">Currently sold out</p>}
           <p className="pdp-actions">
             <Link className="button" href={shopHref}>{product.soldOut ? "Join the Waitlist" : "Shop This Product"}</Link>
             <WishlistButton slug={product.slug} name={product.name} />
           </p>
-          {product.soldOut && <p className="pdp-soldout">Currently sold out — open the product on our shop to join the restock waitlist.</p>}
 
           {product.directions && (
             <section className="pdp-block">
