@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { products } from "../data";
-import { SITE_URL } from "../seo";
+import { SITE_URL, ldJson } from "../seo";
 
 export const metadata: Metadata = {
   title: "Braiding Hair — Premium Human Hair Bulk | Wynn Essentials",
@@ -39,7 +39,7 @@ export default function BraidingHairPage() {
 
   return (
     <div className="collection">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(itemList) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(itemList) }} />
 
       <header className="collection-bar">
         <Link className="pdp-logo" href="/">WYNN ESSENTIALS<span>Healthy Hair Is a Practice</span></Link>

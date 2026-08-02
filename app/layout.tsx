@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { SITE_URL, organizationSchema, websiteSchema, faqSchema } from "./seo";
+import { SITE_URL, organizationSchema, websiteSchema, faqSchema, ldJson } from "./seo";
 import CookieConsent from "./CookieConsent";
+import Analytics from "./Analytics";
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#FCFBF8" };
 export const metadata: Metadata = {
@@ -21,10 +22,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en">
       <body>
         {schemas.map((schema, i) => (
-          <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
+          <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(schema) }} />
         ))}
         {children}
         <CookieConsent />
+        <Analytics />
       </body>
     </html>
   );
