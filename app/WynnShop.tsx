@@ -611,11 +611,19 @@ export default function WynnShop() {
   // merged with the statically seeded reviews inside each product modal.
   const [reviewsBySlug,setReviewsBySlug]=useState<Record<string,Review[]>>({});
   const soldOut=(p:Product)=>soldOutSlugs.has(p.slug)?true:inStockSlugs.has(p.slug)?false:Boolean(p.soldOut);
+  // Guards the persistence effects: they must not write until the initial load
+  // from localStorage has run, or the empty starting state would overwrite a
+  // saved cart/wishlist on every page load.
+  const hydrated=useRef(false);
   useEffect(()=>{
     const hydrate = window.setTimeout(() => {
-      try { const t=Number(localStorage.getItem("wynnInvitationAcceptedAt")||0); if(!t||Date.now()-t>30*864e5) setInvitation("auto"); } catch {}
+      // Don't interrupt with the invitation when the visitor arrived via a
+      // deep link (e.g. "#cart" or "#product-<slug>") — they have clear intent.
+      const deepLink=/^#(cart|product-)/.test(window.location.hash);
+      try { const t=Number(localStorage.getItem("wynnInvitationAcceptedAt")||0); if(!deepLink && (!t||Date.now()-t>30*864e5)) setInvitation("auto"); } catch {}
       try { setCart(JSON.parse(localStorage.getItem("wynnCart")||"[]")); } catch {}
       try { const w=JSON.parse(localStorage.getItem("wynnWishlist")||"[]"); if(Array.isArray(w)) setWishlist(w.filter((s:unknown):s is string=>typeof s==="string")); } catch {}
+      hydrated.current=true;
     }, 0);
     fetch("/api/inventory").then(r=>r.ok?r.json():null).then(d=>{ if(d){ if(Array.isArray(d.soldOut)) setSoldOutSlugs(new Set(d.soldOut)); if(Array.isArray(d.inStock)) setInStockSlugs(new Set(d.inStock)); } }).catch(()=>{});
     fetch("/api/reviews").then(r=>r.ok?r.json():null).then(d=>{ if(d && Array.isArray(d.reviews)){ const grouped:Record<string,Review[]>={}; for(const r of d.reviews as Review[]){ (grouped[r.productSlug] ||= []).push(r); } setReviewsBySlug(grouped); } }).catch(()=>{});
@@ -628,7 +636,10 @@ export default function WynnShop() {
   // whether the hash is present at mount or set during a client-side navigation.
   useEffect(()=>{
     const openFromHash=()=>{
-      const match=/^#product-(.+)$/.exec(window.location.hash);
+      const hash=window.location.hash;
+      // "#cart" (e.g. from the cancelled-checkout page) reopens the bag.
+      if(hash==="#cart"){ setCartOpen(true); return; }
+      const match=/^#product-(.+)$/.exec(hash);
       if(!match) return;
       const found=products.find(p=>p.slug===decodeURIComponent(match[1]));
       if(found){ setProduct(found); track("product_view",{productSlug:found.slug}); }
@@ -637,8 +648,8 @@ export default function WynnShop() {
     window.addEventListener("hashchange", openFromHash);
     return ()=>window.removeEventListener("hashchange", openFromHash);
   },[]);
-  useEffect(()=>{ try { localStorage.setItem("wynnCart",JSON.stringify(cart)); } catch {} },[cart]);
-  useEffect(()=>{ try { localStorage.setItem("wynnWishlist",JSON.stringify(wishlist)); } catch {} },[wishlist]);
+  useEffect(()=>{ if(!hydrated.current) return; try { localStorage.setItem("wynnCart",JSON.stringify(cart)); } catch {} },[cart]);
+  useEffect(()=>{ if(!hydrated.current) return; try { localStorage.setItem("wynnWishlist",JSON.stringify(wishlist)); } catch {} },[wishlist]);
   const toggleWish=(slug:string)=>setWishlist(w=>w.includes(slug)?w.filter(s=>s!==slug):[...w,slug]);
   const inWishlist=(slug:string)=>wishlist.includes(slug);
   // Auto-dismiss the on-screen notice (add-to-cart toast, etc.) after a few seconds.
