@@ -79,7 +79,7 @@ export default function BraidingHairPage() {
                 <p className="collection-meta">{lengths.join(", ") || p.size}{colors.length ? ` · ${colors.join(", ")}` : ""}</p>
                 <strong className="collection-price">{min == null ? "Price to be confirmed" : min === max ? money(min) : `From ${money(min)}`}</strong>
                 <div className="collection-actions">
-                  <Link className="button" href={`/#product-${p.slug}`}>{allOut ? "Join the Waitlist" : "Shop This Texture"}</Link>
+                  <Link className="button" href={allOut ? `/products/${p.slug}` : `/#product-${p.slug}`}>{allOut ? "Join the Waitlist" : "Shop This Texture"}</Link>
                   <Link className="pdp-bar-shop" href={`/products/${p.slug}`}>Details</Link>
                 </div>
               </div>
