@@ -95,6 +95,10 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           <p className="pdp-benefit">{product.benefit}</p>
           <p>{product.description}</p>
 
+          {product.variants && product.variants.length > 1 && (
+            <p className="pdp-variants"><strong>{product.variantLabel ?? "Options"}:</strong> {product.variants.map((v) => v.length).join(" · ")} — all {money(product.variants[0].price)}. Choose your set on the shop page.</p>
+          )}
+
           {product.soldOut && <p className="pdp-soldout">Currently sold out</p>}
           <p className="pdp-actions">
             <Link className="button" href={shopHref}>{product.soldOut ? "Join the Waitlist" : "Shop This Product"}</Link>

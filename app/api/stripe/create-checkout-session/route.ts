@@ -56,7 +56,10 @@ export async function POST(request: Request) {
       if (product.colors?.length && (!color || !product.colors.includes(color))) throw new Error("INVALID_ITEM");
       const unitPrice = variant ? variant.price : (product.price ?? 0);
       const priceId = variant ? variant.stripePriceId : product.stripePriceId;
-      if (!priceId || !/^price_[A-Za-z0-9]+$/.test(priceId)) throw new Error("UNCONFIGURED_ITEM");
+      const hasValidPriceId = typeof priceId === "string" && /^price_[A-Za-z0-9]+$/.test(priceId);
+      // A line must be chargeable: either a real Stripe price id, or a positive
+      // catalog price we can bill via an inline price_data item (see below).
+      if (!hasValidPriceId && !(unitPrice > 0)) throw new Error("UNCONFIGURED_ITEM");
       // A sold-out item can never be checked out, even from a stale cart. Live
       // inventory overrides the catalog flag; unlisted products use the flag.
       const inv = inventoryOverride.get(product.slug);
@@ -67,9 +70,14 @@ export async function POST(request: Request) {
       if (stock != null && Number(item.quantity) > stock) throw new Error("INSUFFICIENT_STOCK");
       // Subtotal comes from the server catalog, never from the client payload.
       subtotalCents += Math.round(unitPrice * 100) * Number(item.quantity);
-      // Colored items ship at the same price, so an inline price carries the chosen
-      // color onto the line item (and into the recorded order) without a per-color Stripe price.
-      if (color) return { price_data: { currency: "usd", unit_amount: Math.round(unitPrice * 100), product_data: { name: `${product.name} — ${product.subtitle} · ${color}`, metadata: { wynn_slug: product.slug, color } } }, quantity: Number(item.quantity) };
+      // An inline price_data line carries a descriptive name onto the line item
+      // (and the recorded order) without a dedicated Stripe price. Used for two
+      // cases: colored items (same price, per-color name) and selectable
+      // variants that don't have their own Stripe price yet (e.g. the Estate
+      // set). Regular items use their pre-made Stripe price.
+      const variantSuffix = variant && (product.variants?.length ?? 0) > 1 ? ` · ${variant.length}` : "";
+      const colorSuffix = color ? ` · ${color}` : "";
+      if (!hasValidPriceId || color) return { price_data: { currency: "usd", unit_amount: Math.round(unitPrice * 100), product_data: { name: `${product.name} — ${product.subtitle}${variantSuffix}${colorSuffix}`, metadata: { wynn_slug: product.slug, ...(variant ? { variantId: variant.id } : {}), ...(color ? { color } : {}) } } }, quantity: Number(item.quantity) };
       return { price: priceId, quantity: Number(item.quantity) };
     });
     // Honors the "free U.S. shipping over $50" promise made on the storefront.
