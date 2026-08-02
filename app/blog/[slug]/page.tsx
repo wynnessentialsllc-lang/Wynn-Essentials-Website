@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!post) return { title: "Article not found | Wynn Essentials", robots: { index: false, follow: false } };
   const description = clip(post.excerpt || post.body.replace(/[#>*`_\-]/g, ""));
   return {
-    title: `${post.title} | The Wynn Journal`,
+    title: `${post.title} | Wynn Essentials Insights`,
     description,
     alternates: { canonical: `/blog/${slug}` },
     openGraph: { title: post.title, description, url: `/blog/${slug}`, siteName: "Wynn Essentials", type: "article", ...(post.coverImage ? { images: [{ url: post.coverImage }] } : {}) },
@@ -63,7 +63,7 @@ export default async function BlogArticle({ params }: { params: Promise<{ slug: 
       </header>
 
       <nav className="pdp-crumbs" aria-label="Breadcrumb">
-        <Link href="/">Home</Link> <span aria-hidden="true">/</span> <Link href="/blog">Journal</Link> <span aria-hidden="true">/</span> <span aria-current="page">{post.title}</span>
+        <Link href="/">Home</Link> <span aria-hidden="true">/</span> <Link href="/blog">Insights</Link> <span aria-hidden="true">/</span> <span aria-current="page">{post.title}</span>
       </nav>
 
       <article className="article">
@@ -79,7 +79,7 @@ export default async function BlogArticle({ params }: { params: Promise<{ slug: 
       </article>
 
       <footer className="pdp-footer">
-        <p><Link href="/blog">← More from the Journal</Link> · <Link href="/#shop">Shop all products</Link></p>
+        <p><Link href="/blog">← More Insights</Link> · <Link href="/#shop">Shop all products</Link></p>
         <small>© {new Date().getFullYear()} Wynn Essentials. All rights reserved.</small>
       </footer>
     </div>
