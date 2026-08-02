@@ -7,10 +7,10 @@ import { blogPosts } from "../../db/schema";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const metadata: Metadata = {
-  title: "The Wynn Journal — Textured-Hair Education | Wynn Essentials",
+  title: "Wynn Essentials Insights — Textured-Hair Education",
   description: "Routine guides, ingredient education, and protective-style care for textured hair — from Wynn Essentials, in partnership with Hair Wellness Lab.",
   alternates: { canonical: "/blog" },
-  openGraph: { title: "The Wynn Journal — Textured-Hair Education", description: "Routine guides, ingredient education, and protective-style care for textured hair.", url: "/blog", siteName: "Wynn Essentials", type: "website" },
+  openGraph: { title: "Wynn Essentials Insights — Textured-Hair Education", description: "Routine guides, ingredient education, and protective-style care for textured hair.", url: "/blog", siteName: "Wynn Essentials", type: "website" },
 };
 
 const when = (d: Date | null) => (d ? new Intl.DateTimeFormat("en-US", { dateStyle: "long" }).format(d) : "");
@@ -29,11 +29,11 @@ export default async function BlogIndex() {
       </header>
 
       <nav className="pdp-crumbs" aria-label="Breadcrumb">
-        <Link href="/">Home</Link> <span aria-hidden="true">/</span> <span aria-current="page">Journal</span>
+        <Link href="/">Home</Link> <span aria-hidden="true">/</span> <span aria-current="page">Insights</span>
       </nav>
 
       <section className="collection-hero">
-        <p className="eyebrow">THE WYNN JOURNAL</p>
+        <p className="eyebrow">WYNN ESSENTIALS INSIGHTS</p>
         <h1>Good hair information, shared.</h1>
         <p>Routine guides, ingredient education, and protective-style care for textured hair — in partnership with Hair Wellness Lab.</p>
       </section>

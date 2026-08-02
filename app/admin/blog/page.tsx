@@ -11,7 +11,7 @@ import { savePost, deletePost } from "./actions";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const metadata: Metadata = {
-  title: "Journal — Wynn Essentials",
+  title: "Insights — Wynn Essentials",
   robots: { index: false, follow: false, nocache: true },
 };
 
@@ -24,7 +24,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 }
 
 export default async function AdminBlog({ searchParams }: { searchParams: Promise<{ edit?: string }> }) {
-  if (!adminTokenConfigured()) return <Shell><p className="eyebrow">JOURNAL</p><h1>Journal is not configured.</h1><p>Set <code>ADMIN_ORDERS_TOKEN</code> in Vercel to open this page.</p></Shell>;
+  if (!adminTokenConfigured()) return <Shell><p className="eyebrow">INSIGHTS</p><h1>Insights is not configured.</h1><p>Set <code>ADMIN_ORDERS_TOKEN</code> in Vercel to open this page.</p></Shell>;
   if (!(await isAuthenticated())) return <Shell><SignInForm /></Shell>;
 
   const { edit } = await searchParams;
@@ -38,10 +38,10 @@ export default async function AdminBlog({ searchParams }: { searchParams: Promis
   return (
     <Shell>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "1rem", flexWrap: "wrap" }}>
-        <div><p className="eyebrow">EDUCATION HUB</p><h1>Journal</h1></div>
+        <div><p className="eyebrow">EDUCATION HUB</p><h1>Insights</h1></div>
         <form action={signOut}><button className="outline-button" type="submit">Sign out</button></form>
       </div>
-      <p style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}><Link href="/admin">← Admin home</Link><Link href="/blog" target="_blank">View live journal ↗</Link></p>
+      <p style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}><Link href="/admin">← Admin home</Link><Link href="/blog" target="_blank">View live Insights ↗</Link></p>
 
       {error && <p role="alert" style={{ background: "#faf0e6", padding: "0.8rem 1rem", borderRadius: 4 }}>Could not read posts: {error}. If the table isn’t set up yet, run the <code>blog_posts</code> migration first.</p>}
 
