@@ -38,7 +38,7 @@ export default function WaitlistForm({ slug, name }: { slug: string; name: strin
           <input id="wl-email" type="email" required placeholder="Enter your email" value={email} onChange={(e) => setEmail(e.target.value)} />
           <button className="button full" type="submit" disabled={state === "sending"}>{state === "sending" ? "Joining…" : "Join the Waitlist"}</button>
           {state === "err" && <p className="waitlist-err">Something went wrong — please try again.</p>}
-          <small>{brandConfig.consent}</small>
+          <small>{brandConfig.waitlistConsent}</small>
         </form>
       )}
     </div>

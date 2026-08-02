@@ -147,7 +147,10 @@ export const brandConfig = {
   announcement: "Free U.S. shipping on orders over $50.",
   shippingThreshold: 50,
   founder: { name: "The Wynn Sisters — Patricia, Sheree, and Karina Wynn", ownership: "Black women-owned", established: "Established 2020", location: "Los Angeles, California" },
-  consent: "By joining, you agree to receive Wynn Essentials marketing messages. Consent is optional and can be withdrawn at any time. Message and data rates may apply.",
+  consent: "By joining, you agree to receive Wynn Essentials marketing emails. Consent is optional and you can unsubscribe at any time.",
+  // Shown on restock-waitlist forms. Joining a waitlist is a one-time
+  // transactional alert for a single product — not marketing consent.
+  waitlistConsent: "We’ll email you once — when this item is back in stock. No marketing list, no obligation.",
   // First-order welcome offer. `code` must match a Stripe promotion code created
   // in the dashboard (a 15%-off coupon), and STRIPE_PROMOTION_CODES_ENABLED must
   // be "true" so the code field appears at checkout. Change the code/label here

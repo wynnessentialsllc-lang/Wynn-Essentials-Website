@@ -23,17 +23,18 @@ export async function POST(request: Request) {
     const siteOrigin = new URL(commerceConfig.siteUrl).origin;
     if (origin && origin !== siteOrigin && !origin.includes("localhost")) return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
 
-    const body = await request.json() as { email?: unknown; phone?: unknown; consent?: unknown; source?: unknown };
+    const body = await request.json() as { email?: unknown; consent?: unknown; source?: unknown };
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
-    const phone = typeof body.phone === "string" ? body.phone.trim() : "";
     const consent = body.consent === true;
     // Whitelisted so a signup can tag itself (e.g. a product restock waitlist)
     // without accepting arbitrary values.
     const source = typeof body.source === "string" && /^(the-wynn-edit|first-order-popup|waitlist:[a-z0-9-]{1,60})$/.test(body.source) ? body.source : "the-wynn-edit";
+    // A restock waitlist is a one-time transactional alert, not marketing — so it
+    // never requires marketing consent and never records one.
+    const isWaitlist = source.startsWith("waitlist:");
     if (!EMAIL.test(email) || email.length > 254) return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
-    // Marketing consent is required to store a contact for marketing use.
-    if (!consent) return NextResponse.json({ error: "Please agree to receive marketing messages to join." }, { status: 400 });
-    if (phone.length > 40) return NextResponse.json({ error: "That phone number looks too long." }, { status: 400 });
+    // Marketing consent is required only to store a contact for marketing use.
+    if (!isWaitlist && !consent) return NextResponse.json({ error: "Please agree to receive marketing emails to join." }, { status: 400 });
 
     const db = getDb();
     // Detect a genuinely new subscriber so the welcome email is sent once, not
@@ -43,22 +44,36 @@ export async function POST(request: Request) {
 
     // Email is the primary key, so a repeat signup refreshes the same row rather
     // than erroring or duplicating. The exact consent language shown is stored
-    // alongside the choice for a durable compliance record.
-    await db.insert(subscribers).values({
-      email,
-      phone: phone || null,
-      marketingConsent: consent,
-      consentText: brandConfig.consent,
-      source,
-    }).onConflictDoUpdate({
-      target: subscribers.email,
-      set: { phone: phone || null, marketingConsent: consent, consentText: brandConfig.consent, source, updatedAt: new Date() },
-    });
+    // alongside the choice for a durable compliance record. A waitlist signup
+    // records NO marketing consent and, on an existing row, must never downgrade
+    // a marketing subscriber — so it only refreshes the source/timestamp.
+    if (isWaitlist) {
+      await db.insert(subscribers).values({
+        email,
+        marketingConsent: false,
+        consentText: brandConfig.waitlistConsent,
+        source,
+      }).onConflictDoUpdate({
+        target: subscribers.email,
+        set: { source, updatedAt: new Date() },
+      });
+    } else {
+      await db.insert(subscribers).values({
+        email,
+        marketingConsent: consent,
+        consentText: brandConfig.consent,
+        source,
+      }).onConflictDoUpdate({
+        target: subscribers.email,
+        set: { marketingConsent: consent, consentText: brandConfig.consent, source, updatedAt: new Date() },
+      });
+    }
 
-    // Best-effort welcome email for new subscribers only. A waitlist signup
-    // ("waitlist:<slug>") gets the restock-confirmation copy for that product; a
-    // first-order popup signup gets the welcome copy plus the discount code.
-    if (isNew) {
+    // Best-effort confirmation email. A waitlist signup ("waitlist:<slug>") gets
+    // the restock-confirmation copy for that product every time (it's a per-
+    // product request); a marketing signup gets the welcome copy once, and a
+    // first-order popup signup also gets the discount code.
+    if (isWaitlist || isNew) {
       const slug = source.startsWith("waitlist:") ? source.slice("waitlist:".length) : null;
       const product = slug ? products.find(p => p.slug === slug) : null;
       await notifySubscriberWelcome({
