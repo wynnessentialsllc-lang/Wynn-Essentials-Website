@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { brandConfig, ingredientDescriptions, method, products, Product } from "./data";
 import { relativeDate, Review, ReviewSummary, reviewsFor, sortReviews, summarize } from "./reviews";
+import { trackAddToCart, trackInitiateCheckout, trackViewContent } from "./analytics";
 import PayInFour from "./PayInFour";
 
 type CartItem = { slug: string; quantity: number; color?: string; variantId?: string };
@@ -373,6 +374,7 @@ function Cart({ items, setItems, onClose, add, suggest }: { items: CartItem[]; s
     } catch {}
     try {
       track("begin_checkout");
+      trackInitiateCheckout({ value: subtotal, currency: "USD" });
       const response = await fetch("/api/stripe/create-checkout-session", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ items:detailed.map(x=>({productId:x.product.slug,variantId:x.variantId ?? x.product.variantId,quantity:x.quantity,...(x.color?{color:x.color}:{})})), invitationAccepted:true }) });
       const result = await response.json() as {url?:string;error?:string};
       if(!response.ok || !result.url) throw new Error(result.error || "Secure checkout is unavailable.");
@@ -686,8 +688,8 @@ export default function WynnShop() {
   const inWishlist=(slug:string)=>wishlist.includes(slug);
   // Auto-dismiss the on-screen notice (add-to-cart toast, etc.) after a few seconds.
   useEffect(()=>{ if(!notice) return; const t=window.setTimeout(()=>setNotice(""),3500); return ()=>window.clearTimeout(t); },[notice]);
-  const add=(p:Product,qty=1,color?:string,variantId?:string)=>{ if(soldOut(p)){setNotice(`${p.name} is currently sold out.`);return;} const vid=variantId ?? (p.variants?.length ? (p.variants.find(v=>!v.soldOut)?.id ?? p.variants[0].id) : undefined); setCart(c=>{const old=c.find(x=>x.slug===p.slug&&x.color===color&&x.variantId===vid);return old?c.map(x=>x.slug===p.slug&&x.color===color&&x.variantId===vid?{...x,quantity:x.quantity+qty}:x):[...c,{slug:p.slug,quantity:qty,...(color?{color}:{}),...(vid?{variantId:vid}:{})}]});setNotice(`${p.name}${color?` (${color})`:""} added to your bag.`);track("add_to_cart",{productSlug:p.slug});};
-  const openProduct=(p:Product)=>{setSearchOpen(false);setProduct(p);track("product_view",{productSlug:p.slug});history.replaceState(null,"",`#product-${p.slug}`)};
+  const add=(p:Product,qty=1,color?:string,variantId?:string)=>{ if(soldOut(p)){setNotice(`${p.name} is currently sold out.`);return;} const vid=variantId ?? (p.variants?.length ? (p.variants.find(v=>!v.soldOut)?.id ?? p.variants[0].id) : undefined); setCart(c=>{const old=c.find(x=>x.slug===p.slug&&x.color===color&&x.variantId===vid);return old?c.map(x=>x.slug===p.slug&&x.color===color&&x.variantId===vid?{...x,quantity:x.quantity+qty}:x):[...c,{slug:p.slug,quantity:qty,...(color?{color}:{}),...(vid?{variantId:vid}:{})}]});setNotice(`${p.name}${color?` (${color})`:""} added to your bag.`);track("add_to_cart",{productSlug:p.slug});const atcUnit=p.variants?.find(v=>v.id===vid)?.price??p.price??0;trackAddToCart({value:atcUnit*qty,currency:"USD",contentId:p.slug});};
+  const openProduct=(p:Product)=>{setSearchOpen(false);setProduct(p);track("product_view",{productSlug:p.slug});trackViewContent({value:p.price??0,currency:"USD",contentId:p.slug});history.replaceState(null,"",`#product-${p.slug}`)};
   // Card rating = the same merge the modal uses (approved DB reviews + seeded),
   // minus gallery-only video entries, so cards show real social proof.
   const ratingFor=(slug:string)=>summarize([...(reviewsBySlug[slug]??[]),...reviewsFor(slug)].filter(r=>!r.galleryOnly));
