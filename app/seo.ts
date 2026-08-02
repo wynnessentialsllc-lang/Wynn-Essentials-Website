@@ -70,7 +70,9 @@ export function websiteSchema() {
 // reviews — an aggregate rating and the reviews themselves. This is what powers
 // Google's price/rating rich results and helps assistants compare products.
 export function productSchema(product: Product) {
-  const reviews = reviewsFor(product.slug);
+  // Exclude gallery-only entries (video clips with no written body) so they
+  // don't inflate the aggregate rating or emit an empty Review node.
+  const reviews = reviewsFor(product.slug).filter((r) => !r.galleryOnly);
   const summary = summarize(reviews);
   const images = product.images?.length ? product.images.map((i) => abs(i.src)) : [abs("/og-basket-espresso.jpg")];
 

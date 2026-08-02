@@ -482,12 +482,15 @@ function ReviewForm({ product, onClose }: { product: Product; onClose: () => voi
 function ProductReviews({ product, submitted }: { product: Product; submitted: Review[] }) {
   const [showForm, setShowForm] = useState(false);
   const list = sortReviews([...submitted, ...reviewsFor(product.slug)]);
-  const summary = summarize(list);
+  // Gallery-only entries feed the video gallery but are not their own review
+  // cards and don't count toward the rating totals.
+  const cards = list.filter(r => !r.galleryOnly);
+  const summary = summarize(cards);
   const media = list.filter(r => r.video);
   return <section className="modal-wide reviews">
     <h3>Customer Reviews</h3>
-    {list.length ? <>
-      <div className="reviews-summary">
+    {cards.length || media.length ? <>
+      {summary.count > 0 && <div className="reviews-summary">
         <div className="reviews-score">
           <p className="reviews-average"><strong>{summary.average.toFixed(1)}</strong><span>/ 5</span></p>
           <Stars value={summary.average} label={`Average rating ${summary.average} out of 5`} />
@@ -498,12 +501,12 @@ function ProductReviews({ product, submitted }: { product: Product; submitted: R
           <span className="rating-bars-track"><span className="rating-bars-fill" style={{ width: `${summary.distribution[star]}%` }} /></span>
           <span className="rating-bars-pct">{summary.distribution[star]}%</span>
         </li>)}</ul>
-      </div>
+      </div>}
       {media.length > 0 && <div className="review-media">{media.map(r => <figure className="review-media-item" key={`${r.id}-media`}>
         <video src={r.video} poster={r.videoPoster} controls playsInline preload="metadata" aria-label={`Customer video from ${r.author}`} />
         <figcaption>{r.author}{r.location ? ` · ${r.location}` : ""}</figcaption>
       </figure>)}</div>}
-      <ul className="review-list">{list.map(r => <li className="review-card" key={r.id}>
+      <ul className="review-list">{cards.map(r => <li className="review-card" key={r.id}>
         <div className="review-card-head"><Stars value={r.rating} />{r.date && <span className="review-date">{relativeDate(r.date)}</span>}</div>
         <p className="review-author">{r.author}{r.location && <span className="review-location">{r.location}</span>}{r.verified && <span className="review-verified"><span aria-hidden="true">✔</span> Verified buyer</span>}</p>
         {r.title && <p className="review-title">{r.title}</p>}
