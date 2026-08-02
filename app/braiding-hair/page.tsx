@@ -18,13 +18,12 @@ export const metadata: Metadata = {
 
 const money = (v: number | null) => (v == null ? "Price to be confirmed" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(v));
 
-// Rough guidance shoppers ask for constantly; a disclaimer keeps it honest.
+// Guidance shoppers ask for constantly. Each bundle is ~90–100g; counts below
+// reflect that. A disclaimer keeps it honest.
 const BUNDLE_GUIDE: [string, string][] = [
-  ["Knotless braids (small)", "5–7 bundles"],
-  ["Knotless braids (medium–large)", "3–5 bundles"],
-  ["Boho / bohemian braids", "4–6 bundles"],
-  ["Goddess locs / faux locs", "5–8 bundles"],
-  ["Fulani / tribal braids", "4–6 bundles"],
+  ["Standard installation", "2 bundles"],
+  ["Full to voluminous look", "3–4 bundles"],
+  ["All human-hair boho braids", "4–6 bundles"],
 ];
 
 export default function BraidingHairPage() {
@@ -91,7 +90,7 @@ export default function BraidingHairPage() {
 
       <section className="collection-guide" aria-labelledby="bundle-guide">
         <h2 id="bundle-guide">How many bundles do I need?</h2>
-        <p>A general starting point by style. Your stylist, hair size, and desired fullness change the exact count — when in doubt, order one extra bundle.</p>
+        <p>Each bundle is approximately <strong>90–100g</strong>. Use these as a starting point — your stylist, hair size, and desired fullness change the exact count, so when in doubt, order one extra bundle.</p>
         <table>
           <thead><tr><th>Style</th><th>Typical bundles</th></tr></thead>
           <tbody>{BUNDLE_GUIDE.map(([style, count]) => <tr key={style}><td>{style}</td><td>{count}</td></tr>)}</tbody>
