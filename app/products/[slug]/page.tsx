@@ -48,7 +48,9 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const product = findProduct(slug);
   if (!product) notFound();
 
-  const reviews = reviewsFor(product.slug);
+  // Gallery-only entries carry a customer video but no written body, so they
+  // aren't shown as cards or counted in the rating here.
+  const reviews = reviewsFor(product.slug).filter((r) => !r.galleryOnly);
   const summary = summarize(reviews);
   const isHair = !product.kind;
   const shopHref = `/#product-${product.slug}`;

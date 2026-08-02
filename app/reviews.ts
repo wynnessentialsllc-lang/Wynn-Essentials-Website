@@ -32,8 +32,9 @@ export type Review = {
   rating: number;
   // Optional short headline shown above the review body.
   title?: string;
-  // The review text.
-  body: string;
+  // The review text. Present on every real review; omitted only on a
+  // `galleryOnly` entry, which exists solely to add a video to the gallery.
+  body?: string;
   // True for a confirmed purchase — renders the "Verified buyer" badge.
   verified?: boolean;
   // Review date as an ISO calendar date, e.g. "2026-07-20". Omit when unknown.
@@ -44,6 +45,12 @@ export type Review = {
   // Optional still image shown in place of the video before it plays, so the
   // gallery tile isn't a black box. Path under /public.
   videoPoster?: string;
+  // When true, this entry only feeds the "Customer videos" gallery — it is not
+  // rendered as its own review card and is excluded from the rating totals. Use
+  // it to attach a customer's video to a written review that is already
+  // published through the on-site form (database), so the clip shows without
+  // duplicating their review card. Such an entry should carry a `video`.
+  galleryOnly?: boolean;
 };
 
 // Genuine Wynn Essentials customer reviews, migrated from the brand's Square
@@ -75,6 +82,10 @@ export const reviews: Review[] = [
   { id: "bodywave-jessica-hale", productSlug: "boho-body-wave-18", author: "Jessica Hale", location: "Scottsdale, Arizona", rating: 5, verified: true, date: "2024-01-16", body: "They have some of the best human hair for boho braids! I’ve had my Body Wave hair installed twice and I always get compliments on how pretty it is." },
   // Deep Wave (boho human hair)
   { id: "deepwave-kasmira", productSlug: "boho-deep-wave-18", author: "Kasmira", rating: 5, verified: true, date: "2026-08-02", title: "Best hair ever!", body: "I am absolutely in love with it. The hair is so soft, barely tangles, and detangling is super easy. It has the perfect amount of curl while still giving me the length I wanted. Definitely summer ready! ☀️✨" },
+  // Bohemian Curl (boho human hair) — gallery-only: Shawn's written review is
+  // published through the on-site form (database); this entry just carries her
+  // video so it shows in the gallery without duplicating her review card.
+  { id: "bohemiancurl-shawn-video", productSlug: "boho-bohemian-curl-18", author: "Shawn", rating: 5, galleryOnly: true, video: "/reviews/bohemian-curl-shawn.mp4", videoPoster: "/reviews/bohemian-curl-shawn-poster.jpg" },
 ];
 
 export type ReviewSummary = {
