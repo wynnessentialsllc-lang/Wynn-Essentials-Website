@@ -68,7 +68,7 @@ export default function BraidingHairPage() {
           const img = p.images?.[0];
           return (
             <article className="collection-card" key={p.slug}>
-              <Link href={`/#product-${p.slug}`} className="collection-art" aria-label={`Shop ${p.name}`}>
+              <Link href={`/products/${p.slug}`} className="collection-art" aria-label={`View ${p.name} details`}>
                 {img ? <img src={img.src} alt={img.alt} width={1200} height={1500} loading="lazy" /> : <span className="collection-art-fallback" aria-hidden="true" />}
                 {allOut && <span className="sold-out-badge">Sold Out</span>}
               </Link>
