@@ -19,4 +19,30 @@ export function trackPurchase({ value, currency, ref }: { value: number; currenc
   try { window.ttq?.track("CompletePayment", { value, currency, content_type: "product" }); } catch {}
 }
 
+// Product added to the bag.
+export function trackAddToCart({ value, currency, contentId }: { value: number; currency: string; contentId?: string }) {
+  if (typeof window === "undefined") return;
+  const meta = contentId ? { content_ids: [contentId], content_type: "product" } : {};
+  try { window.fbq?.("track", "AddToCart", { value, currency, ...meta }); } catch {}
+  try { window.gtag?.("event", "add_to_cart", { value, currency }); } catch {}
+  try { window.ttq?.track("AddToCart", { value, currency, ...(contentId ? { content_id: contentId } : {}) }); } catch {}
+}
+
+// Shopper started checkout (before the Stripe redirect).
+export function trackInitiateCheckout({ value, currency }: { value: number; currency: string }) {
+  if (typeof window === "undefined") return;
+  try { window.fbq?.("track", "InitiateCheckout", { value, currency }); } catch {}
+  try { window.gtag?.("event", "begin_checkout", { value, currency }); } catch {}
+  try { window.ttq?.track("InitiateCheckout", { value, currency }); } catch {}
+}
+
+// Product detail viewed.
+export function trackViewContent({ value, currency, contentId }: { value: number; currency: string; contentId?: string }) {
+  if (typeof window === "undefined") return;
+  const meta = contentId ? { content_ids: [contentId], content_type: "product" } : {};
+  try { window.fbq?.("track", "ViewContent", { value, currency, ...meta }); } catch {}
+  try { window.gtag?.("event", "view_item", { value, currency }); } catch {}
+  try { window.ttq?.track("ViewContent", { value, currency, ...(contentId ? { content_id: contentId } : {}) }); } catch {}
+}
+
 export {};
