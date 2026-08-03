@@ -288,3 +288,24 @@ export async function notifyCustomerShipped(order: ShippedInfo): Promise<boolean
     html: customerShell("Your order is on its way!", `Hi ${esc(firstName)}, good news — your order has shipped.`, body),
   });
 }
+
+// Post-purchase review request. Sent by the review-requests cron a week or two
+// after an order, asking the customer to review what they bought. Each product
+// links to its storefront modal, which has the "Write a Review" form. URLs are
+// passed in (like the restock email) so this stays URL-agnostic.
+export async function notifyReviewRequest({ email, customerName, orderReference, products }: { email: string; customerName?: string | null; orderReference?: string | null; products: { name: string; url: string }[] }): Promise<boolean> {
+  if (!email || products.length === 0) return false;
+  const firstName = (customerName ?? "").trim().split(/\s+/)[0] || "there";
+  const rows = products.map(p => `<tr>
+      <td style="padding:12px 0;border-bottom:1px solid #ece6dd;font-weight:600;font-size:15px">${esc(p.name)}</td>
+      <td style="padding:12px 0;border-bottom:1px solid #ece6dd;text-align:right"><a href="${esc(p.url)}" style="display:inline-block;background:#c8aa82;color:#111;text-decoration:none;font-weight:700;font-size:12px;letter-spacing:.05em;padding:10px 16px">Leave a review</a></td>
+    </tr>`).join("");
+  const body = `<p style="font-size:15px;line-height:1.6;margin:0 0 16px">A quick, honest review helps other customers find what works for their hair — and it only takes a minute.</p>
+    <table style="width:100%;border-collapse:collapse">${rows}</table>
+    ${orderReference ? `<p style="font-size:13px;color:#6d675f;margin:20px 0 0">Order reference: <strong>${esc(orderReference)}</strong></p>` : ""}`;
+  return sendEmail({
+    to: email,
+    subject: "How are you loving your Wynn Essentials?",
+    html: customerShell("How&rsquo;s your hair loving it?", `Hi ${esc(firstName)}, it&rsquo;s been a little while since your order arrived — we&rsquo;d love to hear how it&rsquo;s working for you.`, body),
+  });
+}

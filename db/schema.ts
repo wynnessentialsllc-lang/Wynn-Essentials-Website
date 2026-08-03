@@ -34,6 +34,9 @@ export const orders = pgTable("orders", {
   trackingNumber: text("tracking_number"),
   carrier: text("carrier"),
   shippedAt: timestamp("shipped_at", { withTimezone: true }),
+  // Set by the review-requests cron once the post-purchase review email has been
+  // sent, so each customer is asked at most once.
+  reviewRequestedAt: timestamp("review_requested_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
