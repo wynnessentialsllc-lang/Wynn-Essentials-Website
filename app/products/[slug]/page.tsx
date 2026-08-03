@@ -74,6 +74,9 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
 
       <main className="pdp-main">
         <div className={`pdp-gallery${product.kind === "hair" ? " pdp-gallery--contain" : ""}`}>
+          {product.video && (
+            <video className="pdp-video" src={product.video} muted loop playsInline autoPlay preload="metadata" aria-label={`${product.name} ${product.subtitle} video`} />
+          )}
           {gallery.length ? gallery.map((img, i) => (
             <img key={img.src} src={img.src} alt={img.alt} width={1200} height={1200} loading={i === 0 ? undefined : "lazy"} />
           )) : (

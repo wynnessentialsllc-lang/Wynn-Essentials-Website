@@ -252,3 +252,6 @@
 .cart-trust{list-style:none;margin:14px 0 0;padding:14px 0 0;border-top:1px solid var(--line);display:grid;gap:8px}
 .cart-trust li{position:relative;padding-left:22px;font-size:12.5px;line-height:1.4;color:var(--muted)}
 .cart-trust li::before{content:"✓";position:absolute;left:0;top:0;color:var(--kraft-dark);font-weight:800}
+
+/* Product demo video at the top of the product-page gallery */
+.pdp-gallery .pdp-video{grid-column:1/-1;justify-self:center;width:auto;max-width:100%;max-height:78vh;aspect-ratio:9/16;object-fit:contain;background:#000;display:block;border-radius:4px}
