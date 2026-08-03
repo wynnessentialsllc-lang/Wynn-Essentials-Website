@@ -255,3 +255,6 @@
 
 /* Product demo video at the top of the product-page gallery */
 .pdp-gallery .pdp-video{grid-column:1/-1;justify-self:center;width:auto;max-width:100%;max-height:78vh;aspect-ratio:9/16;object-fit:contain;background:#000;display:block;border-radius:4px}
+
+/* Customer photos in the review gallery match the video tiles */
+.review-media-item img{display:block;width:100%;aspect-ratio:9/16;object-fit:cover;background:var(--linen);border-radius:6px}

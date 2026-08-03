@@ -507,7 +507,7 @@ function ProductReviews({ product, submitted }: { product: Product; submitted: R
   // cards and don't count toward the rating totals.
   const cards = list.filter(r => !r.galleryOnly);
   const summary = summarize(cards);
-  const media = list.filter(r => r.video);
+  const media = list.filter(r => r.video || r.image);
   return <section className="modal-wide reviews">
     <h3>Customer Reviews</h3>
     {cards.length || media.length ? <>
@@ -524,14 +524,14 @@ function ProductReviews({ product, submitted }: { product: Product; submitted: R
         </li>)}</ul>
       </div>}
       {media.length > 0 && <div className="review-media">{media.map(r => <figure className="review-media-item" key={`${r.id}-media`}>
-        <video src={r.video} poster={r.videoPoster} controls playsInline preload="metadata" aria-label={`Customer video from ${r.author}`} />
+        {r.video ? <video src={r.video} poster={r.videoPoster} controls playsInline preload="metadata" aria-label={`Customer video from ${r.author}`} /> : <img src={r.image} alt={`Customer photo from ${r.author}`} loading="lazy" />}
         <figcaption>{r.author}{r.location ? ` · ${r.location}` : ""}</figcaption>
       </figure>)}</div>}
       <ul className="review-list">{cards.map(r => <li className="review-card" key={r.id}>
         <div className="review-card-head"><Stars value={r.rating} />{r.date && <span className="review-date">{relativeDate(r.date)}</span>}</div>
         <p className="review-author">{r.author}{r.location && <span className="review-location">{r.location}</span>}{r.verified && <span className="review-verified"><span aria-hidden="true">✔</span> Verified buyer</span>}</p>
         {r.title && <p className="review-title">{r.title}</p>}
-        <p className="review-body">{r.body}</p>
+        {r.body && <p className="review-body">{r.body}</p>}
       </li>)}</ul>
     </> : <p>No reviews yet. Be the first to share your Wynn Essentials experience.</p>}
     {showForm ? <ReviewForm product={product} onClose={() => setShowForm(false)} /> : <button className="outline-button" onClick={() => setShowForm(true)}>Write a Review</button>}
