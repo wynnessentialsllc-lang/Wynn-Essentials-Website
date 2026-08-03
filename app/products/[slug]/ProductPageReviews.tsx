@@ -34,7 +34,7 @@ export default function ProductPageReviews({ slug }: { slug: string }) {
 
   const list = sortReviews([...submitted, ...reviewsFor(slug)]);
   const cards = list.filter((r) => !r.galleryOnly);
-  const media = list.filter((r) => r.video);
+  const media = list.filter((r) => r.video || r.image);
   const summary = summarize(cards);
 
   if (!cards.length && !media.length) return null;
@@ -49,7 +49,7 @@ export default function ProductPageReviews({ slug }: { slug: string }) {
         <div className="review-media">
           {media.map((r) => (
             <figure className="review-media-item" key={`${r.id}-media`}>
-              <video src={r.video} poster={r.videoPoster} controls playsInline preload="metadata" aria-label={`Customer video from ${r.author}`} />
+              {r.video ? <video src={r.video} poster={r.videoPoster} controls playsInline preload="metadata" aria-label={`Customer video from ${r.author}`} /> : <img src={r.image} alt={`Customer photo from ${r.author}`} loading="lazy" />}
               <figcaption>{r.author}{r.location ? ` · ${r.location}` : ""}</figcaption>
             </figure>
           ))}
@@ -61,7 +61,7 @@ export default function ProductPageReviews({ slug }: { slug: string }) {
             <li key={r.id}>
               <p className="pdp-review-head"><Stars value={r.rating} /> <b>{r.author}</b>{r.verified && <span className="pdp-verified">Verified buyer</span>}{r.date && <span className="pdp-review-date">{relativeDate(r.date)}</span>}</p>
               {r.title && <p className="pdp-review-title">{r.title}</p>}
-              <p>{r.body}</p>
+              {r.body && <p>{r.body}</p>}
             </li>
           ))}
         </ul>

@@ -45,6 +45,9 @@ export type Review = {
   // Optional still image shown in place of the video before it plays, so the
   // gallery tile isn't a black box. Path under /public.
   videoPoster?: string;
+  // Optional customer photo (path under /public). Like `video`, it appears in
+  // the product's "Customer photos & videos" gallery above the review cards.
+  image?: string;
   // When true, this entry only feeds the "Customer videos" gallery — it is not
   // rendered as its own review card and is excluded from the rating totals. Use
   // it to attach a customer's video to a written review that is already
@@ -82,6 +85,7 @@ export const reviews: Review[] = [
   { id: "bodywave-jessica-hale", productSlug: "boho-body-wave-18", author: "Jessica Hale", location: "Scottsdale, Arizona", rating: 5, verified: true, date: "2024-01-16", body: "They have some of the best human hair for boho braids! I’ve had my Body Wave hair installed twice and I always get compliments on how pretty it is." },
   // Deep Wave (boho human hair)
   { id: "deepwave-kasmira", productSlug: "boho-deep-wave-18", author: "Kasmira", rating: 5, verified: true, date: "2026-08-02", title: "Best hair ever!", body: "I am absolutely in love with it. The hair is so soft, barely tangles, and detangling is super easy. It has the perfect amount of curl while still giving me the length I wanted. Definitely summer ready! ☀️✨" },
+  { id: "deepwave-kendra", productSlug: "boho-deep-wave-18", author: "Kendra", location: "Irvine, CA", rating: 5, verified: true, date: "2026-07-22", title: "Best Hair EVER!", image: "/reviews/deep-wave-kendra.jpg" },
   // Bohemian Curl (boho human hair) — gallery-only: Shawn's written review is
   // published through the on-site form (database); this entry just carries her
   // video so it shows in the gallery without duplicating her review card.
