@@ -265,13 +265,27 @@ function Invitation({ manual, onDone }: { manual: boolean; onDone: () => void })
   </ModalShell>;
 }
 
+// The first-order welcome offer is surfaced in two places — when a shopper
+// starts checkout, and (via exit intent) when a visitor moves to leave the page.
+// Both share these keys so nobody is asked twice: `wynnOfferClaimed` blocks it
+// permanently once claimed, and `wynnOfferSeenAt` throttles it to once per 14
+// days after it's shown or dismissed.
+function offerEligible() {
+  try {
+    if (localStorage.getItem("wynnOfferClaimed")) return false;
+    const seenAt = Number(localStorage.getItem("wynnOfferSeenAt") || 0);
+    return !seenAt || Date.now() - seenAt > 14 * 864e5;
+  } catch { return false; }
+}
+function markOfferSeen() { try { localStorage.setItem("wynnOfferSeenAt", String(Date.now())); } catch {} }
+
 // First-order discount popup: captures an email (and optional phone) in exchange
 // for the welcome code. On success it reveals the code on screen and the API
 // also emails it. `wynnOfferClaimed` prevents it from re-showing after a claim.
-// Shown when a shopper starts checkout: capture an email for the welcome code,
-// then proceed. `onClose` returns to the bag without checking out; `onContinue`
-// proceeds to Stripe (used after claiming the code or declining the offer).
-function FirstOrderOffer({ onClose, onContinue }: { onClose: () => void; onContinue: () => void }) {
+// `mode` tailors the calls to action: "checkout" (from the bag) proceeds to
+// Stripe, while "exit" (from an exit-intent trigger) simply returns to browsing.
+// `onClose` dismisses; `onContinue` runs the primary action for the mode.
+function FirstOrderOffer({ onClose, onContinue, mode = "checkout" }: { onClose: () => void; onContinue: () => void; mode?: "checkout" | "exit" }) {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [consent, setConsent] = useState(false);
@@ -299,8 +313,8 @@ function FirstOrderOffer({ onClose, onContinue }: { onClose: () => void; onConti
         <h2>{brandConfig.firstOrder.discountLabel}<span>unlocked</span></h2>
         <p>Enter this code at checkout:</p>
         <p className="offer-code">{brandConfig.firstOrder.code}</p>
-        <p className="offer-fine">We&rsquo;ve emailed it to you too. Enter it on the next screen.</p>
-        <button className="button full" onClick={onContinue}>Continue to checkout</button>
+        <p className="offer-fine">We&rsquo;ve emailed it to you too{mode === "checkout" ? ". Enter it on the next screen." : " so it&rsquo;s ready when you check out."}</p>
+        <button className="button full" onClick={onContinue}>{mode === "checkout" ? "Continue to checkout" : "Continue shopping"}</button>
       </div> : <form onSubmit={submit}>
         <p className="eyebrow">WELCOME TO WYNN ESSENTIALS</p>
         <h2>{brandConfig.firstOrder.headline}</h2>
@@ -311,7 +325,7 @@ function FirstOrderOffer({ onClose, onContinue }: { onClose: () => void; onConti
         <button className="button full" type="submit" disabled={state === "sending"}>{state === "sending" ? "Getting your code…" : `Get my ${brandConfig.firstOrder.discountLabel} code`}</button>
         {state === "err" && <p className="offer-err">Please enter a valid email and agree to messages.</p>}
         <small>{brandConfig.consent}</small>
-        <button type="button" className="text-button offer-decline" onClick={onContinue}>No thanks &mdash; continue to checkout</button>
+        <button type="button" className="text-button offer-decline" onClick={onContinue}>{mode === "checkout" ? "No thanks — continue to checkout" : "No thanks"}</button>
       </form>}
     </div>
   </ModalShell>;
@@ -356,15 +370,8 @@ function Cart({ items, setItems, onClose }: { items: CartItem[]; setItems: (x: C
   const change = (slug: string, color: string | undefined, variantId: string | undefined, delta: number) => setItems(items.map(i => i.slug === slug && i.color === color && i.variantId === variantId ? { ...i, quantity: Math.max(0, i.quantity + delta) } : i).filter(i => i.quantity));
   const remove = (slug: string, color: string | undefined, variantId: string | undefined) => setItems(items.filter(i => !(i.slug === slug && i.color === color && i.variantId === variantId)));
   // The first-order offer appears once when a shopper starts checkout, unless
-  // they've already claimed it or dismissed it within the last 14 days.
-  const offerShouldShow = () => {
-    try {
-      if (localStorage.getItem("wynnOfferClaimed")) return false;
-      const seenAt = Number(localStorage.getItem("wynnOfferSeenAt") || 0);
-      return !seenAt || Date.now() - seenAt > 14 * 864e5;
-    } catch { return false; }
-  };
-  const markOfferSeen = () => { try { localStorage.setItem("wynnOfferSeenAt", String(Date.now())); } catch {} };
+  // they've already claimed it or dismissed it within the last 14 days (shared
+  // eligibility with the exit-intent popup — see offerEligible/markOfferSeen).
   const startCheckout = async () => {
     setCheckoutError("");
     // If we know the shopper's email, snapshot the cart so an abandoned-cart
@@ -390,7 +397,7 @@ function Cart({ items, setItems, onClose }: { items: CartItem[]; setItems: (x: C
       <p className="payment-note">Available payment options are shown securely at checkout. Discounts, shipping, and tax are validated by Stripe.</p>
       {unconfigured && <p className="config-warning">Checkout will open after Wynn Essentials verifies product prices, sizes, Stripe Price IDs, and shipping rates.</p>}
       {checkoutError && <p role="alert">{checkoutError}</p>}
-      <button className="button full" disabled={unknown || unconfigured} onClick={() => { if (offerShouldShow()) setShowOffer(true); else startCheckout(); }}>Checkout securely with Stripe</button>
+      <button className="button full" disabled={unknown || unconfigured} onClick={() => { if (offerEligible()) setShowOffer(true); else startCheckout(); }}>Checkout securely with Stripe</button>
       {showOffer && <FirstOrderOffer
         onClose={() => { markOfferSeen(); setShowOffer(false); }}
         onContinue={() => { markOfferSeen(); setShowOffer(false); startCheckout(); }}
@@ -617,6 +624,9 @@ export default function WynnShop() {
   const [product,setProduct]=useState<Product|null>(null);
   const [footerInfo,setFooterInfo]=useState<FooterInfoKey|null>(null);
   const [notice,setNotice]=useState("");
+  // Exit-intent first-order offer: surfaced once when a visitor signals they're
+  // about to leave. Shares eligibility/suppression with the checkout offer.
+  const [exitOffer,setExitOffer]=useState(false);
   // Live availability from /admin/inventory OVERRIDES the catalog's own soldOut
   // flag: a slug in soldOutSlugs is closed, one in inStockSlugs is reopened, and
   // anything unlisted falls back to the catalog default. Fails open if the
@@ -676,6 +686,30 @@ export default function WynnShop() {
   const inWishlist=(slug:string)=>wishlist.includes(slug);
   // Auto-dismiss the on-screen notice (add-to-cart toast, etc.) after a few seconds.
   useEffect(()=>{ if(!notice) return; const t=window.setTimeout(()=>setNotice(""),3500); return ()=>window.clearTimeout(t); },[notice]);
+  // While any modal/drawer is open, the exit-intent trigger stays suppressed so
+  // the offer never stacks on top of another overlay. A ref keeps the check
+  // current inside the listener without re-subscribing on every state change.
+  const overlayOpen=Boolean(invitation||cartOpen||wishOpen||searchOpen||product||footerInfo||exitOffer);
+  const overlayRef=useRef(overlayOpen);
+  useEffect(()=>{ overlayRef.current=overlayOpen; },[overlayOpen]);
+  // Exit-intent first-order offer. Desktop: fire when the cursor leaves through
+  // the top of the window (toward the tab bar / close button). Touch devices:
+  // fall back to a decisive scroll back to the top after the visitor has browsed
+  // down the page. Armed only after a short dwell so it can't fire on load, and
+  // gated by offerEligible() so it honors the claimed / once-per-14-days rule.
+  useEffect(()=>{
+    if(!offerEligible()) return;
+    let armed=false, fired=false, wentDeep=false;
+    const arm=window.setTimeout(()=>{ armed=true; },6000);
+    const cleanup=()=>{ window.clearTimeout(arm); document.removeEventListener("mouseout",onMouseOut); window.removeEventListener("scroll",onScroll); };
+    const fire=()=>{ if(fired||!armed||overlayRef.current||!offerEligible()) return; fired=true; markOfferSeen(); setExitOffer(true); track("exit_intent_offer"); cleanup(); };
+    const onMouseOut=(e:MouseEvent)=>{ if(e.clientY<=0 && !e.relatedTarget) fire(); };
+    const onScroll=()=>{ const y=window.scrollY; if(y>800) wentDeep=true; else if(wentDeep && y<120) fire(); };
+    const coarse=typeof window.matchMedia==="function" && window.matchMedia("(pointer: coarse)").matches;
+    document.addEventListener("mouseout",onMouseOut);
+    if(coarse) window.addEventListener("scroll",onScroll,{passive:true});
+    return cleanup;
+  },[]);
   const add=(p:Product,qty=1,color?:string,variantId?:string)=>{ if(soldOut(p)){setNotice(`${p.name} is currently sold out.`);return;} const vid=variantId ?? (p.variants?.length ? (p.variants.find(v=>!v.soldOut)?.id ?? p.variants[0].id) : undefined); setCart(c=>{const old=c.find(x=>x.slug===p.slug&&x.color===color&&x.variantId===vid);return old?c.map(x=>x.slug===p.slug&&x.color===color&&x.variantId===vid?{...x,quantity:x.quantity+qty}:x):[...c,{slug:p.slug,quantity:qty,...(color?{color}:{}),...(vid?{variantId:vid}:{})}]});setNotice(`${p.name}${color?` (${color})`:""} added to your bag.`);track("add_to_cart",{productSlug:p.slug});};
   const openProduct=(p:Product)=>{setSearchOpen(false);setProduct(p);track("product_view",{productSlug:p.slug});history.replaceState(null,"",`#product-${p.slug}`)};
   // Bulk hair has its own Premium Human Hair section below, so it is kept out of
@@ -769,5 +803,6 @@ export default function WynnShop() {
     {wishOpen&&<Wishlist slugs={wishlist} add={add} openProduct={openProduct} onToggle={toggleWish} onClose={()=>setWishOpen(false)}/>}
     {product&&<ProductDetail product={product} add={add} soldOut={soldOut(product)} submittedReviews={reviewsBySlug[product.slug] ?? []} wished={inWishlist(product.slug)} onToggleWish={()=>toggleWish(product.slug)} onClose={()=>{setProduct(null);history.replaceState(null,"",location.pathname)}}/>}
     {footerInfo&&<FooterInfo page={footerInfo} onClose={()=>setFooterInfo(null)}/>}
+    {exitOffer&&<FirstOrderOffer mode="exit" onClose={()=>setExitOffer(false)} onContinue={()=>setExitOffer(false)}/>}
   </div>;
 }

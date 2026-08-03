@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 // First-party visitor event ingest for the traffic dashboard. No PII: only a
 // random visitor id the browser generates. Always answers 204 and never throws
 // to the client, so analytics can never break the storefront.
-const TYPES = new Set(["pageview", "product_view", "add_to_cart", "begin_checkout"]);
+const TYPES = new Set(["pageview", "product_view", "add_to_cart", "begin_checkout", "exit_intent_offer"]);
 const attempts = new Map<string, { count: number; reset: number }>();
 
 export async function POST(request: Request) {
