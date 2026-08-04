@@ -159,7 +159,6 @@ function RoutineProduct() {
         <div className="routine-tilt" style={{ transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg) scale(${lift})` }}>
           <img className="routine-img" src="/collections/edge-control-routine.webp" alt="Wynn Essentials Edge Control hydrating formula, open jar with a swirl of periwinkle styling cream" width={1449} height={998} loading="lazy" draggable={false} />
           <span className="routine-sheen" aria-hidden="true" style={{ opacity: hover ? 1 : 0, background: `radial-gradient(circle at ${glow.x}% ${glow.y}%, rgba(255,255,255,.5), rgba(255,255,255,0) 45%)` }} />
-          <img className="routine-reflection" aria-hidden="true" src="/collections/edge-control-routine.webp" alt="" width={1449} height={998} loading="lazy" draggable={false} />
         </div>
       </div>
     </div>
