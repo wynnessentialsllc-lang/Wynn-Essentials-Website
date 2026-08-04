@@ -111,6 +111,58 @@ function ScrollPlayVideo({ src, poster, ariaLabel, loop = false, preload = "meta
   return <video ref={ref} src={src} poster={poster} muted loop={loop} playsInline preload={preload} aria-label={ariaLabel} />;
 }
 
+// The Edge Control product in the routine section, made to feel like a tangible
+// object you could lift off the screen: it zooms in when scrolled into view,
+// tilts in 3D toward the cursor with a light sheen, lifts on hover with a
+// parallax cast shadow, and "presses" in when grabbed. Pointer effects are
+// mouse-only and disabled for reduced-motion users; touch devices still get the
+// scroll-in zoom and the resting float/shadow.
+function RoutineProduct() {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [inView, setInView] = useState(false);
+  const [hover, setHover] = useState(false);
+  const [press, setPress] = useState(false);
+  const [rot, setRot] = useState({ x: 0, y: 0 });
+  const [glow, setGlow] = useState({ x: 50, y: 30 });
+  const reduced = useRef(false);
+  useEffect(() => {
+    reduced.current = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    const el = wrapRef.current;
+    if (!el || !("IntersectionObserver" in window)) { setInView(true); return; }
+    const io = new IntersectionObserver((entries) => { for (const e of entries) setInView(e.isIntersecting); }, { threshold: 0.4 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  const onMove = (e: React.PointerEvent) => {
+    if (reduced.current || e.pointerType !== "mouse") return;
+    const el = wrapRef.current; if (!el) return;
+    const b = el.getBoundingClientRect();
+    const px = (e.clientX - b.left) / b.width - 0.5;   // -0.5 .. 0.5
+    const py = (e.clientY - b.top) / b.height - 0.5;
+    setRot({ x: -py * 16, y: px * 22 });               // rotateX / rotateY (deg)
+    setGlow({ x: 50 + px * 100, y: 50 + py * 100 });   // sheen follows the cursor
+    if (!hover) setHover(true);
+  };
+  const reset = () => { setHover(false); setPress(false); setRot({ x: 0, y: 0 }); };
+  const lift = press ? 0.96 : hover ? 1.06 : 1;
+  return (
+    <div
+      ref={wrapRef}
+      className={`statement-product${inView ? " is-zoomed" : ""}${hover ? " is-hover" : ""}`}
+      onPointerMove={onMove}
+      onPointerLeave={reset}
+      onPointerDown={() => setPress(true)}
+      onPointerUp={() => setPress(false)}
+    >
+      <span className="routine-shadow" aria-hidden="true" style={{ transform: `translateX(-50%) translate(${-rot.y * 1.7}px, ${rot.x * 1.2}px) scaleX(${hover ? 1.12 : 1})`, opacity: press ? 0.9 : hover ? 0.48 : 0.8 }} />
+      <div className="routine-tilt" style={{ transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg) scale(${lift})` }}>
+        <img src="/collections/edge-control-routine.webp" alt="Wynn Essentials Edge Control hydrating formula, open jar with a swirl of periwinkle styling cream" width={1449} height={998} loading="lazy" draggable={false} />
+        <span className="routine-sheen" aria-hidden="true" style={{ opacity: hover ? 1 : 0, background: `radial-gradient(circle at ${glow.x}% ${glow.y}%, rgba(255,255,255,.5), rgba(255,255,255,0) 45%)` }} />
+      </div>
+    </div>
+  );
+}
+
 function ModalShell({ label, onClose, children, className = "" }: { label: string; onClose: () => void; children: React.ReactNode; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
@@ -739,7 +791,7 @@ export default function WynnShop() {
     <Header count={cart.reduce((s,i)=>s+i.quantity,0)} wishCount={wishlist.length} openCart={()=>setCartOpen(true)} openSearch={()=>setSearchOpen(true)} openWishlist={()=>setWishOpen(true)} viewInvite={()=>setInvitation("manual")}/>
     <main id="main">
       <section className="hero"><div className="hero-copy"><p className="eyebrow">TEXTURED-HAIR WELLNESS, MADE INTENTIONAL</p><h1 id="main-heading" tabIndex={-1}>Healthy Hair<br />Is a Practice.</h1><p>Moisture, strength, scalp, and styling essentials created for textured hair and the routines that keep it healthy.</p><div className="actions"><button className="button" onClick={()=>scroll("shop")}>Shop the Essentials</button><button className="outline-button" onClick={()=>scroll("routine-finder")}>Find My Routine</button></div><small>Made for curls, coils, braids, locs, and protective styles.</small></div><div className="hero-image"><img src="/hero-nourish-sky-full.webp" width="1200" height="1600" alt="Model holding eight Wynn Essentials Nourish boxes against a bright blue sky" fetchPriority="high"/></div></section>
-      <section className="statement section"><div className="statement-copy"><p className="eyebrow">BUILD YOUR ROUTINE</p><h2>Hair care for every part<br /><em>of your routine.</em></h2><p>Wynn Essentials offers gentle shampoo, moisture-rich conditioners, daily hydration, scalp and sealing oils, styling cream, edge control, satin accessories, and premium human hair for protective styles. Choose the products that fit your hair and build a routine around what it needs.</p><a href="#shop" className="button">Explore the Collection</a></div><div className="statement-product"><img src="/collections/edge-control-routine.webp" alt="Wynn Essentials Edge Control hydrating formula, open jar with a swirl of periwinkle styling cream" width="1240" height="1060" loading="lazy"/></div></section>
+      <section className="statement section"><div className="statement-copy"><p className="eyebrow">BUILD YOUR ROUTINE</p><h2>Hair care for every part<br /><em>of your routine.</em></h2><p>Wynn Essentials offers gentle shampoo, moisture-rich conditioners, daily hydration, scalp and sealing oils, styling cream, edge control, satin accessories, and premium human hair for protective styles. Choose the products that fit your hair and build a routine around what it needs.</p><a href="#shop" className="button">Explore the Collection</a></div><RoutineProduct /></section>
       <section id="best-sellers" className="editorial-shop section" aria-labelledby="editorial-favorites"><div className="section-heading"><div><p className="eyebrow">BEST SELLERS</p><h2 id="editorial-favorites">Colorful Care.<br/>Intentional Results.</h2></div><p>Explore customer favorites designed to cleanse, condition, hydrate, and define textured hair.</p></div><div className="editorial-grid">{[
         ["/editorial/thairap-lavender.png","ThairaP","Moisture Styling Cream","Four ThairaP styling cream jars with lavender and aloe"],
         ["/editorial/uplyft-model.jpeg","Uplyft","Moisture Rich Conditioner","Model holding Uplyft Moisture Rich Conditioner"],
