@@ -645,6 +645,17 @@ export default function WynnShop() {
   const [product,setProduct]=useState<Product|null>(null);
   const [footerInfo,setFooterInfo]=useState<FooterInfoKey|null>(null);
   const [notice,setNotice]=useState("");
+  // Zoom the routine section's Edge Control product in when it scrolls into view
+  // (and back out when it leaves), so it "settles" into focus as you stop on it.
+  const routineImgRef=useRef<HTMLDivElement>(null);
+  const [routineInView,setRoutineInView]=useState(false);
+  useEffect(()=>{
+    const el=routineImgRef.current;
+    if(!el||!("IntersectionObserver" in window)){setRoutineInView(true);return;}
+    const io=new IntersectionObserver((entries)=>{for(const e of entries)setRoutineInView(e.isIntersecting);},{threshold:0.4});
+    io.observe(el);
+    return ()=>io.disconnect();
+  },[]);
   // Live availability from /admin/inventory OVERRIDES the catalog's own soldOut
   // flag: a slug in soldOutSlugs is closed, one in inStockSlugs is reopened, and
   // anything unlisted falls back to the catalog default. Fails open if the
@@ -739,7 +750,7 @@ export default function WynnShop() {
     <Header count={cart.reduce((s,i)=>s+i.quantity,0)} wishCount={wishlist.length} openCart={()=>setCartOpen(true)} openSearch={()=>setSearchOpen(true)} openWishlist={()=>setWishOpen(true)} viewInvite={()=>setInvitation("manual")}/>
     <main id="main">
       <section className="hero"><div className="hero-copy"><p className="eyebrow">TEXTURED-HAIR WELLNESS, MADE INTENTIONAL</p><h1 id="main-heading" tabIndex={-1}>Healthy Hair<br />Is a Practice.</h1><p>Moisture, strength, scalp, and styling essentials created for textured hair and the routines that keep it healthy.</p><div className="actions"><button className="button" onClick={()=>scroll("shop")}>Shop the Essentials</button><button className="outline-button" onClick={()=>scroll("routine-finder")}>Find My Routine</button></div><small>Made for curls, coils, braids, locs, and protective styles.</small></div><div className="hero-image"><img src="/hero-nourish-sky-full.webp" width="1200" height="1600" alt="Model holding eight Wynn Essentials Nourish boxes against a bright blue sky" fetchPriority="high"/></div></section>
-      <section className="statement section"><div className="statement-copy"><p className="eyebrow">BUILD YOUR ROUTINE</p><h2>Hair care for every part<br /><em>of your routine.</em></h2><p>Wynn Essentials offers gentle shampoo, moisture-rich conditioners, daily hydration, scalp and sealing oils, styling cream, edge control, satin accessories, and premium human hair for protective styles. Choose the products that fit your hair and build a routine around what it needs.</p><a href="#shop" className="button">Explore the Collection</a></div><div className="statement-product"><img src="/collections/edge-control-routine.webp" alt="Wynn Essentials Edge Control hydrating formula, open jar with a swirl of periwinkle styling cream" width="1449" height="998" loading="lazy"/></div></section>
+      <section className="statement section"><div className="statement-copy"><p className="eyebrow">BUILD YOUR ROUTINE</p><h2>Hair care for every part<br /><em>of your routine.</em></h2><p>Wynn Essentials offers gentle shampoo, moisture-rich conditioners, daily hydration, scalp and sealing oils, styling cream, edge control, satin accessories, and premium human hair for protective styles. Choose the products that fit your hair and build a routine around what it needs.</p><a href="#shop" className="button">Explore the Collection</a></div><div ref={routineImgRef} className={`statement-product${routineInView?" is-zoomed":""}`}><img src="/collections/edge-control-routine.webp" alt="Wynn Essentials Edge Control hydrating formula, open jar with a swirl of periwinkle styling cream" width="1449" height="998" loading="lazy"/></div></section>
       <section id="best-sellers" className="editorial-shop section" aria-labelledby="editorial-favorites"><div className="section-heading"><div><p className="eyebrow">BEST SELLERS</p><h2 id="editorial-favorites">Colorful Care.<br/>Intentional Results.</h2></div><p>Explore customer favorites designed to cleanse, condition, hydrate, and define textured hair.</p></div><div className="editorial-grid">{[
         ["/editorial/thairap-lavender.png","ThairaP","Moisture Styling Cream","Four ThairaP styling cream jars with lavender and aloe"],
         ["/editorial/uplyft-model.jpeg","Uplyft","Moisture Rich Conditioner","Model holding Uplyft Moisture Rich Conditioner"],
