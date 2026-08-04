@@ -336,7 +336,7 @@ function Header({ count, wishCount, openCart, openSearch, openWishlist, viewInvi
   const [menu, setMenu] = useState(false);
   const nav = ["Shop", "Best Sellers", "Shop by Concern", "The Wynn Method", "Our Story"];
   return <>
-    <div className="announcement">{brandConfig.announcement}</div>
+    <div className="announcement"><div className="announcement-track" aria-hidden="true">{[0,1].map(g=>(<div className="announcement-group" key={g}>{Array.from({length:10}).map((_,i)=>(<span className="announcement-item" key={i}>{brandConfig.announcement}</span>))}</div>))}</div><span className="sr-only">{brandConfig.announcement}</span></div>
     <header className="site-header">
       <button className="icon-button menu-trigger" aria-label="Open menu" onClick={() => setMenu(true)}>☰</button>
       <nav aria-label="Primary">{nav.map(x => <a key={x} href={`#${x.toLowerCase().replaceAll(" ", "-")}`}>{x}</a>)}<Link href="/blog">Insights</Link></nav>
