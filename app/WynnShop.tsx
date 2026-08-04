@@ -154,7 +154,6 @@ function RoutineProduct() {
       onPointerDown={() => setPress(true)}
       onPointerUp={() => setPress(false)}
     >
-      <span className="routine-shadow" aria-hidden="true" style={{ transform: `translateX(-50%) translate(${-rot.y * 1.7}px, ${rot.x * 1.2}px) scaleX(${hover ? 1.12 : 1})`, opacity: press ? 0.9 : hover ? 0.48 : 0.8 }} />
       <div className="routine-float">
         <div className="routine-tilt" style={{ transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg) scale(${lift})` }}>
           <img className="routine-img" src="/collections/edge-control-routine.webp" alt="Wynn Essentials Edge Control hydrating formula, open jar with a swirl of periwinkle styling cream" width={1170} height={868} loading="lazy" draggable={false} />
