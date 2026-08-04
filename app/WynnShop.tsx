@@ -302,6 +302,33 @@ function FooterInfo({ page, onClose }: { page: FooterInfoKey; onClose: () => voi
   return <ModalShell label={item.title} onClose={onClose} className="footer-info-shell"><article className="footer-info-modal"><header><p className="eyebrow">WYNN ESSENTIALS</p><button onClick={onClose} aria-label="Close information">Close</button></header><h2>{item.title}</h2><div className="footer-info-body">{item.body}</div></article></ModalShell>;
 }
 
+// First-visit intro overlay (Nourish "vision 1"): a blank screen, the bottle
+// slides in and tips over, and the poured oil writes "Healthy Hair Is a
+// Practice." before fading to reveal the site. Runs on a fixed CSS timeline;
+// click, Skip, or Esc dismisses it early, and it auto-finishes at the end.
+function NourishIntro({ onDone }: { onDone: () => void }) {
+  const [leaving, setLeaving] = useState(false);
+  const done = useRef(false);
+  useEffect(() => {
+    const finish = () => { if (done.current) return; done.current = true; setLeaving(true); window.setTimeout(onDone, 800); };
+    document.body.classList.add("locked");
+    // The finished clip runs ~10s (bottle, dropper, oil droplets, then the morph
+    // into the headline); hold the final frame a beat, then fade to the site.
+    const auto = window.setTimeout(finish, 11400);
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") finish(); };
+    const el = document.getElementById("nourish-intro-root");
+    el?.addEventListener("click", finish);
+    window.addEventListener("keydown", onKey);
+    return () => { window.clearTimeout(auto); window.removeEventListener("keydown", onKey); el?.removeEventListener("click", finish); document.body.classList.remove("locked"); };
+  }, [onDone]);
+  return (
+    <div id="nourish-intro-root" className={`nourish-intro${leaving ? " is-leaving" : ""}`} role="dialog" aria-label="Wynn Essentials welcome — Healthy Hair Is a Practice">
+      <button className="nourish-intro-skip" type="button">Skip</button>
+      <video className="nourish-intro-video" autoPlay muted playsInline preload="auto" aria-hidden="true"><source src="/nourish-intro.webm" type="video/webm" /><source src="/nourish-intro.mp4" type="video/mp4" /></video>
+    </div>
+  );
+}
+
 function Invitation({ manual, onDone }: { manual: boolean; onDone: () => void }) {
   const [stage, setStage] = useState<"sealed" | "open">("sealed");
   const heading = useRef<HTMLHeadingElement>(null);
@@ -681,6 +708,10 @@ function RoutineFinder({ add, openProduct }: { add: (p: Product) => void; openPr
 
 export default function WynnShop() {
   const [invitation,setInvitation]=useState<false|"auto"|"manual">(false);
+  // First-visit intro: a blank screen, then the Nourish bottle slides in, tips
+  // over, and the poured oil "writes" the headline before revealing the site.
+  // Plays once per browser session, never for reduced-motion or deep-link loads.
+  const [intro,setIntro]=useState(false);
   const [filter,setFilter]=useState("All");
   // When set (to an ingredient library name), the shop grid shows only products
   // whose ingredient list contains that ingredient, overriding the category filter.
@@ -717,7 +748,11 @@ export default function WynnShop() {
       // Don't interrupt with the invitation when the visitor arrived via a
       // deep link (e.g. "#cart" or "#product-<slug>") — they have clear intent.
       const deepLink=/^#(cart|product-)/.test(window.location.hash);
-      try { const t=Number(localStorage.getItem("wynnInvitationAcceptedAt")||0); if(!deepLink && (!t||Date.now()-t>30*864e5)) setInvitation("auto"); } catch {}
+      // Decide the Nourish intro first; when it plays it takes the welcome slot,
+      // so the invitation modal is suppressed for this load to avoid stacking.
+      let playIntro=false;
+      try { const reduce=window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches; if(!deepLink && !reduce && !sessionStorage.getItem("wynnIntroPlayed")){ playIntro=true; sessionStorage.setItem("wynnIntroPlayed","1"); setIntro(true); } } catch {}
+      try { const t=Number(localStorage.getItem("wynnInvitationAcceptedAt")||0); if(!deepLink && !playIntro && (!t||Date.now()-t>30*864e5)) setInvitation("auto"); } catch {}
       try { setCart(JSON.parse(localStorage.getItem("wynnCart")||"[]")); } catch {}
       try { const w=JSON.parse(localStorage.getItem("wynnWishlist")||"[]"); if(Array.isArray(w)) setWishlist(w.filter((s:unknown):s is string=>typeof s==="string")); } catch {}
       hydrated.current=true;
@@ -788,6 +823,7 @@ export default function WynnShop() {
   return <div className="site">
     <a className="skip-link" href="#main">Skip to content</a>
     <div className={`toast${notice ? " show" : ""}`} role="status" aria-live="polite">{notice}</div>
+    {intro && <NourishIntro onDone={()=>setIntro(false)}/>}
     {invitation && <Invitation manual={invitation==="manual"} onDone={()=>setInvitation(false)}/>}
     <Header count={cart.reduce((s,i)=>s+i.quantity,0)} wishCount={wishlist.length} openCart={()=>setCartOpen(true)} openSearch={()=>setSearchOpen(true)} openWishlist={()=>setWishOpen(true)} viewInvite={()=>setInvitation("manual")}/>
     <main id="main">
