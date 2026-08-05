@@ -309,14 +309,18 @@ function FooterInfo({ page, onClose }: { page: FooterInfoKey; onClose: () => voi
 // after. Plays on a fine pointer/normal load only; falls back to the image.
 function HeroMedia({ play, invitationOpen, onReveal }: { play: boolean; invitationOpen: boolean; onReveal: () => void }) {
   const vidRef = useRef<HTMLVideoElement>(null);
+  const bgRef = useRef<HTMLVideoElement>(null);
   const [done, setDone] = useState(false);
   const finished = useRef(false);
   const finish = () => { if (finished.current) return; finished.current = true; setDone(true); onReveal(); };
   // Start the clip once the invitation is out of the way; reveal on end, with a
   // safety timeout in case the 'ended' event never fires. The parent reveals the
   // copy directly for the no-play case (repeat visit / reduced motion / deep link).
+  // A blurred, zoomed copy of the same clip fills the letterbox space beside the
+  // centered portrait clip on desktop so the sides are ambient motion, not white.
   useEffect(() => {
     if (!play || finished.current || invitationOpen) return;
+    bgRef.current?.play().catch(() => {});
     vidRef.current?.play().catch(() => finish());
     const t = window.setTimeout(finish, 13000);
     return () => window.clearTimeout(t);
@@ -327,10 +331,16 @@ function HeroMedia({ play, invitationOpen, onReveal }: { play: boolean; invitati
         <img src="/hero-nourish-sky-full.webp" width={1200} height={1600} alt="Model holding eight Wynn Essentials Nourish boxes against a bright blue sky" fetchPriority="high" />
       </div>
       {play && (
-        <video ref={vidRef} className={`hero-intro-video${done ? " is-done" : ""}`} muted playsInline preload="auto" aria-hidden="true" onEnded={finish}>
-          <source src="/nourish-intro.webm" type="video/webm" />
-          <source src="/nourish-intro.mp4" type="video/mp4" />
-        </video>
+        <>
+          <video ref={bgRef} className={`hero-intro-bg${done ? " is-done" : ""}`} muted playsInline preload="auto" aria-hidden="true" tabIndex={-1}>
+            <source src="/nourish-intro.webm" type="video/webm" />
+            <source src="/nourish-intro.mp4" type="video/mp4" />
+          </video>
+          <video ref={vidRef} className={`hero-intro-video${done ? " is-done" : ""}`} muted playsInline preload="auto" aria-hidden="true" onEnded={finish}>
+            <source src="/nourish-intro.webm" type="video/webm" />
+            <source src="/nourish-intro.mp4" type="video/mp4" />
+          </video>
+        </>
       )}
     </>
   );
@@ -836,7 +846,7 @@ export default function WynnShop() {
     {invitation && <Invitation manual={invitation==="manual"} onDone={()=>setInvitation(false)}/>}
     <Header count={cart.reduce((s,i)=>s+i.quantity,0)} wishCount={wishlist.length} openCart={()=>setCartOpen(true)} openSearch={()=>setSearchOpen(true)} openWishlist={()=>setWishOpen(true)} viewInvite={()=>setInvitation("manual")}/>
     <main id="main">
-      <section className={`hero${playHeroVid && !heroReveal ? " hero-holding" : ""}`}><div className="hero-copy"><p className="eyebrow">TEXTURED-HAIR WELLNESS, MADE INTENTIONAL</p><h1 id="main-heading" tabIndex={-1}>Healthy Hair<br />Is a Practice.</h1><p>Moisture, strength, scalp, and styling essentials created for textured hair and the routines that keep it healthy.</p><div className="actions"><button className="button" onClick={()=>scroll("shop")}>Shop the Essentials</button><button className="outline-button" onClick={()=>scroll("routine-finder")}>Find My Routine</button></div><small>Made for curls, coils, braids, locs, and protective styles.</small></div><HeroMedia play={playHeroVid} invitationOpen={invitation!==false} onReveal={()=>setHeroReveal(true)}/></section>
+      <section className={`hero${playHeroVid && !heroReveal ? " hero-holding" : ""}`}><div className="hero-copy"><p className="eyebrow">TEXTURED-HAIR WELLNESS, MADE INTENTIONAL</p><h1 id="main-heading" tabIndex={-1}>The Practice<br />Starts Here.</h1><p>Moisture, strength, scalp, and styling essentials created for textured hair and the routines that keep it healthy.</p><div className="actions"><button className="button" onClick={()=>scroll("shop")}>Shop the Essentials</button><button className="outline-button" onClick={()=>scroll("routine-finder")}>Find My Routine</button></div><small>Made for curls, coils, braids, locs, and protective styles.</small></div><HeroMedia play={playHeroVid} invitationOpen={invitation!==false} onReveal={()=>setHeroReveal(true)}/></section>
       <section className="statement section"><div className="statement-copy"><p className="eyebrow">BUILD YOUR ROUTINE</p><h2>Hair care for every part<br /><em>of your routine.</em></h2><p>Wynn Essentials offers gentle shampoo, moisture-rich conditioners, daily hydration, scalp and sealing oils, styling cream, edge control, satin accessories, and premium human hair for protective styles. Choose the products that fit your hair and build a routine around what it needs.</p><a href="#shop" className="button">Explore the Collection</a></div><RoutineProduct /></section>
       <section id="best-sellers" className="editorial-shop section" aria-labelledby="editorial-favorites"><div className="section-heading"><div><p className="eyebrow">BEST SELLERS</p><h2 id="editorial-favorites">Colorful Care.<br/>Intentional Results.</h2></div><p>Explore customer favorites designed to cleanse, condition, hydrate, and define textured hair.</p></div><div className="editorial-grid">{[
         ["/editorial/thairap-lavender.png","ThairaP","Moisture Styling Cream","Four ThairaP styling cream jars with lavender and aloe"],
