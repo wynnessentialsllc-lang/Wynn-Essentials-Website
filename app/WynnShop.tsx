@@ -117,11 +117,15 @@ function ScrollPlayVideo({ src, poster, ariaLabel, loop = false, preload = "meta
 // parallax cast shadow, and "presses" in when grabbed. Pointer effects are
 // mouse-only and disabled for reduced-motion users; touch devices still get the
 // scroll-in zoom and the resting float/shadow.
-function RoutineProduct() {
+function RoutineProduct({ onOpen }: { onOpen: () => void }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [inView, setInView] = useState(false);
   const [hover, setHover] = useState(false);
   const [press, setPress] = useState(false);
+  // Track pointer travel between press and release so "grabbing" and swinging the
+  // tilt doesn't count as a click; only a tap in place opens the product.
+  const down = useRef<{ x: number; y: number } | null>(null);
+  const dragged = useRef(false);
   const [rot, setRot] = useState({ x: 0, y: 0 });
   const [glow, setGlow] = useState({ x: 50, y: 30 });
   const reduced = useRef(false);
@@ -149,10 +153,15 @@ function RoutineProduct() {
     <div
       ref={wrapRef}
       className={`statement-product${inView ? " is-zoomed" : ""}${hover ? " is-hover" : ""}`}
+      role="link"
+      tabIndex={0}
+      aria-label="View Edge Control product details"
       onPointerMove={onMove}
       onPointerLeave={reset}
-      onPointerDown={() => setPress(true)}
-      onPointerUp={() => setPress(false)}
+      onPointerDown={(e) => { setPress(true); down.current = { x: e.clientX, y: e.clientY }; dragged.current = false; }}
+      onPointerUp={(e) => { setPress(false); if (down.current) { const dx = e.clientX - down.current.x, dy = e.clientY - down.current.y; dragged.current = Math.hypot(dx, dy) > 8; } }}
+      onClick={() => { if (!dragged.current) onOpen(); }}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
     >
       <div className="routine-float">
         <div className="routine-tilt" style={{ transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg) scale(${lift})` }}>
@@ -847,7 +856,7 @@ export default function WynnShop() {
     <Header count={cart.reduce((s,i)=>s+i.quantity,0)} wishCount={wishlist.length} openCart={()=>setCartOpen(true)} openSearch={()=>setSearchOpen(true)} openWishlist={()=>setWishOpen(true)} viewInvite={()=>setInvitation("manual")}/>
     <main id="main">
       <section className={`hero${playHeroVid && !heroReveal ? " hero-holding" : ""}`}><div className="hero-copy"><p className="eyebrow">TEXTURED-HAIR WELLNESS, MADE INTENTIONAL</p><h1 id="main-heading" tabIndex={-1}>The Practice<br />Starts Here.</h1><p>Moisture, strength, scalp, and styling essentials created for textured hair and the routines that keep it healthy.</p><div className="actions"><button className="button" onClick={()=>scroll("shop")}>Shop the Essentials</button><button className="outline-button" onClick={()=>scroll("routine-finder")}>Find My Routine</button></div><small>Made for curls, coils, braids, locs, and protective styles.</small></div><HeroMedia play={playHeroVid} invitationOpen={invitation!==false} onReveal={()=>setHeroReveal(true)}/></section>
-      <section className="statement section"><div className="statement-copy"><p className="eyebrow">BUILD YOUR ROUTINE</p><h2>Hair care for every part<br /><em>of your routine.</em></h2><p>Wynn Essentials offers gentle shampoo, moisture-rich conditioners, daily hydration, scalp and sealing oils, styling cream, edge control, satin accessories, and premium human hair for protective styles. Choose the products that fit your hair and build a routine around what it needs.</p><a href="#shop" className="button">Explore the Collection</a></div><RoutineProduct /></section>
+      <section className="statement section"><div className="statement-copy"><p className="eyebrow">BUILD YOUR ROUTINE</p><h2>Hair care for every part<br /><em>of your routine.</em></h2><p>Wynn Essentials offers gentle shampoo, moisture-rich conditioners, daily hydration, scalp and sealing oils, styling cream, edge control, satin accessories, and premium human hair for protective styles. Choose the products that fit your hair and build a routine around what it needs.</p><a href="#shop" className="button">Explore the Collection</a></div><RoutineProduct onOpen={()=>openProduct(products.find(p=>p.slug==="edge-control")!)} /></section>
       <section id="best-sellers" className="editorial-shop section" aria-labelledby="editorial-favorites"><div className="section-heading"><div><p className="eyebrow">BEST SELLERS</p><h2 id="editorial-favorites">Colorful Care.<br/>Intentional Results.</h2></div><p>Explore customer favorites designed to cleanse, condition, hydrate, and define textured hair.</p></div><div className="editorial-grid">{[
         ["/editorial/thairap-lavender.png","ThairaP","Moisture Styling Cream","Four ThairaP styling cream jars with lavender and aloe"],
         ["/editorial/uplyft-model.jpeg","Uplyft","Moisture Rich Conditioner","Model holding Uplyft Moisture Rich Conditioner"],
