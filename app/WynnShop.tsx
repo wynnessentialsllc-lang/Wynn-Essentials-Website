@@ -322,15 +322,17 @@ function HeroMedia({ play, invitationOpen, onReveal }: { play: boolean; invitati
     return () => window.clearTimeout(t);
   }, [play, invitationOpen]);
   return (
-    <div className="hero-image">
-      <img src="/hero-nourish-sky-full.webp" width={1200} height={1600} alt="Model holding eight Wynn Essentials Nourish boxes against a bright blue sky" fetchPriority="high" />
+    <>
+      <div className="hero-image">
+        <img src="/hero-nourish-sky-full.webp" width={1200} height={1600} alt="Model holding eight Wynn Essentials Nourish boxes against a bright blue sky" fetchPriority="high" />
+      </div>
       {play && (
         <video ref={vidRef} className={`hero-intro-video${done ? " is-done" : ""}`} muted playsInline preload="auto" aria-hidden="true" onEnded={finish}>
           <source src="/nourish-intro.webm" type="video/webm" />
           <source src="/nourish-intro.mp4" type="video/mp4" />
         </video>
       )}
-    </div>
+    </>
   );
 }
 
@@ -754,11 +756,11 @@ export default function WynnShop() {
       // Don't interrupt with the invitation when the visitor arrived via a
       // deep link (e.g. "#cart" or "#product-<slug>") — they have clear intent.
       const deepLink=/^#(cart|product-)/.test(window.location.hash);
-      // The invitation runs as before. Separately, on the first load of a session
-      // the Nourish film plays inside the hero image panel (it waits for the
-      // invitation to close), then the hero copy appears.
+      // The invitation runs as before. Separately, the Nourish film plays on
+      // every visit as a full-width centered intro over the hero (it waits for
+      // the invitation to close), then fades to reveal the hero copy and image.
       let willPlayHero=false;
-      try { const reduce=window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches; if(!deepLink && !reduce && !sessionStorage.getItem("wynnHeroIntro")){ sessionStorage.setItem("wynnHeroIntro","1"); willPlayHero=true; } } catch {}
+      try { const reduce=window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches; if(!deepLink && !reduce){ willPlayHero=true; } } catch {}
       if(willPlayHero) setPlayHeroVid(true); else setHeroReveal(true);
       try { const t=Number(localStorage.getItem("wynnInvitationAcceptedAt")||0); if(!deepLink && (!t||Date.now()-t>30*864e5)) setInvitation("auto"); } catch {}
       try { setCart(JSON.parse(localStorage.getItem("wynnCart")||"[]")); } catch {}
