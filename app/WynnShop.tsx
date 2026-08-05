@@ -309,14 +309,18 @@ function FooterInfo({ page, onClose }: { page: FooterInfoKey; onClose: () => voi
 // after. Plays on a fine pointer/normal load only; falls back to the image.
 function HeroMedia({ play, invitationOpen, onReveal }: { play: boolean; invitationOpen: boolean; onReveal: () => void }) {
   const vidRef = useRef<HTMLVideoElement>(null);
+  const bgRef = useRef<HTMLVideoElement>(null);
   const [done, setDone] = useState(false);
   const finished = useRef(false);
   const finish = () => { if (finished.current) return; finished.current = true; setDone(true); onReveal(); };
   // Start the clip once the invitation is out of the way; reveal on end, with a
   // safety timeout in case the 'ended' event never fires. The parent reveals the
   // copy directly for the no-play case (repeat visit / reduced motion / deep link).
+  // A blurred, zoomed copy of the same clip fills the letterbox space beside the
+  // centered portrait clip on desktop so the sides are ambient motion, not white.
   useEffect(() => {
     if (!play || finished.current || invitationOpen) return;
+    bgRef.current?.play().catch(() => {});
     vidRef.current?.play().catch(() => finish());
     const t = window.setTimeout(finish, 13000);
     return () => window.clearTimeout(t);
@@ -327,10 +331,16 @@ function HeroMedia({ play, invitationOpen, onReveal }: { play: boolean; invitati
         <img src="/hero-nourish-sky-full.webp" width={1200} height={1600} alt="Model holding eight Wynn Essentials Nourish boxes against a bright blue sky" fetchPriority="high" />
       </div>
       {play && (
-        <video ref={vidRef} className={`hero-intro-video${done ? " is-done" : ""}`} muted playsInline preload="auto" aria-hidden="true" onEnded={finish}>
-          <source src="/nourish-intro.webm" type="video/webm" />
-          <source src="/nourish-intro.mp4" type="video/mp4" />
-        </video>
+        <>
+          <video ref={bgRef} className={`hero-intro-bg${done ? " is-done" : ""}`} muted playsInline preload="auto" aria-hidden="true" tabIndex={-1}>
+            <source src="/nourish-intro.webm" type="video/webm" />
+            <source src="/nourish-intro.mp4" type="video/mp4" />
+          </video>
+          <video ref={vidRef} className={`hero-intro-video${done ? " is-done" : ""}`} muted playsInline preload="auto" aria-hidden="true" onEnded={finish}>
+            <source src="/nourish-intro.webm" type="video/webm" />
+            <source src="/nourish-intro.mp4" type="video/mp4" />
+          </video>
+        </>
       )}
     </>
   );
