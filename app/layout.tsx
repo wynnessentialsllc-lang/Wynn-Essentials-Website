@@ -3,6 +3,7 @@ import "./globals.css";
 import { SITE_URL, organizationSchema, websiteSchema, faqSchema, ldJson } from "./seo";
 import CookieConsent from "./CookieConsent";
 import Analytics from "./Analytics";
+import { Analytics as VercelAnalytics } from "@vercel/analytics/next";
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#FCFBF8" };
 export const metadata: Metadata = {
@@ -27,6 +28,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         {children}
         <CookieConsent />
         <Analytics />
+        <VercelAnalytics />
       </body>
     </html>
   );
