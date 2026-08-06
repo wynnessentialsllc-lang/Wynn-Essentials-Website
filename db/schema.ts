@@ -55,6 +55,7 @@ export const subscribers = pgTable("subscribers", {
   source: text("source"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  unsubscribedAt: timestamp("unsubscribed_at", { withTimezone: true }),
 });
 
 export type Subscriber = typeof subscribers.$inferSelect;
