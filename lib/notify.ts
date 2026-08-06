@@ -19,6 +19,11 @@ const DEFAULT_FROM = "Wynn Essentials <onboarding@resend.dev>";
 // The Resend API key, read from the environment. RESEND_API_KEY is the standard
 // name; wynnessentials_site is also accepted so the Vercel variable can be named
 // either way. First match wins.
+import { unsubscribeUrl, listUnsubscribeHeaders } from "./unsubscribe";
+
+// Physical mailing address for the CAN-SPAM footer on every customer email.
+const BUSINESS_ADDRESS = "Wynn Essentials, LLC · 3680 Wilshire Blvd., Ste P04 A118, Los Angeles, CA 90010";
+
 const API_KEY_ENV = ["RESEND_API_KEY", "wynnessentials_site"];
 const resendApiKey = () => API_KEY_ENV.map(name => process.env[name]).find(Boolean);
 
@@ -40,7 +45,7 @@ const money = (cents: number | null | undefined, currency = "usd") =>
  * when no API key is set). Never throws — safe to call from webhooks and
  * server actions without a surrounding try/catch.
  */
-export async function sendEmail({ to, subject, html, replyTo }: { to: string; subject: string; html: string; replyTo?: string }): Promise<boolean> {
+export async function sendEmail({ to, subject, html, replyTo, headers }: { to: string; subject: string; html: string; replyTo?: string; headers?: Record<string, string> }): Promise<boolean> {
   const apiKey = resendApiKey();
   if (!apiKey) {
     console.info(`Email skipped: no Resend API key set (${API_KEY_ENV.join(" or ")})`, { subject });
@@ -55,7 +60,7 @@ export async function sendEmail({ to, subject, html, replyTo }: { to: string; su
     const response = await fetch(RESEND_ENDPOINT, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from, to, subject, html, ...(replyTo ? { reply_to: replyTo } : {}) }),
+      body: JSON.stringify({ from, to, subject, html, ...(replyTo ? { reply_to: replyTo } : {}), ...(headers ? { headers } : {}) }),
     });
     if (!response.ok) {
       console.error("Email failed", { status: response.status, detail: await response.text().catch(() => "") });
@@ -152,7 +157,7 @@ export function trackingUrl(carrier: string | null | undefined, number: string |
   }
 }
 
-const customerShell = (heading: string, intro: string, body: string) => `
+const customerShell = (heading: string, intro: string, body: string, opts: { unsubscribeEmail?: string | null } = {}) => `
   <div style="font-family:Arial,Helvetica,sans-serif;color:#111;max-width:560px;margin:0 auto;padding:8px 0">
     <p style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#b39067;font-weight:700;margin:0 0 6px">Wynn Essentials</p>
     <h1 style="font-family:Georgia,serif;font-weight:400;font-size:28px;margin:0 0 14px">${heading}</h1>
@@ -160,6 +165,8 @@ const customerShell = (heading: string, intro: string, body: string) => `
     ${body}
     <p style="font-size:13px;color:#6d675f;line-height:1.6;margin:26px 0 0">Questions? Just reply to this email or reach us at <a href="mailto:wynnessentialsllc@gmail.com" style="color:#b39067">wynnessentialsllc@gmail.com</a>.</p>
     <p style="font-size:12px;color:#a98f72;margin:22px 0 0">Wynn Essentials · Healthy hair is a practice.</p>
+    <p style="font-size:11px;color:#9a938a;line-height:1.6;margin:10px 0 0">${BUSINESS_ADDRESS}</p>
+    ${opts.unsubscribeEmail ? `<p style="font-size:11px;color:#9a938a;line-height:1.6;margin:6px 0 0">You're receiving this because you subscribed to Wynn Essentials emails. <a href="${unsubscribeUrl(opts.unsubscribeEmail)}" style="color:#846743">Unsubscribe</a> at any time.</p>` : ""}
   </div>`;
 
 const itemsTable = (items: OrderInfo["items"], currency: string) => {
@@ -215,7 +222,8 @@ export async function notifySubscriberWelcome({ email, productName, promoCode, p
     return sendEmail({
       to: email,
       subject: `Here's your ${label} code`,
-      html: customerShell(`Welcome — here's ${label}`, "Thanks for joining Wynn Essentials. Your welcome offer is below.", codeBlock),
+      html: customerShell(`Welcome — here's ${label}`, "Thanks for joining Wynn Essentials. Your welcome offer is below.", codeBlock, { unsubscribeEmail: email }),
+      headers: listUnsubscribeHeaders(email),
     });
   }
   const body = `<p style="font-size:15px;line-height:1.6;margin:0">You'll receive routine guidance, ingredient education, new product releases, and early access — straight to your inbox. Welcome to the family.</p>
@@ -223,7 +231,8 @@ export async function notifySubscriberWelcome({ email, productName, promoCode, p
   return sendEmail({
     to: email,
     subject: "Welcome to The Wynn Edit",
-    html: customerShell("Welcome to The Wynn Edit", "Thanks for joining — good hair information belongs in your inbox.", body),
+    html: customerShell("Welcome to The Wynn Edit", "Thanks for joining — good hair information belongs in your inbox.", body, { unsubscribeEmail: email }),
+    headers: listUnsubscribeHeaders(email),
   });
 }
 
@@ -249,7 +258,8 @@ export async function notifyAbandonedCart({ email, items, subtotal, promoCode, p
   return sendEmail({
     to: email,
     subject: "You left something in your bag",
-    html: customerShell("Your bag is waiting", "Your hair-care picks are still here whenever you're ready.", body),
+    html: customerShell("Your bag is waiting", "Your hair-care picks are still here whenever you're ready.", body, { unsubscribeEmail: email }),
+    headers: listUnsubscribeHeaders(email),
   });
 }
 
@@ -306,6 +316,7 @@ export async function notifyReviewRequest({ email, customerName, orderReference,
   return sendEmail({
     to: email,
     subject: "How are you loving your Wynn Essentials?",
-    html: customerShell("How&rsquo;s your hair loving it?", `Hi ${esc(firstName)}, it&rsquo;s been a little while since your order arrived — we&rsquo;d love to hear how it&rsquo;s working for you.`, body),
+    html: customerShell("How&rsquo;s your hair loving it?", `Hi ${esc(firstName)}, it&rsquo;s been a little while since your order arrived — we&rsquo;d love to hear how it&rsquo;s working for you.`, body, { unsubscribeEmail: email }),
+    headers: listUnsubscribeHeaders(email),
   });
 }
