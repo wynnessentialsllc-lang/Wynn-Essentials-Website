@@ -66,17 +66,19 @@ export default async function BlogArticle({ params }: { params: Promise<{ slug: 
         <Link href="/">Home</Link> <span aria-hidden="true">/</span> <Link href="/blog">Insights</Link> <span aria-hidden="true">/</span> <span aria-current="page">{post.title}</span>
       </nav>
 
+      <main id="main">
       <article className="article">
         <p className="eyebrow">{post.author}{post.author !== "Wynn Essentials" ? " · in partnership with Wynn Essentials" : ""}</p>
         <h1>{post.title}</h1>
         <p className="article-date">{when(post.publishedAt)}</p>
-        {post.coverImage && <img className="article-cover" src={post.coverImage} alt="" width={1600} height={900} />}
+        {post.coverImage && <img className="article-cover" src={post.coverImage} alt={post.title} width={1600} height={900} />}
         <div className="article-body" dangerouslySetInnerHTML={{ __html: renderMarkdown(post.body) }} />
         <div className="article-cta">
           <p>Ready to put it into practice?</p>
           <Link className="button" href="/#shop">Shop the Essentials</Link>
         </div>
       </article>
+      </main>
 
       <footer className="pdp-footer">
         <p><Link href="/blog">← More Insights</Link> · <Link href="/#shop">Shop all products</Link></p>

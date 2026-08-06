@@ -50,6 +50,7 @@ export default function BraidingHairPage() {
         <Link href="/">Home</Link> <span aria-hidden="true">/</span> <span aria-current="page">Braiding Hair</span>
       </nav>
 
+      <main id="main">
       <section className="collection-hero">
         <p className="eyebrow">PREMIUM HUMAN HAIR</p>
         <h1>Braiding Hair</h1>
@@ -97,6 +98,7 @@ export default function BraidingHairPage() {
         </table>
         <p className="collection-fine">Guidance only, not a guarantee. Each pack contains one bundle unless noted.</p>
       </section>
+      </main>
 
       <footer className="pdp-footer">
         <p><Link href="/#shop">Browse all products</Link> · <Link href="/#routine-finder">Find your routine</Link> · <Link href="/">Back to home</Link></p>
