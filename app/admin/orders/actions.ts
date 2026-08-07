@@ -20,7 +20,7 @@ function rateLimited(key: string) {
 export async function signIn(_prev: string | null, formData: FormData): Promise<string | null> {
   if (rateLimited("signin")) return "Too many attempts. Try again in a few minutes.";
   if (!(await verifyPassword(formData.get("token")))) return "Incorrect access token.";
-  await createSession();
+  await createSession(formData.get("remember") === "1");
   revalidatePath("/admin/orders");
   return null;
 }

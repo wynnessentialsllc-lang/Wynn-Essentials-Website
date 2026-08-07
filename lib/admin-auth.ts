@@ -13,6 +13,10 @@ import { cookies } from "next/headers";
 const COOKIE = "we_admin";
 const TOKEN_ENV = "ADMIN_ORDERS_TOKEN";
 const SESSION_HOURS = 12;
+// Opt-in "keep me signed in" duration. Longer than the default 12h session for
+// convenience; still safe because the cookie is HMAC-signed and httpOnly, so it
+// can't be turned back into the token and expires on its own.
+const REMEMBER_DAYS = 30;
 const encoder = new TextEncoder();
 
 export function adminTokenConfigured() {
@@ -52,15 +56,16 @@ export async function verifyPassword(candidate: unknown) {
   return safeEqual(candidate, requireToken());
 }
 
-export async function createSession() {
-  const expiresAt = Date.now() + SESSION_HOURS * 60 * 60 * 1000;
+export async function createSession(remember = false) {
+  const durationSeconds = (remember ? REMEMBER_DAYS * 24 : SESSION_HOURS) * 60 * 60;
+  const expiresAt = Date.now() + durationSeconds * 1000;
   const value = `${expiresAt}.${await sign(String(expiresAt))}`;
   (await cookies()).set(COOKIE, value, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
     path: "/",
-    maxAge: SESSION_HOURS * 60 * 60,
+    maxAge: durationSeconds,
   });
 }
 
