@@ -45,7 +45,12 @@ export default async function AdminSubscribers() {
   try {
     rows = await getDb().select().from(subscribersTable).orderBy(desc(subscribersTable.createdAt)).limit(500);
   } catch (cause) {
-    error = cause instanceof Error ? cause.message : "Unknown error";
+    // Drizzle wraps the driver error: the outer `.message` is only the generic
+    // "Failed query: …" SQL dump, while the real reason (e.g. a column missing
+    // because a migration has not been applied to this database) lives on the
+    // underlying `.cause`. Surface that so the admin sees an actionable message.
+    const root = cause instanceof Error && cause.cause instanceof Error ? cause.cause : cause;
+    error = root instanceof Error ? root.message : "Unknown error";
   }
 
   const consented = rows.filter(r => r.marketingConsent).length;

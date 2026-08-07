@@ -32,6 +32,14 @@ Run `npm run db:migrate` (after `npx vercel env pull .env.local`), **or** paste 
 - `0008_order_tracking.sql` — shipping/tracking columns (shipping emails)
 - `0009_abandoned_carts.sql` — abandoned-cart recovery
 - `0010_blog_posts.sql` + `0011_seed_blog_drafts.sql` — Insights blog + starter drafts
+- `0012_review_requests.sql` — post-purchase review-request emails
+- `0013_import_square_subscribers.sql` — one-time Square contact import
+- `0014_add_unsubscribe.sql` — `unsubscribed_at` column (email unsubscribe / CAN-SPAM)
+
+> The `/admin/subscribers` view and the email-unsubscribe flow both read/write
+> `unsubscribed_at`. If the Subscribers page reports `column "unsubscribed_at"
+> does not exist`, this migration has not been applied yet — run it (or paste
+> `drizzle/0014_add_unsubscribe.sql` into the Neon SQL editor).
 
 ## 3. Stripe dashboard
 
