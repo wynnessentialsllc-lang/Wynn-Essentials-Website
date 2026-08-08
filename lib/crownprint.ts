@@ -293,8 +293,47 @@ async function hmac(secret: string, message: string, encoding: "hex" | "b64url")
 // The exact request signature HWL verifies: HMAC-SHA256 over "<timestamp>.<rawBody>".
 export function signExchange(timestamp: string, rawBody: string): Promise<string> {
   if (!crownprintConfig.hmacSecret) throw new Error("WYNN_INTEGRATION_HMAC_SECRET is not configured.");
-  return hmac(crownprintConfig.hmacSecret, `${timestamp}.${rawBody}`, "hex");
+  // base64url, matching what Hair Wellness Lab's verifier computes and compares
+  // in constant time. See EXCHANGE_TIMESTAMP_UNIT below for the other half of
+  // this contract.
+  return hmac(crownprintConfig.hmacSecret, `${timestamp}.${rawBody}`, "b64url");
 }
+
+/**
+ * The unit of X-Wynn-Timestamp. HWL's verifier computes freshness as
+ * `Math.abs(nowSeconds - timestamp) > tolerance` against a 300-SECOND window, so
+ * a millisecond timestamp reads as roughly 56,000 years in the future and is
+ * rejected as stale before the signature is even computed. Named as a constant
+ * because it is a contract term, not an implementation detail.
+ */
+export const EXCHANGE_TIMESTAMP_UNIT = "seconds";
+export const exchangeTimestamp = () => String(Math.floor(Date.now() / 1000));
+
+// ---------------------------------------------------------------------------
+// Non-secret diagnostics.
+//
+// A shared-secret mismatch and a signing-convention mismatch both surface as an
+// identical 401, and neither side can see the other's secret. A truncated
+// SHA-256 fingerprint settles which one it is: both sides log it, and the values
+// either match or they don't. It is one-way and truncated, so it discloses
+// nothing usable about a high-entropy secret.
+//
+// SERVER LOGS ONLY. The fingerprint is never returned in a response, never put
+// in a URL, never persisted, and never reaches the browser — this module is
+// server-only (it imports next/headers) and nothing here is rendered.
+// ---------------------------------------------------------------------------
+async function sha256Hex(input: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", encoder.encode(input));
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** First 12 hex chars of SHA-256(secret). Comparable across sites, not reversible. */
+export async function secretFingerprint(secret: string): Promise<string> {
+  return (await sha256Hex(secret)).slice(0, 12);
+}
+
+/** SHA-256 of the exact bytes signed, so both sides can prove they agree on them. */
+export const bodyFingerprint = (rawBody: string): Promise<string> => sha256Hex(rawBody);
 
 // Constant-time compare for cookie signatures.
 function safeEqual(a: string, b: string) {
@@ -320,13 +359,25 @@ export async function exchangeConnectCode(code: string, returnUrl: string): Prom
   if (!crownprintApiConfigured()) return { ok: false, reason: "unavailable" };
   // Body is signed verbatim; keep it stable so the signature matches on the wire.
   const rawBody = JSON.stringify({ code, return: returnUrl });
-  const timestamp = String(Date.now());
+  const timestamp = exchangeTimestamp();
   let signature: string;
   try {
     signature = await signExchange(timestamp, rawBody);
   } catch {
     return { ok: false, reason: "unavailable" };
   }
+
+  // The exchange as Wynn is about to send it, in terms both sides can compare.
+  // No secret, no signature, no connect code, and no CrownPrint data.
+  // Non-null by this point: crownprintApiConfigured() gated the call and
+  // signExchange would have thrown otherwise. Narrowed explicitly so the
+  // fingerprint can never be taken over an empty string and read as a match.
+  const secret = crownprintConfig.hmacSecret;
+  if (!secret) return { ok: false, reason: "unavailable" };
+  const [secretFp, bodyFp] = await Promise.all([secretFingerprint(secret), bodyFingerprint(rawBody)]);
+  console.info(
+    `[crownprint] HMAC secret fingerprint: ${secretFp} · timestamp: ${timestamp} (unix ${EXCHANGE_TIMESTAMP_UNIT}) · rawBody SHA-256: ${bodyFp} · signing: HMAC-SHA256 over "<timestamp>.<rawBody>", base64url, header X-Wynn-Signature`,
+  );
   try {
     const controller = new AbortController();
     // 8s, not 4s: this runs during a top-level redirect while the shopper waits,
@@ -358,7 +409,7 @@ export async function exchangeConnectCode(code: string, returnUrl: string): Prom
     // because it is invisible to the shopper and fatal to every connect attempt.
     if (res.status === 401 || res.status === 403) {
       console.error(
-        `[crownprint] HWL rejected the exchange signature (${res.status}). Verify WYNN_INTEGRATION_HMAC_SECRET matches the secret configured at Hair Wellness Lab, and that this deployment's clock is accurate.`,
+        `[crownprint] HWL rejected the exchange signature (${res.status}) for secret fingerprint ${secretFp}, timestamp ${timestamp} (unix ${EXCHANGE_TIMESTAMP_UNIT}), rawBody SHA-256 ${bodyFp}. Compare the fingerprint against the one Hair Wellness Lab logs: if they differ, WYNN_INTEGRATION_HMAC_SECRET does not match on the two sides. If they match, the signing contract differs — check timestamp unit, signature encoding, and that both sides signed these exact bytes.`,
       );
       return { ok: false, reason: "error" };
     }

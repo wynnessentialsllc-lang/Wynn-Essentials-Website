@@ -279,6 +279,79 @@ test("8. conditional matches are never promoted to fill out a thin result", () =
 });
 
 // ---------------------------------------------------------------------------
+// The richer 360 contract, consumed as HWL now sends it.
+// ---------------------------------------------------------------------------
+test("8b. a not-carried function can never become a Wynn product recommendation", () => {
+  // HWL says a bond-repair treatment is needed and that we don't carry it. The
+  // wording overlaps our protein conditioner ("strengthening"), so only HWL's
+  // verdict keeps it out of the matches.
+  const context = resolved360({
+    productFunctionsNeeded: [
+      { label: "Protein or strengthening treatment", detail: "Bond repair for chemically processed hair." },
+      { label: "Sealing", detail: "Hold the moisture in." },
+    ],
+    notCarried: [{ label: "Protein or strengthening treatment", detail: "A bond builder is a different category." }],
+    matches: [],
+  });
+  const guidance = selectGuidance({ context, catalog });
+
+  assert.equal(
+    guidance.matches.some((m) => m.productKey === "revaivl-protein-conditioner"),
+    false,
+    "HWL said we don't carry this — no keyword overlap may override that",
+  );
+  assert.ok(guidance.gaps.some((g) => /strengthening/i.test(g.label)), "it stays a gap");
+  // The function we DO carry is still matched.
+  assert.ok(guidance.matches.some((m) => m.productKey === "nourish-oil"), "sealing is genuinely covered");
+});
+
+test("8c. Wynn's own catalog fill can never reach strong", () => {
+  const context = resolved360({
+    // HWL named no products at all — everything here is Wynn filling functions.
+    matches: [],
+    productFunctionsNeeded: [
+      { label: "Gentle cleansing" },
+      { label: "Leave-in hydration" },
+      { label: "Sealing" },
+      { label: "Direct scalp care" },
+    ],
+    notCarried: [],
+  });
+  const guidance = selectGuidance({ context, catalog });
+
+  assert.ok(guidance.matches.length >= 3, "Wynn should cover the functions it can serve");
+  assert.equal(
+    guidance.matches.some((m) => m.matchClass === "strong"),
+    false,
+    "strong is HWL's verdict to make; Wynn filling a function is good at most",
+  );
+  assert.equal(guidance.noStrongMatch, true, "and that must read honestly as no strong match");
+});
+
+test("8d. HWL's own classes are carried through untouched", () => {
+  const context = resolved360({
+    matches: [
+      { productKey: "relief-oil", productName: "Relief", matchClass: "strong", why: "Resolved strong by the Lab." },
+      { productKey: "grow-oil", productName: "Grow", matchClass: "conditional", why: "Resolved conditional by the Lab." },
+    ],
+    productFunctionsNeeded: [],
+    notCarried: [],
+  });
+  const guidance = selectGuidance({ context, catalog });
+  assert.equal(guidance.matches.find((m) => m.productKey === "relief-oil").matchClass, "strong");
+  assert.equal(guidance.matches.find((m) => m.productKey === "grow-oil").matchClass, "conditional");
+  assert.equal(guidance.noStrongMatch, false);
+});
+
+test("8e. the resolved code, priorities and functions render from HWL, not from Wynn", () => {
+  const guidance = selectGuidance({ context: resolved360(), catalog });
+  assert.equal(guidance.code, "P2-D3-T3-S2-E2", "the code shown is the one HWL resolved");
+  assert.deepEqual(guidance.priorities.map((p) => p.label), ["Scalp comfort", "Moisture balance"]);
+  assert.equal(guidance.source, "crownprint-360");
+  assert.equal(guidance.confidence, "full");
+});
+
+// ---------------------------------------------------------------------------
 // 9. Connect security is untouched by any of this.
 // ---------------------------------------------------------------------------
 test("9. the secure callback verification is unchanged", async () => {

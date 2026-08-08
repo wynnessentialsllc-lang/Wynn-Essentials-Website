@@ -450,8 +450,16 @@ export default function CrownPrintExperience({
 }) {
   // The opening toast is derived from the server-resolved state, so it is the
   // initial value rather than an effect that re-renders.
+  //
+  // The CONNECT-family panels (the intro and the reconnect panel) already print
+  // `note` as their own leading line. Raising it as a toast as well showed the
+  // same sentence twice and floated a fixed black bar over the panel copy it
+  // belongs to — worst on the failure screens, where the message matters most.
+  // The explanation belongs in the panel; the toast stays for transient
+  // feedback like "added to your bag".
+  const notePlacedInPanel = state === "CONNECT";
   const [toast, setToast] = useState(
-    () => note || (showResults ? "Your CrownPrint is connected — here are your matches." : ""),
+    () => (notePlacedInPanel ? "" : note) || (showResults ? "Your CrownPrint is connected — here are your matches." : ""),
   );
   const toastTimer = useRef<number | undefined>(undefined);
   const stale = state === "CROWNSTATE_STALE";

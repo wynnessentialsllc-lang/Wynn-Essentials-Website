@@ -235,7 +235,17 @@ function fromTrustedContext(context: TrustedContext, catalog: FitCatalogProduct[
     label: f.label,
     detail: f.detail ?? "",
   }));
-  const coverage = matchFunctionsToCatalog(context.productFunctionsNeeded ?? [], catalog);
+
+  // HWL's `notCarried` is authoritative and outranks Wynn's own keyword match.
+  // If the Lab has already determined we do not carry a function, no amount of
+  // wording overlap may turn it into a product: a bond builder stays a gap even
+  // though "strengthening" matches our protein conditioner. Excluded BEFORE
+  // matching, so a gap can never become a recommendation by accident.
+  const notCarriedLabels = new Set((context.notCarried ?? []).map((g) => g.label.trim().toLowerCase()));
+  const matchable = (context.productFunctionsNeeded ?? []).filter(
+    (f) => !notCarriedLabels.has(f.label.trim().toLowerCase()),
+  );
+  const coverage = matchFunctionsToCatalog(matchable, catalog);
 
   // 3. Anything the functions point at that HWL didn't already name is added as a
   //    GOOD match at most. HWL owns "strong"; Wynn filling a function it noticed
