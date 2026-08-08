@@ -415,11 +415,12 @@ function FirstOrderOffer({ onClose, onContinue }: { onClose: () => void; onConti
   </ModalShell>;
 }
 
-// A single hover/click/keyboard-accessible dropdown for the desktop primary nav.
-// Grouping the links into a couple of these keeps the bar uncluttered. It opens on
+// A hover/click/keyboard-accessible dropdown for the desktop primary nav. The
+// panel drops the full width of the header — an editorial mega menu with
+// labelled columns and a featured rail rather than a small list. It opens on
 // hover, on click, and on keyboard focus, and closes on Escape, blur, or a link
 // tap. Desktop only — below 1050px the nav is hidden and the ☰ menu takes over.
-function NavDropdown({ label, children }: { label: string; children: React.ReactNode }) {
+function NavDropdown({ label, id, children }: { label: string; id: string; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   useEffect(() => {
     if (!open) return;
@@ -435,32 +436,86 @@ function NavDropdown({ label, children }: { label: string; children: React.React
       onFocus={() => setOpen(true)}
       onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setOpen(false); }}
     >
-      <button type="button" className="nav-dd-trigger" aria-haspopup="true" aria-expanded={open} onClick={() => setOpen(o => !o)}>
+      <button type="button" className="nav-dd-trigger" aria-expanded={open} aria-controls={id} onClick={() => setOpen(o => !o)}>
         {label}<span className="nav-dd-caret" aria-hidden="true">▾</span>
       </button>
-      <div className="nav-dd-panel" role="menu" onClick={() => setOpen(false)}>{children}</div>
+      <div className="nav-dd-panel" id={id} onClick={() => setOpen(false)}>{children}</div>
     </div>
   );
 }
 
-function Header({ count, wishCount, openCart, openSearch, openWishlist, viewInvite }: { count: number; wishCount: number; openCart: () => void; openSearch: () => void; openWishlist: () => void; viewInvite: () => void }) {
+// The pack shots on the Shop menu's featured rail: one product from each end of
+// the routine, in the order a wash day runs.
+const navFeatured = ["lathyr-shampoo", "hydrate-herbal-hair-mist", "nourish-oil", "edge-control"]
+  .map(slug => products.find(p => p.slug === slug))
+  .filter((p): p is Product => Boolean(p?.images?.length));
+
+function Header({ count, wishCount, openCart, openSearch, openWishlist, viewInvite, openProduct, shopCategory }: { count: number; wishCount: number; openCart: () => void; openSearch: () => void; openWishlist: () => void; viewInvite: () => void; openProduct: (p: Product) => void; shopCategory: (category: string) => void }) {
   const [menu, setMenu] = useState(false);
   return <>
     <div className="announcement"><div className="announcement-track" aria-hidden="true">{[0,1].map(g=>(<div className="announcement-group" key={g}>{Array.from({length:10}).map((_,i)=>(<span className="announcement-item" key={i}>{brandConfig.announcement}</span>))}</div>))}</div><span className="sr-only">{brandConfig.announcement}</span></div>
     <header className="site-header">
       <button className="icon-button menu-trigger" aria-label="Open menu" onClick={() => setMenu(true)}>☰</button>
       <nav aria-label="Primary">
-        <NavDropdown label="Shop">
-          <a href="#shop">All Products</a>
-          <a href="#best-sellers">Best Sellers</a>
-          <a href="#shop-by-concern">Shop by Concern</a>
-          <a href="#shop-by-style">Shop by Style</a>
-          <Link href="/shop-by-crownprint">Shop by CrownPrint</Link>
+        <NavDropdown label="Shop" id="nav-panel-shop">
+          <div className="nav-mega">
+            <div className="nav-mega-cols">
+              <div className="nav-mega-col">
+                <p className="nav-mega-label">By product</p>
+                <button type="button" onClick={() => shopCategory("All")}>All Products</button>
+                {["Cleanse", "Condition", "Treat", "Moisturize", "Oils", "Style"].map(c => (
+                  <button type="button" key={c} onClick={() => shopCategory(c)}>{c}</button>
+                ))}
+              </div>
+              <div className="nav-mega-col">
+                <p className="nav-mega-label">By routine</p>
+                <a href="#best-sellers">Best Sellers</a>
+                <a href="#shop-by-concern">Shop by Concern</a>
+                <a href="#shop-by-style">Shop by Style</a>
+                <Link href="/shop-by-crownprint">Shop by CrownPrint</Link>
+                <a href="#hair-accessories">Hair &amp; Accessories</a>
+              </div>
+            </div>
+            <div className="nav-mega-feature">
+              <p className="nav-mega-label">Start the practice</p>
+              <div className="nav-mega-products">
+                {navFeatured.map(p => (
+                  <button type="button" className="nav-mega-product" key={p.slug} onClick={() => openProduct(p)}>
+                    <span className="nav-mega-thumb"><img src={p.images![0].src} alt="" width="600" height="600" loading="lazy" /></span>
+                    <b>{p.name}</b>
+                    <small>{p.subtitle}</small>
+                  </button>
+                ))}
+              </div>
+              <button type="button" className="nav-mega-cta" onClick={() => shopCategory("All")}>Shop All Essentials</button>
+            </div>
+          </div>
         </NavDropdown>
-        <NavDropdown label="Discover">
-          <a href="#the-wynn-method">The Wynn Method</a>
-          <a href="#our-story">Our Story</a>
-          <Link href="/blog">Insights</Link>
+        <NavDropdown label="Discover" id="nav-panel-discover">
+          <div className="nav-mega">
+            <div className="nav-mega-cols">
+              <div className="nav-mega-col">
+                <p className="nav-mega-label">The practice</p>
+                <a href="#the-wynn-method">The Wynn Method</a>
+                <a href="#routine-finder">Routine Finder</a>
+                <a href="#ingredients">Ingredients</a>
+              </div>
+              <div className="nav-mega-col">
+                <p className="nav-mega-label">The brand</p>
+                <a href="#our-story">Our Story</a>
+                <Link href="/blog">Insights</Link>
+                <Link href="/about">About Wynn Essentials</Link>
+              </div>
+            </div>
+            <Link className="nav-mega-editorial" href="/blog">
+              <span className="nav-mega-editorial-image"><img src="/editorial/wellness-ritual.jpeg" alt="" width="1206" height="1800" loading="lazy" /></span>
+              <span className="nav-mega-editorial-copy">
+                <span className="nav-mega-label">From the journal</span>
+                <b>Healthy hair is a practice. Read the routines behind it.</b>
+                <em>Read Insights</em>
+              </span>
+            </Link>
+          </div>
         </NavDropdown>
       </nav>
       <a href="/" className="logo" aria-label="Wynn Essentials home"><BrandLogo compact /></a>
@@ -870,7 +925,7 @@ export default function WynnShop() {
     <a className="skip-link" href="#main">Skip to content</a>
     <div className={`toast${notice ? " show" : ""}`} role="status" aria-live="polite">{notice}</div>
     {invitation && <Invitation manual={invitation==="manual"} onDone={()=>setInvitation(false)}/>}
-    <Header count={cart.reduce((s,i)=>s+i.quantity,0)} wishCount={wishlist.length} openCart={()=>setCartOpen(true)} openSearch={()=>setSearchOpen(true)} openWishlist={()=>setWishOpen(true)} viewInvite={()=>setInvitation("manual")}/>
+    <Header count={cart.reduce((s,i)=>s+i.quantity,0)} wishCount={wishlist.length} openCart={()=>setCartOpen(true)} openSearch={()=>setSearchOpen(true)} openWishlist={()=>setWishOpen(true)} viewInvite={()=>setInvitation("manual")} openProduct={openProduct} shopCategory={(category)=>{setFilter(category);setIngredientFilter(null);setConcernFilter(null);scroll("shop");}}/>
     <main id="main">
       <section className={`hero${playHeroVid && !heroReveal ? " hero-holding" : ""}`}><div className="hero-copy"><p className="eyebrow">TEXTURED-HAIR WELLNESS, MADE INTENTIONAL</p><h1 id="main-heading" tabIndex={-1}>The Practice<br />Starts Here.</h1><p>Moisture, strength, scalp, and styling essentials created for textured hair and the routines that keep it healthy.</p><div className="actions"><button className="button" onClick={()=>scroll("shop")}>Shop the Essentials</button><button className="outline-button" onClick={()=>scroll("routine-finder")}>Find My Routine</button></div><small>Made for curls, coils, braids, locs, and protective styles.</small></div><HeroMedia play={playHeroVid} invitationOpen={invitation!==false} onReveal={()=>setHeroReveal(true)}/></section>
       <section className="statement section"><div className="statement-copy"><p className="eyebrow">BUILD YOUR ROUTINE</p><h2>Hair care for every part<br /><em>of your routine.</em></h2><p>Wynn Essentials offers gentle shampoo, moisture-rich conditioners, daily hydration, scalp and sealing oils, styling cream, edge control, satin accessories, and premium human hair for protective styles. Choose the products that fit your hair and build a routine around what it needs.</p><a href="#shop" className="button">Explore the Collection</a></div><RoutineProduct onOpen={()=>openProduct(products.find(p=>p.slug==="edge-control")!)} /></section>

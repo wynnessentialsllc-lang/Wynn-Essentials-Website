@@ -388,18 +388,49 @@
 .cp-toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 .cp-unavailable .actions{margin-top:22px}
 
-/* Desktop primary-nav dropdowns (Shop ▾ / Discover ▾). Grouping the links into a
-   couple of dropdowns keeps the header bar from crowding and wrapping. Hidden
-   below 1050px, where the ☰ mobile menu takes over. */
-.nav-dd{position:relative}
+/* Desktop primary-nav dropdowns (Shop ▾ / Discover ▾). Each opens an editorial
+   mega panel that drops the full width of the header: labelled columns of
+   display-type links on the left, a featured rail on the right. Hidden below
+   1050px, where the ☰ mobile menu takes over.
+   The trigger stretches the full header height on purpose — it keeps the
+   pointer inside the dropdown on the way down to the panel, so the menu doesn't
+   close in the gap between the two. */
+.nav-dd{align-self:stretch;display:flex;align-items:center}
 .nav-dd-trigger{display:inline-flex;align-items:center;gap:6px;font-size:12px;border:0;background:none;padding:10px 0;cursor:pointer;color:inherit}
 .nav-dd-caret{font-size:9px;line-height:1;transition:transform .2s ease}
+.nav-dd.open .nav-dd-trigger,.nav-dd-trigger:hover{opacity:.6}
 .nav-dd.open .nav-dd-caret{transform:rotate(180deg)}
-.nav-dd-panel{position:absolute;top:100%;left:0;min-width:220px;background:#fff;border:1px solid var(--line);box-shadow:0 18px 44px rgba(60,48,30,.14);padding:8px 0;display:none;flex-direction:column;z-index:60}
-.nav-dd.open .nav-dd-panel{display:flex}
-.nav-dd-panel a{display:block;font-size:13px;padding:11px 22px;white-space:nowrap;text-decoration:none;color:var(--black)}
-.nav-dd-panel a:hover{background:var(--soft)}
-.nav-dd-panel a:focus-visible{background:var(--soft);outline-offset:-3px}
+/* Positioned against the sticky header, not the trigger, so the panel spans the
+   whole bar the way the header's own padding does. */
+.nav-dd-panel{position:absolute;top:100%;left:0;right:0;background:#fff;border-bottom:1px solid var(--line);box-shadow:0 26px 50px rgba(60,48,30,.09);padding:clamp(34px,3.4vw,52px) 3vw clamp(30px,3vw,44px);z-index:60;opacity:0;visibility:hidden;transform:translateY(-8px);transition:opacity .22s ease,transform .22s ease,visibility .22s}
+.nav-dd.open .nav-dd-panel{opacity:1;visibility:visible;transform:none}
+.nav-mega{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:clamp(30px,5vw,90px);align-items:start;max-width:1500px}
+.nav-mega-cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(24px,3vw,56px)}
+.nav-mega-label{margin:0 0 16px;padding-bottom:12px;border-bottom:1px solid var(--line);font-size:10px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.nav-dd-panel .nav-mega-col a,.nav-dd-panel .nav-mega-col button{display:block;width:100%;padding:5px 0;border:0;background:none;text-align:left;text-decoration:none;color:var(--black);font-family:var(--font-display),Georgia,serif;font-size:clamp(19px,1.65vw,27px);font-weight:400;line-height:1.3;letter-spacing:0;text-transform:none;cursor:pointer;transition:opacity .18s ease,transform .18s ease}
+.nav-dd-panel .nav-mega-col a:hover,.nav-dd-panel .nav-mega-col button:hover{opacity:.55;transform:translateX(3px)}
+.nav-dd-panel .nav-mega-col a:focus-visible,.nav-dd-panel .nav-mega-col button:focus-visible{outline:2px solid var(--black);outline-offset:3px}
+/* Featured rail: pack shots in soft tiles, captioned like the product grid. */
+.nav-mega-products{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:clamp(10px,1vw,18px);align-items:start}
+.nav-dd-panel .nav-mega-product{display:block;width:100%;min-height:0;padding:0;border:0;background:none;text-align:left;cursor:pointer}
+.nav-mega-thumb{display:block;aspect-ratio:3/4;background:var(--soft);overflow:hidden}
+.nav-mega-thumb img{width:100%;height:100%;object-fit:cover;transition:transform .35s ease}
+.nav-mega-product:hover .nav-mega-thumb img{transform:scale(1.06)}
+.nav-mega-product b{display:block;margin-top:10px;font-family:var(--font-display),Georgia,serif;font-size:19px;font-weight:400;letter-spacing:0;text-transform:none}
+.nav-mega-product small{display:block;margin-top:2px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.nav-mega-product:focus-visible{outline:2px solid var(--black);outline-offset:4px}
+.nav-mega-cta{margin-top:clamp(18px,2vw,28px);min-height:0;padding:14px 26px;border:1px solid var(--black);background:none;font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;transition:background .2s ease,color .2s ease}
+.nav-mega-cta:hover{background:var(--black);color:#fff}
+/* Discover's feature card: one editorial image with a line of copy. */
+.nav-mega-editorial{display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr);gap:clamp(16px,1.6vw,26px);align-items:center;text-decoration:none;color:inherit}
+.nav-mega-editorial-image{display:block;aspect-ratio:3/4;overflow:hidden;background:var(--soft)}
+.nav-mega-editorial-image img{width:100%;height:100%;object-fit:cover;transition:transform .45s ease}
+.nav-mega-editorial:hover .nav-mega-editorial-image img{transform:scale(1.05)}
+.nav-mega-editorial-copy{display:block;max-width:320px}
+.nav-mega-editorial b{display:block;margin-bottom:12px;font-family:var(--font-display),Georgia,serif;font-size:clamp(20px,1.5vw,25px);font-weight:400;line-height:1.25}
+.nav-mega-editorial em{font-size:10px;font-weight:800;font-style:normal;letter-spacing:.14em;text-transform:uppercase;text-decoration:underline;text-underline-offset:5px}
+@media(max-width:1250px){.nav-mega{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:34px}.nav-mega-product b{font-size:16px}.nav-mega-product small{font-size:9px}.nav-mega-editorial{grid-template-columns:minmax(0,120px) minmax(0,1fr)}}
+@media(prefers-reduced-motion:reduce){.nav-dd-panel{transition:opacity .01s}.nav-dd-panel .nav-mega-col a,.nav-dd-panel .nav-mega-col button,.nav-mega-thumb img,.nav-mega-editorial-image img{transition:none}}
 
 /* Site video plays without the browser's native control bar, which sat
    permanently across the picture and pulled attention off the clip. In its
