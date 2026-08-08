@@ -112,6 +112,8 @@ export default async function ShopByCrownPrintPage({
         why: m.why,
         need: m.need,
         whenToUse: m.whenToUse,
+        // Built server-side from the priorities and CrownState the Lab resolved.
+        rationale: m.rationale,
       };
     })
     .filter((c): c is CardProduct => c !== null);
@@ -158,6 +160,7 @@ export default async function ShopByCrownPrintPage({
           showResults={showResults}
           note={note}
           recovery={isRecoveryMarker(requested)}
+          source={guidance.source}
           sourceLabel={guidance.label}
           crownPrintCode={guidance.code}
           priorities={guidance.priorities}

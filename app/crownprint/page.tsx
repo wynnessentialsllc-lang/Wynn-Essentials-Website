@@ -145,6 +145,9 @@ export default async function CrownPrintCodePage({ searchParams }: { searchParam
         ...(m.caution ? { caution: m.caution } : {}),
         ...(m.limitedBy ? { limitedBy: m.limitedBy } : {}),
         keyIngredients: m.keyIngredients,
+        // The classification-specific explanation, built from the signals that
+        // actually produced the class. Never derived on the client.
+        rationale: m.rationale,
       };
     })
     .filter((c): c is FitCard => c !== null);
@@ -239,6 +242,7 @@ export default async function CrownPrintCodePage({ searchParams }: { searchParam
           noFit={fit.noFit}
           whatToLookFor={fit.whatToLookFor}
           shareQuery={profileToQuery(profile)}
+          source={guidance.source}
           sourceLabel={guidance.label}
           sourceDetail={guidance.detail}
           confidence={guidance.confidence}

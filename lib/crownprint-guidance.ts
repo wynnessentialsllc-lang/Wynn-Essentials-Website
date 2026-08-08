@@ -44,17 +44,26 @@ import {
   type MatchClass,
   type WhatToLookFor,
 } from "./crownprint-fit";
+import {
+  buildRationale,
+  resolvedSignal,
+  type GuidanceSource,
+  type MatchSignal,
+} from "./crownprint-match-intelligence";
 
-/** Which authority produced what is on screen. */
-export type GuidanceSource =
-  /** HWL resolved this shopper's full CrownPrint 360. Wynn matched its catalog to it. */
-  | "crownprint-360"
-  /** Wynn's own Core-based fallback, from a complete P-D-T-S-E code. */
-  | "core"
-  /** Wynn's own Core-based fallback, from an incomplete code. */
-  | "core-partial"
-  /** No code at all — current-state answers only. */
-  | "crownstate-only";
+/**
+ * Which authority produced what is on screen.
+ *
+ *   crownprint-360   HWL resolved this shopper's full CrownPrint 360. Wynn
+ *                    matched its catalog to it.
+ *   core             Wynn's own Core-based fallback, from a complete P-D-T-S-E code.
+ *   core-partial     Wynn's own Core-based fallback, from an incomplete code.
+ *   crownstate-only  No code at all — current-state answers only.
+ *
+ * Declared alongside the customer-facing Match Intelligence copy, because the
+ * source is what decides how much certainty a classification may claim.
+ */
+export type { GuidanceSource };
 
 /** What Wynn may do about CrownState. Mirrors crownStateAction() on the context. */
 export type CrownStatePolicy = "none" | "refresh" | "ask";
@@ -142,6 +151,51 @@ export function selectGuidance({
 function fromTrustedContext(context: TrustedContext, catalog: FitCatalogProduct[]): Guidance {
   const byName = new Map(catalog.map((p) => [p.slug, p]));
 
+  // The shopper-specific evidence available on this path. Wynn has no axes here
+  // and must not pretend otherwise: what it has is what the Lab already
+  // resolved — the ranked priorities and the current CrownState summary — so
+  // that is what the per-card reasoning is built from.
+  const resolvedPriorities = context.currentPriorities?.length
+    ? context.currentPriorities
+    : context.currentPriorityLabel
+      ? [{ label: context.currentPriorityLabel, detail: undefined }]
+      : [];
+  // Phrases are kept parenthetical rather than comma-qualified: these get joined
+  // into one sentence, and a list of comma-carrying clauses stops being readable
+  // at three items.
+  const summary = context.crownState.summary?.replace(/\.$/, "");
+  const crownStateSignal = summary
+    ? resolvedSignal("Your current CrownState", `your current CrownState (${summary})`, {
+        clause: `your CrownState reads ${summary}`,
+        unlessClause: "your CrownState changes (a takedown, a calmer scalp, a new style, a new season)",
+        dynamic: true,
+      })
+    : null;
+  /**
+   * The resolved evidence for one product.
+   *
+   * A priority that IS the function this product performs would otherwise be
+   * announced twice in the same sentence ("…carry this match: scalp comfort …
+   * they point at scalp comfort"), so it is dropped — naming it once is enough.
+   * The "ranked first" wording is only used when the priority genuinely still is
+   * the first one being shown.
+   */
+  const signalsFor = (need: string): MatchSignal[] => {
+    const kept = resolvedPriorities
+      .slice(0, 2)
+      .filter((p) => p.label.trim().toLowerCase() !== need.trim().toLowerCase());
+    const priorities = kept.map((p, i) =>
+      resolvedSignal(
+        p.label,
+        i === 0 && p.label === resolvedPriorities[0]?.label
+          ? `${lowerFirst(p.label)} (the priority the Hair Wellness Lab ranked first for you)`
+          : `${lowerFirst(p.label)} (one of the priorities the Hair Wellness Lab resolved for you)`,
+        { clause: `${lowerFirst(p.label)} is one of the priorities the Lab resolved for you` },
+      ),
+    );
+    return [...priorities, ...(crownStateSignal ? [crownStateSignal] : [])];
+  };
+
   // 1. HWL's own matches, in HWL's own classes. Wynn adds only catalog facts —
   //    the routine need a product serves and how often to use it — and never
   //    re-classifies or re-orders on its own reasoning.
@@ -150,15 +204,28 @@ function fromTrustedContext(context: TrustedContext, catalog: FitCatalogProduct[
     .map((m) => {
       const product = byName.get(m.productKey)!;
       const usage = productUsage(m.productKey);
+      const need = usage?.need ?? "Part of your resolved routine";
+      const whenToUse = usage?.whenToUse ?? "Follow the directions on the product page.";
       return {
         productKey: m.productKey,
         productName: product.name,
         matchClass: m.matchClass,
         why: m.why,
-        need: usage?.need ?? "Part of your resolved routine",
-        whenToUse: usage?.whenToUse ?? "Follow the directions on the product page.",
+        need,
+        whenToUse,
         keyIngredients: [],
         methodStep: product.methodStep,
+        rationale: buildRationale({
+          matchClass: m.matchClass,
+          productName: product.name,
+          functionServed: need,
+          // The Lab's own resolved reason is the shopper-specific evidence here;
+          // Wynn frames it against the function, and adds nothing to it.
+          signals: signalsFor(need),
+          productReason: m.why,
+          whenToUse,
+          source: "crownprint-360",
+        }),
         score: 0,
       };
     });
@@ -181,15 +248,36 @@ function fromTrustedContext(context: TrustedContext, catalog: FitCatalogProduct[
       const usage = productUsage(slug);
       if (!product || !usage) continue;
       already.add(slug);
+      const why = `Your CrownPrint calls for ${lowerFirst(fn.label)}, and this is what covers that step in the Wynn Essentials routine.`;
       matches.push({
         productKey: slug,
         productName: product.name,
         matchClass: "good",
-        why: `Your CrownPrint calls for ${lowerFirst(fn.label)}, and this is what covers that step in the Wynn Essentials routine.`,
+        why,
         need: usage.need,
         whenToUse: usage.whenToUse,
         keyIngredients: [],
         methodStep: product.methodStep,
+        rationale: buildRationale({
+          matchClass: "good",
+          productName: product.name,
+          functionServed: usage.need,
+          signals: [
+            resolvedSignal(
+              fn.label,
+              `${lowerFirst(fn.label)} (a product function the Hair Wellness Lab resolved for you)`,
+              { clause: `your resolved CrownPrint calls for ${lowerFirst(fn.label)}` },
+            ),
+            ...(crownStateSignal ? [crownStateSignal] : []),
+          ],
+          productReason: why,
+          whenToUse: usage.whenToUse,
+          // Wynn mapped its own catalog onto a need HWL named. That is a catalog
+          // observation, not an intelligence verdict — so the card says so, and
+          // the class is capped at Good.
+          wynnFilled: true,
+          source: "crownprint-360",
+        }),
         score: 0,
       });
     }
