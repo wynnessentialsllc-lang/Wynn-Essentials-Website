@@ -300,7 +300,15 @@
 
 .cp-panel{margin:36px 0;padding:clamp(24px,4vw,44px);border:1px solid var(--line);background:var(--soft)}
 .cp-panel h2{font-family:var(--font-display);font-size:clamp(30px,4.5vw,52px);line-height:1;margin:6px 0 16px}
+.cp-panel>p:not(.eyebrow):not(.cp-fine):not(.cp-note){max-width:720px;line-height:1.65;margin:0 0 14px}
 .cp-fine{font-size:12px;color:var(--muted);margin-top:18px}
+.cp-note{font-size:13px;font-weight:700;border-left:3px solid var(--kraft);padding:8px 0 8px 12px;margin:0 0 16px;max-width:720px}
+
+/* CrownPrint is a one-time Hair Wellness Lab purchase, never a subscription.
+   Shown wherever the create CTA appears so the price is never implied. */
+.cp-price{display:flex;flex-wrap:wrap;align-items:baseline;gap:14px;margin:22px 0 24px}
+.cp-price strong{font-family:var(--font-display);font-size:clamp(28px,4vw,40px);font-weight:400;line-height:1}
+.cp-price span{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);padding:5px 9px;background:#fff}
 
 /* State 1 — create */
 .cp-create-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin:26px 0 30px}
@@ -314,6 +322,14 @@
 .cp-priority h2{margin:6px 0 0;color:var(--kraft-text)}
 .cp-stale{background:#fff;border:1px solid var(--kraft);padding:22px 24px;margin:0 0 32px}
 .cp-stale p:not(.eyebrow){font-size:14px;line-height:1.65;margin:8px 0 18px;max-width:720px}
+.cp-stale .cp-fine{margin:14px 0 0}
+
+/* Resolved non-result states — each gets its own panel accent so the shopper can
+   tell "you have no CrownPrint" apart from "sign in" and "we're offline". */
+.cp-nocrownprint{border-left:4px solid var(--kraft-dark)}
+.cp-auth{border-left:4px solid var(--kraft)}
+.cp-stale-panel{border-left:4px solid var(--kraft)}
+.cp-temp,.cp-unavailable{border-left:4px solid var(--taupe)}
 
 .cp-group{margin:0 0 40px}
 .cp-group-heading{font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:800;padding-bottom:10px;border-bottom:1px solid var(--line);margin:0 0 20px}
