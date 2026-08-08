@@ -57,6 +57,7 @@ import { cookies, headers } from "next/headers";
 import { eq } from "drizzle-orm";
 import { commerceConfig } from "./commerce-config";
 import {
+  crownStateAction as crownStateActionJs,
   deriveContextStatus as deriveContextStatusJs,
   isRecoveryMarker as isRecoveryMarkerJs,
   hasStrongMatch as hasStrongMatchJs,
@@ -125,10 +126,17 @@ export type WhatToLookFor = {
 // Safe, allow-listed HWL links (e.g. the Product Hub). URLs only, no data.
 export type SafeLinks = { productHub?: string; assessment?: string; crownstateUpdate?: string };
 
+/** A resolved, consumer-safe point HWL sends: a priority, a function, a gap. */
+export type SafePoint = { label: string; detail?: string };
+
 export type WynnMatchContext = {
   crownPrintPresent: boolean;                 // CrownPrint exists / missing
-  crownState: { present: boolean; fresh: boolean; message?: string }; // fresh / stale / message
+  crownState: { present: boolean; fresh: boolean; message?: string; summary?: string };
+  crownPrintCode?: string;                    // the shopper's own printed code
   currentPriorityLabel?: string;              // consumer-safe priority label
+  currentPriorities?: SafePoint[];            // HWL's ranked priorities
+  productFunctionsNeeded?: SafePoint[];       // what the routine must do — Wynn matches on these
+  notCarried?: SafePoint[];                   // needs HWL resolved that Wynn doesn't carry
   matches: SafeMatchProduct[];                // product keys + class + why
   noStrongMatch: boolean;                     // intentional no-strong-match outcome
   whatToLookFor?: WhatToLookFor;              // guidance for the no-match outcome
@@ -392,6 +400,14 @@ export const hasStrongMatch = (c: WynnMatchContext) => hasStrongMatchJs(c) as bo
  */
 export const deriveContextStatus = (c: WynnMatchContext | null): ConnectStatus =>
   deriveContextStatusJs(c) as ConnectStatus;
+
+/**
+ * What Wynn should do about CrownState: "none" when HWL already holds a fresh
+ * one (never re-ask), "refresh" when HWL flagged it stale (HWL's free update
+ * flow), "ask" only when there is no trusted context at all.
+ */
+export const crownStateAction = (context: WynnMatchContext | null): "none" | "refresh" | "ask" =>
+  crownStateActionJs(context) as "none" | "refresh" | "ask";
 
 /**
  * True when the marker on the URL means the handoff broke, not that the shopper

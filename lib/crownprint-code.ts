@@ -128,6 +128,13 @@ export type StateField = {
   question: string;
   /** Short URL key, so a shared link stays readable. */
   param: string;
+  /**
+   * True for the few fields the fallback page actually asks. A shopper who has
+   * already answered a full CrownPrint assessment must never be walked through a
+   * second questionnaire on Wynn — the fallback asks the minimum needed to shop
+   * safely, and everything else stays optional (or arrives from HWL).
+   */
+  essential: boolean;
   options: StateOption[];
 };
 
@@ -137,6 +144,7 @@ export const STATE_FIELDS: StateField[] = [
     label: "Current style",
     question: "How are you wearing your hair right now?",
     param: "style",
+    essential: true,
     options: [
       { value: "braids", label: "Braids" },
       { value: "locs", label: "Locs" },
@@ -151,6 +159,7 @@ export const STATE_FIELDS: StateField[] = [
     label: "Protective stage",
     question: "If you're in a protective style, where are you in it?",
     param: "stage",
+    essential: false,
     options: [
       { value: "fresh", label: "Fresh install" },
       { value: "mid", label: "Mid-wear" },
@@ -164,6 +173,7 @@ export const STATE_FIELDS: StateField[] = [
     label: "Scalp right now",
     question: "What is your scalp doing this week?",
     param: "scalp",
+    essential: true,
     options: [
       { value: "comfortable", label: "Comfortable" },
       { value: "tender", label: "Tender" },
@@ -177,6 +187,7 @@ export const STATE_FIELDS: StateField[] = [
     label: "Primary concern",
     question: "What is your main concern right now?",
     param: "concern",
+    essential: true,
     options: [
       { value: "dryness", label: "Dryness" },
       { value: "breakage", label: "Breakage" },
@@ -192,6 +203,7 @@ export const STATE_FIELDS: StateField[] = [
     label: "Current goal",
     question: "What are you working toward?",
     param: "goal",
+    essential: false,
     options: [
       { value: "maintenance", label: "General healthy hair maintenance" },
       { value: "growth", label: "Growth and length retention" },
@@ -391,6 +403,17 @@ export function profileToQuery(profile: CrownPrintProfile): string {
   }
   return params.toString();
 }
+
+/** The Core axes this profile does NOT have. Never inferred, always named. */
+export function missingCoreAxes(core: CrownPrintCore): CoreAxis[] {
+  return CORE_AXES.filter((axis) => !core[axis.id]);
+}
+
+/** True when all five Core axes were read — a complete CrownPrint code. */
+export const isCompleteCore = (core: CrownPrintCore): boolean => missingCoreAxes(core).length === 0;
+
+/** The CrownState fields the fallback page asks by default. */
+export const ESSENTIAL_STATE_FIELDS = STATE_FIELDS.filter((f) => f.essential);
 
 export const labelForState = (id: StateFieldId, value: string | undefined): string | undefined =>
   STATE_FIELDS.find((f) => f.id === id)?.options.find((o) => o.value === value)?.label;

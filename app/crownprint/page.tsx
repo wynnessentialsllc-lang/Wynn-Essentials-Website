@@ -13,8 +13,13 @@ import {
   profileToQuery,
   type CrownPrintProfile,
 } from "../../lib/crownprint-code";
-import { matchProducts } from "../../lib/crownprint-fit";
+import { crownStateAction, crownprintIntegrationReady, readMatchSession } from "../../lib/crownprint";
+import { hasTrusted360, selectGuidance } from "../../lib/crownprint-guidance";
 import CrownPrintFinder, { type FitCard } from "./CrownPrintFinder";
+
+// Reads the (httpOnly) Wynn session cookie to detect a connected CrownPrint, so
+// this renders per-request.
+export const dynamic = "force-dynamic";
 
 // Shop by CrownPrint™ code — the Wynn-side entry point.
 //
@@ -103,7 +108,20 @@ export default async function CrownPrintCodePage({ searchParams }: { searchParam
   const mode: "intro" | "unreadable" | "results" = hasCore || hasState ? "results" : rawCode.trim() ? "unreadable" : "intro";
 
   const profile: CrownPrintProfile = { core, state };
-  const fit = matchProducts(profile, products);
+
+  // ARCHITECTURE. Hair Wellness Lab is the CrownPrint intelligence authority; if
+  // this shopper has completed the secure connect flow, their resolved
+  // CrownPrint 360 is the answer and this page's Core-based reconstruction must
+  // not compete with it — not even when they have also typed their code in
+  // below. So a live trusted context sends them to the Blueprint instead, and
+  // suppresses every CrownState question here: they already answered a full
+  // assessment, and asking again would be a second source of truth.
+  const trusted = crownprintIntegrationReady() ? await readMatchSession() : null;
+  const connected = hasTrusted360(trusted);
+  const stateAction = crownStateAction(trusted);
+
+  const guidance = selectGuidance({ profile, catalog: products });
+  const fit = guidance;
 
   // Join the fit result with the real catalog so every card carries actual Wynn
   // Essentials data — image, name, price, product URL. CrownPrint explains fit;
@@ -125,6 +143,7 @@ export default async function CrownPrintCodePage({ searchParams }: { searchParam
         need: m.need,
         whenToUse: m.whenToUse,
         ...(m.caution ? { caution: m.caution } : {}),
+        ...(m.limitedBy ? { limitedBy: m.limitedBy } : {}),
         keyIngredients: m.keyIngredients,
       };
     })
@@ -170,6 +189,38 @@ export default async function CrownPrintCodePage({ searchParams }: { searchParam
           </p>
         )}
 
+        {connected ? (
+          <section className="cp-panel cp-connected" aria-labelledby="cp-connected-heading">
+            <p className="eyebrow">YOU&rsquo;RE ALREADY CONNECTED</p>
+            <h2 id="cp-connected-heading">Your full CrownPrint 360 Blueprint is ready.</h2>
+            <p>
+              This page is the manual fallback — it reasons from your CrownPrint Core and a few questions. You
+              don&rsquo;t need it: the Hair Wellness Lab has already resolved your complete CrownPrint, including
+              your CrownState and CrownHistory, and Wynn Essentials has matched the catalog to it.
+            </p>
+            {stateAction === "refresh" ? (
+              <>
+                <p>
+                  One thing first — the Lab flagged your CrownState as out of date. Updating it there is free, takes a
+                  moment, and your matches follow it. <b>We won&rsquo;t ask you those questions here.</b>
+                </p>
+                <div className="actions">
+                  <a className="button" href="/shop-by-crownprint/connect?start=refresh">Update My Hair Needs</a>
+                  <Link className="outline-button" href="/shop-by-crownprint">See My CrownPrint 360 Matches</Link>
+                </div>
+              </>
+            ) : (
+              <div className="actions">
+                <Link className="button" href="/shop-by-crownprint">See My CrownPrint 360 Matches</Link>
+                <Link className="outline-button" href="/#shop">Keep Shopping</Link>
+              </div>
+            )}
+            <p className="cp-fine">
+              Your CrownState is current and held at the Hair Wellness Lab, so nothing on this page will ask you to
+              answer it again.
+            </p>
+          </section>
+        ) : (
         <CrownPrintFinder
           mode={mode}
           rawCode={rawCode}
@@ -178,7 +229,7 @@ export default async function CrownPrintCodePage({ searchParams }: { searchParam
           state={state}
           recognized={recognized}
           unrecognized={parsed.unrecognized}
-          priorityLabel={fit.priorityLabel}
+          priorityLabel={fit.priorities[0]?.label ?? "Your routine"}
           priorities={fit.priorities}
           functions={fit.functions}
           gaps={fit.gaps}
@@ -188,7 +239,12 @@ export default async function CrownPrintCodePage({ searchParams }: { searchParam
           noFit={fit.noFit}
           whatToLookFor={fit.whatToLookFor}
           shareQuery={profileToQuery(profile)}
+          sourceLabel={guidance.label}
+          sourceDetail={guidance.detail}
+          confidence={guidance.confidence}
+          missingAxes={guidance.missingAxes}
         />
+        )}
 
         <section className="cp-education" aria-labelledby="cp-axes-heading">
           <p className="eyebrow">WHAT THE CODE MEANS</p>

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { trackAddToCart, trackCrownPrintEvent } from "../analytics";
 import type { ExperienceState, MatchClass, WhatToLookFor } from "../../lib/crownprint";
+import type { LabelledPoint } from "../../lib/crownprint-fit";
 
 export type CardProduct = {
   slug: string;
@@ -397,7 +398,12 @@ export default function CrownPrintExperience({
   showResults,
   note,
   recovery,
+  sourceLabel,
+  crownPrintCode,
+  priorities,
   functions,
+  gaps,
+  contextNotes,
   crownStateMessage,
   currentPriorityLabel,
   noStrongMatch,
@@ -411,8 +417,18 @@ export default function CrownPrintExperience({
   note?: string;
   /** The marker on the URL means the handoff broke, not that they lack a CrownPrint. */
   recovery: boolean;
-  /** Routine functions these matches cover, so the shopper sees the shape of the plan. */
-  functions: string[];
+  /** How this guidance was produced — "CrownPrint 360, resolved by the Lab". */
+  sourceLabel: string;
+  /** The shopper's own code, when HWL sent it. */
+  crownPrintCode: string;
+  /** HWL's ranked priorities. Wynn renders them; it does not compute them. */
+  priorities: LabelledPoint[];
+  /** The product functions HWL resolved this routine has to perform. */
+  functions: LabelledPoint[];
+  /** Resolved needs Wynn's catalog cannot serve. */
+  gaps: LabelledPoint[];
+  /** CrownState summary / staleness notes carried by the resolved context. */
+  contextNotes: string[];
   crownStateMessage?: string;
   currentPriorityLabel?: string;
   noStrongMatch: boolean;
@@ -471,10 +487,42 @@ export default function CrownPrintExperience({
     // MATCH_READY, or CROWNSTATE_STALE with matches we can still show.
     body = (
       <section className="cp-panel cp-results" aria-labelledby="cp-results-heading">
-        {currentPriorityLabel && (
+        <div className="cp-provenance cp-provenance-full">
+          <p className="cp-provenance-label">{sourceLabel}</p>
+          <p>
+            Your CrownPrint was resolved by the Hair Wellness Lab from your assessment, CrownState, and CrownHistory.
+            Wynn Essentials matched its catalog to what the Lab resolved — it doesn&rsquo;t recalculate your CrownPrint.
+          </p>
+        </div>
+
+        {crownPrintCode && (
           <div className="cp-priority">
-            <p className="eyebrow">CURRENT HAIR PRIORITY</p>
-            <h2 id="cp-results-heading">{currentPriorityLabel}</h2>
+            <p className="eyebrow">YOUR CROWNPRINT</p>
+            <h2 className="cp-code-display">{crownPrintCode}</h2>
+          </div>
+        )}
+
+        {contextNotes.map((n) => <p key={n} className="cp-note">{n}</p>)}
+
+        {(priorities.length > 0 || currentPriorityLabel) && (
+          <div className="cp-priority">
+            <p className="eyebrow">YOUR CURRENT PRIORITIES</p>
+            {priorities.length > 0 ? (
+              <>
+                <h2 id="cp-results-heading">{priorities[0].label}</h2>
+                <ol className="cp-points cp-points-numbered">
+                  {priorities.map((p, i) => (
+                    <li key={p.label}>
+                      <span className="cp-points-index" aria-hidden="true">#{i + 1}</span>
+                      <b>{p.label}</b>
+                      {p.detail && <span>{p.detail}</span>}
+                    </li>
+                  ))}
+                </ol>
+              </>
+            ) : (
+              <h2 id="cp-results-heading">{currentPriorityLabel}</h2>
+            )}
           </div>
         )}
 
@@ -496,7 +544,8 @@ export default function CrownPrintExperience({
         {functions.length > 0 && (
           <div className="cp-functions-inline">
             <p className="eyebrow">PRODUCT FUNCTIONS YOU NEED</p>
-            <ul>{functions.map((f) => <li key={f}>{f}</li>)}</ul>
+            <p className="cp-fine">Resolved by the Hair Wellness Lab. Everything below is Wynn matching its catalog to these.</p>
+            <ul>{functions.map((f) => <li key={f.label}><b>{f.label}</b>{f.detail ? ` — ${f.detail}` : ""}</li>)}</ul>
           </div>
         )}
 
@@ -504,6 +553,17 @@ export default function CrownPrintExperience({
         <MatchGroup cls="strong" cards={products} onAdd={onAdd} />
         <MatchGroup cls="good" cards={products} onAdd={onAdd} />
         <MatchGroup cls="conditional" cards={products} onAdd={onAdd} />
+
+        {gaps.length > 0 && (
+          <div className="cp-functions-inline cp-gaps-inline">
+            <p className="eyebrow">WHAT WYNN DOES NOT CURRENTLY CARRY</p>
+            <p className="cp-fine">
+              Your resolved CrownPrint calls for these and we don&rsquo;t make them. Buy them elsewhere — we&rsquo;d
+              rather you have the right routine than a complete receipt.
+            </p>
+            <ul>{gaps.map((g) => <li key={g.label}><b>{g.label}</b>{g.detail ? ` — ${g.detail}` : ""}</li>)}</ul>
+          </div>
+        )}
 
         {(noStrongMatch || !hasStrong) && <NoStrongMatch guidance={whatToLookFor} productHub={urls.productHub} />}
 

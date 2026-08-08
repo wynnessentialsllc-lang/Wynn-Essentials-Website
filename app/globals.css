@@ -458,6 +458,29 @@
 .cp-functions{background:#fff}
 .cp-gaps{border-left:4px solid var(--taupe)}
 
+/* Provenance. Says which authority produced what is on screen, and how much
+   context it had. The fallback never dresses itself up as the full Blueprint. */
+.cp-provenance{margin:0 0 30px;padding:16px 18px;border:1px solid var(--line);background:var(--soft);font-size:13px;line-height:1.6}
+.cp-provenance p{margin:0 0 8px;max-width:760px}
+.cp-provenance p:last-child{margin-bottom:0}
+.cp-provenance-label{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+.cp-provenance-full{border-left:4px solid #1f6b46}
+.cp-provenance-full .cp-provenance-label{color:#1f6b46}
+.cp-provenance-reduced{border-left:4px solid var(--kraft-dark)}
+.cp-provenance-reduced .cp-provenance-label{color:var(--kraft-text)}
+.cp-provenance-limited{border-left:4px solid var(--taupe)}
+.cp-provenance-limited .cp-provenance-label{color:var(--muted)}
+.cp-provenance-missing{border-top:1px dashed var(--line);padding-top:8px}
+.cp-provenance-cta a{text-decoration:underline;text-underline-offset:3px;font-weight:700}
+.cp-connected{border-left:4px solid #1f6b46}
+.cp-code-display{font-family:ui-monospace,SFMono-Regular,Menlo,monospace!important;font-size:clamp(24px,3.4vw,38px)!important;letter-spacing:.08em}
+.cp-gaps-inline{border-left:4px solid var(--taupe)}
+.cp-state-more{margin-top:18px;font-size:13px}
+.cp-state-more summary{cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.cp-state-more .cp-state-grid{margin-top:14px}
+.cp-card-limited{font-size:12px;line-height:1.55;margin:0 0 10px;color:var(--muted);border-left:3px solid var(--taupe);padding-left:10px}
+.cp-card-limited b{font-weight:800;color:var(--black)}
+
 .cp-card-need{font-size:13px;line-height:1.55;margin:0 0 10px}
 .cp-card-need b{font-weight:800}
 .cp-card-ingredients{font-size:12px;line-height:1.55;color:var(--muted);margin:0 0 10px}

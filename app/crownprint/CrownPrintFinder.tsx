@@ -26,6 +26,7 @@ export type FitCard = {
   need: string;
   whenToUse: string;
   caution?: string;
+  limitedBy?: string[];
   keyIngredients: string[];
 };
 
@@ -83,6 +84,12 @@ function MatchCard({ card, onAdd }: { card: FitCard; onAdd: (c: FitCard) => void
           <p className="cp-card-ingredients"><b>From its ingredient list:</b> {card.keyIngredients.join(" · ")}</p>
         )}
         {card.caution && <p className="cp-card-caution"><b>Caveat:</b> {card.caution}</p>}
+        {card.limitedBy?.length ? (
+          <p className="cp-card-limited">
+            <b>Limited context:</b> this one is judged partly on {card.limitedBy.join(" and ")}, which your code
+            didn&rsquo;t include — so we&rsquo;ve held it back from a strong match rather than assume.
+          </p>
+        ) : null}
         <div className="cp-card-actions">
           {card.simple && card.price != null ? (
             <button className="button full" onClick={() => onAdd(card)}>Add to Cart</button>
@@ -268,15 +275,19 @@ function Entry({
         {builtCode && <p className="cp-entry-built">That makes your CrownPrint code <b>{builtCode}</b>.</p>}
       </div>
 
-      {/* CrownState — never in the code, because it is meant to change. */}
+      {/* Current state — the minimum needed to shop safely, and no more. Anyone
+          here has already answered a full CrownPrint assessment at the Hair
+          Wellness Lab; a second questionnaire on the storefront would be both a
+          worse experience and a competing source of truth. Three questions by
+          default, the rest optional. */}
       <div className="cp-state">
-        <p className="eyebrow">YOUR CROWNSTATE — WHAT&rsquo;S TRUE RIGHT NOW</p>
+        <p className="eyebrow">WHAT&rsquo;S TRUE RIGHT NOW</p>
         <p className="cp-state-lead">
-          Your Core stays relatively stable. This part moves with your styles, seasons, and routine — so we ask it fresh
-          every time, and it changes the matches more than anything else here.
+          Three quick ones — this is the part your CrownPrint code doesn&rsquo;t carry, because it changes. We ask the
+          minimum we need and nothing else; if you&rsquo;re connected to the Hair Wellness Lab we don&rsquo;t ask at all.
         </p>
         <div className="cp-state-grid">
-          {STATE_FIELDS.map((field) => (
+          {STATE_FIELDS.filter((f) => f.essential).map((field) => (
             <label key={field.id} className="cp-state-field">
               <span>{field.label}</span>
               <select name={field.param} defaultValue={state[field.id] ?? ""}>
@@ -286,6 +297,20 @@ function Entry({
             </label>
           ))}
         </div>
+        <details className="cp-state-more" open={STATE_FIELDS.some((f) => !f.essential && state[f.id])}>
+          <summary>Add more detail (optional)</summary>
+          <div className="cp-state-grid">
+            {STATE_FIELDS.filter((f) => !f.essential).map((field) => (
+              <label key={field.id} className="cp-state-field">
+                <span>{field.label}</span>
+                <select name={field.param} defaultValue={state[field.id] ?? ""}>
+                  <option value="">No answer</option>
+                  {field.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </label>
+            ))}
+          </div>
+        </details>
       </div>
 
       <div className="actions">
@@ -320,6 +345,10 @@ export default function CrownPrintFinder({
   noFit,
   whatToLookFor,
   shareQuery,
+  sourceLabel,
+  sourceDetail,
+  confidence,
+  missingAxes,
 }: {
   mode: "intro" | "unreadable" | "results";
   rawCode: string;
@@ -338,6 +367,10 @@ export default function CrownPrintFinder({
   noFit: boolean;
   whatToLookFor: WhatToLookFor;
   shareQuery: string;
+  sourceLabel: string;
+  sourceDetail: string;
+  confidence: "full" | "reduced" | "limited";
+  missingAxes: { letter: string; label: string }[];
 }) {
   const [toast, setToast] = useState("");
   const [copied, setCopied] = useState(false);
@@ -399,6 +432,22 @@ export default function CrownPrintFinder({
 
       {mode === "results" && (
         <>
+          {/* Provenance. This page is the fallback, and says so — it is never
+              presented as the CrownPrint 360 Product Blueprint. */}
+          <aside className={`cp-provenance cp-provenance-${confidence}`} aria-label="About this guidance">
+            <p className="cp-provenance-label">{sourceLabel}</p>
+            <p>{sourceDetail}</p>
+            {missingAxes.length > 0 && (
+              <p className="cp-provenance-missing">
+                <b>Not given:</b> {missingAxes.map((a) => `${a.label} (${a.letter})`).join(", ")}. We don&rsquo;t
+                guess at missing axes — add them above and these matches sharpen.
+              </p>
+            )}
+            <p className="cp-provenance-cta">
+              For the full picture, <Link href="/shop-by-crownprint">connect your Hair Wellness Lab CrownPrint</Link>.
+            </p>
+          </aside>
+
           {/* 2 — CURRENT PRIORITIES */}
           <section className="cp-panel cp-priorities" aria-labelledby="cp-priorities-heading">
             <p className="eyebrow">YOUR CURRENT PRIORITIES</p>

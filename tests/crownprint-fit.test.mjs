@@ -84,11 +84,18 @@ test("5. results are ordered strong → good → conditional, deterministically"
 });
 
 test("6. low elasticity is the protein signal; high elasticity is a caveat", () => {
-  const weak = bySlug(fit(profile("P3-E1", { concern: "breakage", goal: "repair" })), "revaivl-protein-conditioner");
+  // A COMPLETE code, so full confidence is on the table.
+  const weak = bySlug(fit(profile("P3-D2-T2-S2-E1", { concern: "breakage", goal: "repair" })), "revaivl-protein-conditioner");
   assert.equal(weak.matchClass, "strong");
   assert.match(weak.why, /elasticity|breakage/i);
 
-  const springy = bySlug(fit(profile("P2-E3", { concern: "dryness" })), "revaivl-protein-conditioner");
+  // The same signals from a PARTIAL code cannot reach strong — same reasoning,
+  // less context, and the difference is stated rather than hidden.
+  const partial = bySlug(fit(profile("P3-E1", { concern: "breakage", goal: "repair" })), "revaivl-protein-conditioner");
+  assert.equal(partial.matchClass, "good");
+  assert.ok(partial.limitedBy?.length, "a downgraded match must say which axes it was missing");
+
+  const springy = bySlug(fit(profile("P2-D2-T2-S2-E3", { concern: "dryness" })), "revaivl-protein-conditioner");
   if (springy) {
     assert.notEqual(springy.matchClass, "strong", "hair that doesn't need protein must not be sold protein");
     assert.match(springy.caution ?? "", /occasional|month/i);

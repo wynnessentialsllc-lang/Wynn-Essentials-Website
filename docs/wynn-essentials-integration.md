@@ -431,19 +431,110 @@ not a catalog full of them, and cautions are never dropped to make a card look
 better. Braiding hair is excluded entirely; the bundle appears only when the
 CrownPrint points at three of its four steps.
 
-### Boundary
-
-This is Wynn reasoning about the **Wynn catalog** — the one thing HWL cannot do.
-It does not reproduce the CrownPrint assessment, the Intelligence Report, the
-evidence architecture, or the Wynn Essentials Match™ engine, and it stores
-nothing: the profile lives in the URL and nowhere else. The connected HWL path
-stays the richer one and still takes precedence wherever a session exists.
-
-`productUsage()` is shared in the other direction: the HWL-connected results on
-`/shop-by-crownprint` use it to add "need it serves" and "when to use it" to
-HWL's matches, since those are facts about Wynn's own catalog rather than
-anything HWL should have to carry across the boundary.
-
 Tests: `tests/crownprint-code.test.mjs` (the vocabulary and parser, against the
 real report fixture) and `tests/crownprint-fit.test.mjs` (the engine, against the
 live catalog).
+
+---
+
+## 14. Which authority is speaking — primary vs. fallback
+
+```
+Hair Wellness Lab  =  CrownPrint intelligence authority
+Wynn Essentials    =  catalog matching / commerce authority
+```
+
+`lib/crownprint-guidance.ts` is the only place that decides which of the two is
+on screen, and its precedence is absolute:
+
+**A trusted CrownPrint 360 context always outranks Wynn's local Core
+reconstruction — including when the shopper has also typed their code in.**
+
+### Primary — a connected CrownPrint 360
+
+After a successful exchange, HWL has already resolved this shopper. Wynn
+consumes that context and re-derives none of it:
+
+| Field | Who owns it | What Wynn does with it |
+| --- | --- | --- |
+| `crownPrintCode` | HWL | Displays it back as identification |
+| `currentPriorities[]` | HWL | Renders the ranked list verbatim |
+| `productFunctionsNeeded[]` | HWL | **Matches the Wynn catalog against these** |
+| `crownState.fresh` / `.message` / `.summary` | HWL | Drives the update path; never re-asked |
+| `matches[]` | HWL | Rendered in HWL's own classes, with HWL's own `why` |
+| `notCarried[]` | HWL | Listed under "what Wynn does not carry" |
+
+Wynn answers exactly one question of its own: *which products in our catalog
+serve these resolved functions, and which of them can we not serve at all?* A
+function Wynn can serve that HWL didn't already name a product for is added as a
+**good** match at most — `strong` is an intelligence verdict, and that belongs to
+HWL. A function Wynn cannot serve joins the gaps.
+
+Approximation is explicitly blocked (`NOT_SERVED` in `lib/crownprint-fit.ts`): a
+bond-repair need is never answered with a protein conditioner, a clarifying need
+never with a gentle sulfate-free cleanser, a medicated need never with a
+botanical oil. Function matching reads the function **name only** — including the
+explanatory detail was enough to make "scalp comfort care, applied while styled"
+pull in a styling cream.
+
+`productUsage()` runs in the other direction: Wynn adds "need it serves" and
+"when to use it" to HWL's matches, because those are facts about Wynn's catalog
+rather than anything HWL should carry across the boundary.
+
+### Fallback — `/crownprint`
+
+The Core-based engine serves three cases and no others: **manual code entry**, a
+**degraded path** when the secure cross-site connection cannot complete, and
+**shareable Core-based guidance**. It never claims equivalence to the CrownPrint
+360 Product Blueprint, and it says so on the page — every result carries a
+provenance block naming its source and confidence:
+
+| Source | When | Confidence |
+| --- | --- | --- |
+| `crownprint-360` | Trusted HWL context | full |
+| `core` | Complete P-D-T-S-E code | full (Core-based, limited context) |
+| `core-partial` | Incomplete code | reduced |
+| `crownstate-only` | No code at all | limited |
+
+If a live trusted session exists, `/crownprint` does not render Core-based
+matches at all. It points the shopper at their Blueprint — otherwise the fallback
+would be competing with the authority.
+
+### Partial codes
+
+Tolerant parsing is unchanged, but a partial CrownPrint never gets a complete
+one's treatment:
+
+- **Missing axes are named**, in the provenance block and on the affected cards.
+- **Confidence drops** — `core-partial`, never `full`.
+- **Dependent guidance is held back.** A product whose reasoning consults an axis
+  we weren't given cannot be a `strong` match; it caps at `good` and carries
+  `limitedBy` saying which axes and why.
+- **Nothing is inferred.** Absent axes are never defaulted, and the code is never
+  padded out.
+
+The dependency set is discovered by probing each predicate rather than by a
+hand-maintained list, so a rule can never drift out of sync with the axes it
+reads.
+
+A statement is suppressed only when its truth *turns on* an axis we lack, decided
+by substitution: every combination of levels for the missing axes is tried, and
+if any of them changes the answer, the statement is contingent on something we
+were not told. So "your CrownPrint doesn't flag a strength problem" disappears
+when elasticity is missing (it would flip), while "breakage plus low density
+means watch your hairline tension" is kept (it holds either way).
+
+### CrownState
+
+| Situation | `crownStateAction()` | Behavior |
+| --- | --- | --- |
+| Fresh trusted context | `none` | **Never re-asked.** They completed a full assessment; a storefront questionnaire would be a competing source of truth |
+| Stale trusted context | `refresh` | HWL's free CrownState update flow. No Wynn questions, no second payment |
+| No trusted context | `ask` | The fallback asks the **three** essential fields (current style, scalp right now, primary concern). Everything else is optional, behind a disclosure |
+
+There is no second full questionnaire anywhere in the flow.
+
+Tests: `tests/crownprint-architecture.test.mjs` pins all of the above —
+precedence, offline fallback, partial-code downgrade, non-inference, CrownState
+policy, no-fit reachability, no conditional promotion, and that connect
+verification is untouched.
