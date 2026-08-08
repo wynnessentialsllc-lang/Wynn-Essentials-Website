@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { relativeDate, reviewsFor, sortReviews, summarize, type Review } from "../../reviews";
+import QuietVideo from "../../QuietVideo";
 
 function Stars({ value }: { value: number }) {
   const full = Math.round(value);
@@ -49,7 +50,7 @@ export default function ProductPageReviews({ slug }: { slug: string }) {
         <div className="review-media">
           {media.map((r) => (
             <figure className="review-media-item" key={`${r.id}-media`}>
-              {r.video ? <video src={r.video} poster={r.videoPoster} controls playsInline preload="metadata" aria-label={`Customer video from ${r.author}`} /> : <img src={r.image} alt={`Customer photo from ${r.author}`} loading="lazy" />}
+              {r.video ? <QuietVideo src={r.video} poster={r.videoPoster} ariaLabel={`Customer video from ${r.author}`} /> : <img src={r.image} alt={`Customer photo from ${r.author}`} loading="lazy" />}
               <figcaption>{r.author}{r.location ? ` · ${r.location}` : ""}</figcaption>
             </figure>
           ))}
