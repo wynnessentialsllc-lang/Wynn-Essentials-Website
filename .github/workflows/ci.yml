@@ -1,0 +1,33 @@
+name: CI
+
+# Runs on every pull request and on pushes to main, so a change that breaks the
+# build, the types, or the order-recording guarantees is caught before it can
+# reach production. The order-persistence suite specifically pins the webhook's
+# idempotent order write and its "record before claiming the event" ordering, so
+# the bug that once dropped a paid order cannot silently return.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A newer commit on the same branch cancels an in-flight run for it.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Typecheck & tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Build site and run tests
+        run: npm run test:sites
