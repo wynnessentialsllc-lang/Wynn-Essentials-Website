@@ -489,6 +489,53 @@
 .cp-card-caution b{font-weight:800}
 .cp-linklike{padding:0;border:0;background:none;font-size:13px;color:inherit;text-decoration:underline;text-underline-offset:3px;cursor:pointer;font-family:inherit}
 
+/* ---------------------------------------------------------------------------
+   MATCH INTELLIGENCE
+
+   The legend that runs above every set of results, and the per-card reasoning
+   underneath every classification. Colour-coded to the three classes so the
+   definition a shopper reads at the top is visually the same object as the
+   badge on the card — Strong green, Good kraft, Conditional taupe — while the
+   copy makes it explicit that this is a scale of FIT, not of quality.
+   --------------------------------------------------------------------------- */
+.cp-legend{background:var(--soft);border:1px solid var(--line);border-top:4px solid var(--kraft-dark);padding:clamp(22px,3vw,34px);margin:0 0 34px}
+.cp-legend h2{font-family:var(--font-display);font-size:clamp(24px,3.2vw,38px);font-weight:400;margin:6px 0 12px;line-height:1.12}
+.cp-legend-lead{font-size:14px;line-height:1.65;max-width:760px;margin:0 0 24px}
+.cp-legend-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+@media(max-width:860px){.cp-legend-grid{grid-template-columns:1fr}}
+.cp-legend-card{background:#fff;border:1px solid var(--line);padding:18px 18px 20px}
+.cp-legend-card-strong{border-top:3px solid #1f6b46}
+.cp-legend-card-good{border-top:3px solid var(--kraft-dark)}
+.cp-legend-card-conditional{border-top:3px solid var(--taupe)}
+.cp-legend-card h3{font-size:15px;font-weight:800;line-height:1.4;margin:12px 0 8px}
+.cp-legend-card p{font-size:13px;line-height:1.6;margin:0}
+.cp-legend-chip{display:inline-block;font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;padding:6px 9px;color:#fff}
+.cp-legend-chip-strong{background:#1f6b46}
+.cp-legend-chip-good{background:var(--kraft-dark)}
+.cp-legend-chip-conditional{background:var(--taupe)}
+.cp-legend-notes{display:grid;grid-template-columns:repeat(3,1fr);gap:20px 30px;margin:26px 0 0}
+@media(max-width:860px){.cp-legend-notes{grid-template-columns:1fr}}
+.cp-legend-notes h4{font-size:11px;letter-spacing:.12em;text-transform:uppercase;margin:0 0 8px;color:var(--kraft-text)}
+.cp-legend-notes p{font-size:13px;line-height:1.65;margin:0}
+.cp-legend-source{font-size:13px;line-height:1.65;margin:24px 0 8px;padding-top:16px;border-top:1px solid var(--line);max-width:820px}
+.cp-legend .cp-fine{margin:0}
+
+/* Per-card reasoning. Deliberately the densest block on the card: the class is
+   a one-word claim, and this is the evidence for it. */
+.cp-why{border-left:3px solid var(--line);padding:2px 0 2px 11px;margin:0 0 12px}
+.cp-why-strong{border-left-color:#1f6b46}
+.cp-why-good{border-left-color:var(--kraft-dark)}
+.cp-why-conditional{border-left-color:var(--taupe)}
+.cp-why-heading{font-size:10px;font-weight:800;letter-spacing:.11em;text-transform:uppercase;margin:0 0 7px}
+.cp-why-strong .cp-why-heading{color:#1f6b46}
+.cp-why-good .cp-why-heading{color:var(--kraft-text)}
+.cp-why-conditional .cp-why-heading{color:var(--muted)}
+.cp-why-signals{font-size:12px;line-height:1.55;margin:0 0 7px}
+.cp-why-signals b{font-weight:800}
+.cp-why-text{font-size:13px;line-height:1.55;margin:0 0 7px}
+.cp-why-line{font-size:12.5px;line-height:1.55;margin:0 0 6px}
+.cp-why-context{font-size:11px;line-height:1.5;color:var(--muted);margin:8px 0 0}
+
 /* The code reference table — the indexable half of this page. */
 .cp-axis-table{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;margin:26px 0 0}
 .cp-axis-table article{border-top:2px solid var(--kraft);padding-top:12px}

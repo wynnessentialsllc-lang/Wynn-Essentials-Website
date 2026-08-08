@@ -5,6 +5,8 @@ import Link from "next/link";
 import { trackAddToCart, trackCrownPrintEvent } from "../analytics";
 import type { ExperienceState, MatchClass, WhatToLookFor } from "../../lib/crownprint";
 import type { LabelledPoint } from "../../lib/crownprint-fit";
+import type { GuidanceSource, MatchRationale } from "../../lib/crownprint-match-intelligence";
+import { MatchLegend, MatchReasoning } from "../MatchIntelligence";
 
 export type CardProduct = {
   slug: string;
@@ -20,6 +22,12 @@ export type CardProduct = {
   // shopper needs both to act on a match: which need it serves, and when to use it.
   need?: string;
   whenToUse?: string;
+  /**
+   * Why THIS product is in THIS class for THIS shopper, built server-side from
+   * the signals the Hair Wellness Lab resolved. Never optional: a classification
+   * without its reasoning is the thing this replaced.
+   */
+  rationale: MatchRationale;
 };
 
 type Urls = { connect: string; create: string; refresh: string; disconnect: string; productHub: string | null };
@@ -91,7 +99,7 @@ function MatchCard({ product, onAdd }: { product: CardProduct; onAdd: (p: CardPr
         <h4>{product.name}</h4>
         <strong className="cp-card-price">{money(product.price)}</strong>
         {product.need && <p className="cp-card-need"><b>Need it serves:</b> {product.need}</p>}
-        <p className="cp-card-why"><b>Why it may fit:</b> {product.why}</p>
+        <MatchReasoning rationale={product.rationale} />
         {product.whenToUse && <p className="cp-card-usage"><b>When to use it:</b> {product.whenToUse}</p>}
         <div className="cp-card-actions">
           {product.simple && product.price != null ? (
@@ -398,6 +406,7 @@ export default function CrownPrintExperience({
   showResults,
   note,
   recovery,
+  source,
   sourceLabel,
   crownPrintCode,
   priorities,
@@ -417,6 +426,8 @@ export default function CrownPrintExperience({
   note?: string;
   /** The marker on the URL means the handoff broke, not that they lack a CrownPrint. */
   recovery: boolean;
+  /** Which authority produced this guidance — drives the legend's honesty note. */
+  source: GuidanceSource;
   /** How this guidance was produced — "CrownPrint 360, resolved by the Lab". */
   sourceLabel: string;
   /** The shopper's own code, when HWL sent it. */
@@ -548,6 +559,10 @@ export default function CrownPrintExperience({
             <ul>{functions.map((f) => <li key={f.label}><b>{f.label}</b>{f.detail ? ` — ${f.detail}` : ""}</li>)}</ul>
           </div>
         )}
+
+        {/* Before a single card labelled "Strong" or "Conditional" is read, the
+            shopper is told what those words mean — and what they don't. */}
+        <MatchLegend source={source} />
 
         <h3 className="cp-section-heading">Best Wynn matches</h3>
         <MatchGroup cls="strong" cards={products} onAdd={onAdd} />

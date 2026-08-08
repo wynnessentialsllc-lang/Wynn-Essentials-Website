@@ -13,6 +13,8 @@ import {
   type RecognizedSignal,
 } from "../../lib/crownprint-code";
 import type { LabelledPoint, MatchClass, WhatToLookFor } from "../../lib/crownprint-fit";
+import type { GuidanceSource, MatchRationale } from "../../lib/crownprint-match-intelligence";
+import { MatchLegend, MatchReasoning } from "../MatchIntelligence";
 
 export type FitCard = {
   slug: string;
@@ -28,6 +30,8 @@ export type FitCard = {
   caution?: string;
   limitedBy?: string[];
   keyIngredients: string[];
+  /** Why THIS product is in THIS class for THIS shopper. Never optional. */
+  rationale: MatchRationale;
 };
 
 const money = (v: number | null) =>
@@ -54,9 +58,11 @@ function addToBag(slug: string) {
   } catch { /* storage unavailable — silently skip */ }
 }
 
-// Every card carries the same five things, in the same order: the match class,
-// why it fits THIS CrownPrint, which need it serves, when to use it, and any
-// caveat. A caveat is never dropped to make a card look better.
+// Every card carries the same things, in the same order: the match class, which
+// need it serves, the classification-specific reasoning built from this
+// shopper's own CrownPrint signals, when to use it, and any caveat. A caveat is
+// never dropped to make a card look better, and no card ever shows a class
+// without the reasoning that produced it.
 function MatchCard({ card, onAdd }: { card: FitCard; onAdd: (c: FitCard) => void }) {
   return (
     <article className="cp-card">
@@ -78,12 +84,17 @@ function MatchCard({ card, onAdd }: { card: FitCard; onAdd: (c: FitCard) => void
         <h4>{card.name}</h4>
         <strong className="cp-card-price">{money(card.price)}</strong>
         <p className="cp-card-need"><b>Need it serves:</b> {card.need}</p>
-        <p className="cp-card-why"><b>Why it fits your CrownPrint:</b> {card.why}</p>
+        <MatchReasoning rationale={card.rationale} />
         <p className="cp-card-usage"><b>When to use it:</b> {card.whenToUse}</p>
         {card.keyIngredients.length > 0 && (
           <p className="cp-card-ingredients"><b>From its ingredient list:</b> {card.keyIngredients.join(" · ")}</p>
         )}
-        {card.caution && <p className="cp-card-caution"><b>Caveat:</b> {card.caution}</p>}
+        {/* A Conditional Match already carries its caveat inside "when it may not
+            be necessary", which is where it does the most good. Every other class
+            keeps it as its own line — it is never dropped, only relocated. */}
+        {card.caution && card.matchClass !== "conditional" && (
+          <p className="cp-card-caution"><b>Caveat:</b> {card.caution}</p>
+        )}
         {card.limitedBy?.length ? (
           <p className="cp-card-limited">
             <b>Limited context:</b> this one is judged partly on {card.limitedBy.join(" and ")}, which your code
@@ -345,6 +356,7 @@ export default function CrownPrintFinder({
   noFit,
   whatToLookFor,
   shareQuery,
+  source,
   sourceLabel,
   sourceDetail,
   confidence,
@@ -367,6 +379,8 @@ export default function CrownPrintFinder({
   noFit: boolean;
   whatToLookFor: WhatToLookFor;
   shareQuery: string;
+  /** Which authority produced this guidance — drives the legend's honesty note. */
+  source: GuidanceSource;
   sourceLabel: string;
   sourceDetail: string;
   confidence: "full" | "reduced" | "limited";
@@ -466,7 +480,12 @@ export default function CrownPrintFinder({
             <PointList points={functions} />
           </section>
 
-          {/* 4 — BEST WYNN MATCHES */}
+          {/* 4 — HOW YOUR CROWNPRINT MATCHES WORK. Before the results, always:
+              a shopper should know what Strong, Good, and Conditional mean
+              before they read a single card labelled with one. */}
+          <MatchLegend source={source} />
+
+          {/* 5 — BEST WYNN MATCHES */}
           <section className="cp-panel cp-results" aria-labelledby="cp-results-heading">
             <p className="eyebrow">BEST WYNN MATCHES</p>
             <h2 id="cp-results-heading">
@@ -507,7 +526,7 @@ export default function CrownPrintFinder({
             </p>
           </section>
 
-          {/* 5 — WHAT WYNN DOES NOT CURRENTLY CARRY */}
+          {/* 6 — WHAT WYNN DOES NOT CURRENTLY CARRY */}
           {gaps.length > 0 && (
             <section className="cp-panel cp-gaps" aria-labelledby="cp-gaps-heading">
               <p className="eyebrow">WHAT WYNN DOES NOT CURRENTLY CARRY</p>
@@ -520,7 +539,7 @@ export default function CrownPrintFinder({
             </section>
           )}
 
-          {/* 6 — WHAT TO LOOK FOR ELSEWHERE */}
+          {/* 7 — WHAT TO LOOK FOR ELSEWHERE */}
           <HonestFit guidance={whatToLookFor} noFit={noFit} noStrongMatch={noStrongMatch} />
         </>
       )}
