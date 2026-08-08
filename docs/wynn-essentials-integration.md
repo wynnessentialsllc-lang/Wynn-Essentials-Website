@@ -102,6 +102,38 @@ configured base is not the canonical origin. The base intentionally remains
 env-driven so a local or staging HWL can be pointed at during development;
 production correctness is asserted by `tests/domain-canonical.test.mjs`.
 
+#### Resolved-URL diagnostics
+
+`crownprintConfigSummary()` returns a secret-free snapshot of the effective HWL
+destinations, and `logCrownprintConfigOnce()` prints it **once per server
+process** (cold start) from the two existing server entry points — the Shop by
+CrownPrint page and the connect route. There is no debug endpoint: the summary
+is never serialized into an HTTP response.
+
+```
+[crownprint] HWL base: https://hairwellnessslab.com
+[crownprint] create: https://hairwellnessslab.com/crownprint
+[crownprint] connect: https://hairwellnessslab.com/crownprint/connect
+[crownprint] crownstate: https://hairwellnessslab.com/crownstate
+[crownprint] product hub: https://hairwellnessslab.com/product-hub
+[crownprint] integration configured: true
+```
+
+When something is unset it names the variable (never a value):
+
+```
+[crownprint] integration configured: false
+[crownprint] missing config: HWL_API_BASE_URL, WYNN_INTEGRATION_HMAC_SECRET
+```
+
+Every URL is read back out of `hwlFlowUrl()` / `hwlUrl()`, so the report shows
+the **effective** destination after origin validation and fallback — a rejected
+override appears as the trusted contract path it fell back to, not as the bad
+value. Secrets are reduced to a present/absent boolean at the point of reading,
+so no secret value exists in the summary to leak. The function takes no
+arguments and reads configuration only, so no request, session, cookie, connect
+code, or CrownPrint/CrownState/match data can reach it.
+
 > **Caveat:** validation is an exact origin match, so a `www.` variant is a
 > *different* origin and would be rejected. If HWL ever serves any of these
 > from `www.` or a subdomain, widen `hwlUrl()` deliberately rather than

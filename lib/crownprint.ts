@@ -216,6 +216,117 @@ export function crownprintIntegrationReady() {
 }
 
 // ---------------------------------------------------------------------------
+// CONFIG DIAGNOSTICS (server-only, secret-free).
+//
+// Answers one question fast in production: "where is this deployment actually
+// sending shoppers?" Every URL below is READ BACK OUT of hwlFlowUrl()/hwlUrl(),
+// so the report always shows the EFFECTIVE destination after origin validation
+// and fallback — never a rejected override, and never a second copy of the
+// route logic that could drift from what the app really does.
+//
+// SECRET SAFETY, BY CONSTRUCTION
+// The summary carries only public destination URLs plus booleans and env var
+// NAMES. Secrets (WYNN_INTEGRATION_HMAC_SECRET, WYNN_SESSION_SECRET, Stripe
+// keys, database URLs) are reduced to a present/absent boolean at the point of
+// reading, so no secret VALUE is ever placed in the returned object and none can
+// reach a log line. Per-request material — connect codes, session ids, cookies,
+// signatures, raw bodies, user ids, and any CrownPrint/CrownState/CrownHistory
+// or match content — is not reachable here: this function reads configuration
+// only and takes no request, session or context argument.
+// ---------------------------------------------------------------------------
+
+export type CrownprintConfigSummary = {
+  configured: boolean;               // full round-trip is possible
+  canonicalOrigin: string;           // the one valid HWL production origin
+  productionOriginOk: boolean;       // false only when prod points elsewhere
+  missing: string[];                 // NON-SECRET env var names that are unset
+  urls: {                            // effective destinations, post-validation
+    base: string | null;
+    create: string | null;
+    connect: string | null;
+    crownstate: string | null;
+    productHub: string | null;
+    exchange: string | null;
+  };
+};
+
+/**
+ * Server-only, secret-free snapshot of the resolved CrownPrint configuration.
+ *
+ * Safe to log. Returns data rather than printing so it can also be asserted in
+ * tests without capturing stdout.
+ */
+export function crownprintConfigSummary(): CrownprintConfigSummary {
+  const base = crownprintConfig.apiBaseUrl;
+
+  // Names only. Reading each as a boolean keeps every secret VALUE out of the
+  // summary; naming an unset variable is what makes a misconfiguration fixable.
+  const missing = (
+    [
+      ["HWL_API_BASE_URL", Boolean(base)],
+      ["WYNN_INTEGRATION_HMAC_SECRET", Boolean(crownprintConfig.hmacSecret)],
+      ["WYNN_SESSION_SECRET", Boolean(crownprintConfig.sessionSecret)],
+    ] as const
+  )
+    .filter(([, present]) => !present)
+    .map(([name]) => name);
+
+  return {
+    configured: crownprintIntegrationReady(),
+    canonicalOrigin: HWL_CANONICAL_ORIGIN,
+    productionOriginOk: productionOriginOk(),
+    missing,
+    urls: {
+      base,
+      // Straight from the shipped helpers — bad overrides already fell back.
+      create: hwlFlowUrl("create"),
+      connect: hwlFlowUrl("connect"),
+      crownstate: hwlFlowUrl("refresh"),
+      // Config-level Product Hub only. The per-request safeLinks.productHub from
+      // an HWL response is deliberately NOT consulted: it is response data, and
+      // diagnostics never touch a request.
+      productHub: hwlUrl(crownprintConfig.productHubUrl, "HWL_PRODUCT_HUB_URL"),
+      exchange: base ? `${base}${MATCH_PATH}` : null,
+    },
+  };
+}
+
+// Cold-start guard: the summary is logged once per server process, never per
+// request. Callers may invoke this freely from any server entry point.
+let configLogged = false;
+
+/**
+ * Log the resolved HWL destinations once per process. No-op on later calls.
+ *
+ * Not an endpoint and not reachable from the browser — this is a server-side
+ * log line, so the information never becomes publicly readable.
+ */
+export function logCrownprintConfigOnce(): void {
+  if (configLogged) return;
+  configLogged = true;
+
+  const s = crownprintConfigSummary();
+  const show = (v: string | null) => v ?? "(not configured)";
+
+  console.info(`[crownprint] HWL base: ${show(s.urls.base)}`);
+  console.info(`[crownprint] create: ${show(s.urls.create)}`);
+  console.info(`[crownprint] connect: ${show(s.urls.connect)}`);
+  console.info(`[crownprint] crownstate: ${show(s.urls.crownstate)}`);
+  console.info(`[crownprint] product hub: ${show(s.urls.productHub)}`);
+  console.info(`[crownprint] integration configured: ${s.configured}`);
+
+  if (s.missing.length) console.warn(`[crownprint] missing config: ${s.missing.join(", ")}`);
+  // Only a base that IS set but points elsewhere is an origin mismatch. An unset
+  // base is already reported above as missing config, so this stays quiet rather
+  // than firing a scary second warning for the same cause.
+  if (s.urls.base && !s.productionOriginOk) {
+    console.warn(
+      `[crownprint] WARNING: HWL production origin does not match canonical Hair Wellness Lab origin (${HWL_CANONICAL_ORIGIN})`,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // HMAC helpers.
 // ---------------------------------------------------------------------------
 const encoder = new TextEncoder();

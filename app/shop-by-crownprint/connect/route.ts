@@ -5,6 +5,7 @@ import {
   consumePending,
   createMatchSession,
   exchangeConnectCode,
+  logCrownprintConfigOnce,
   returnUrl,
   siteOrigin,
 } from "../../../lib/crownprint";
@@ -29,6 +30,10 @@ export const dynamic = "force-dynamic";
 const LANDING = "/shop-by-crownprint";
 
 export async function GET(request: Request) {
+  // Cold-start only (guarded inside): logs the resolved HWL destinations, never
+  // anything from this request — no code, session id, cookie or signature.
+  logCrownprintConfigOnce();
+
   const url = new URL(request.url);
   const origin = await siteOrigin();
   const landing = (params = "") => NextResponse.redirect(`${origin}${LANDING}${params}`, { status: 303 });

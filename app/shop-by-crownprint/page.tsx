@@ -7,6 +7,7 @@ import {
   crownprintIntegrationReady,
   hasStrongMatch,
   hwlUrl,
+  logCrownprintConfigOnce,
   readMatchSession,
   type MatchClass,
 } from "../../lib/crownprint";
@@ -61,6 +62,11 @@ function landingSchema() {
 const CLASS_ORDER: Record<MatchClass, number> = { strong: 0, good: 1, conditional: 2 };
 
 export default async function ShopByCrownPrintPage() {
+  // Report the resolved HWL destinations to the server log. Guarded internally
+  // to run once per process, so this is a cold-start diagnostic, not per-request
+  // logging, and it reads configuration only — never this request's session.
+  logCrownprintConfigOnce();
+
   // Read the Wynn-side session (populated once, after the one-time HWL exchange).
   // This never re-contacts HWL and never touches the dead connect code.
   const context = await readMatchSession();
