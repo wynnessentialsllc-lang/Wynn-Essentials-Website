@@ -1,4 +1,4 @@
-CREATE TABLE "orders" (
+CREATE TABLE IF NOT EXISTS "orders" (
 	"session_id" text PRIMARY KEY NOT NULL,
 	"order_reference" text,
 	"event_id" text NOT NULL,
@@ -20,7 +20,7 @@ CREATE TABLE "orders" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "stripe_events" (
+CREATE TABLE IF NOT EXISTS "stripe_events" (
 	"event_id" text PRIMARY KEY NOT NULL,
 	"type" text NOT NULL,
 	"session_id" text,

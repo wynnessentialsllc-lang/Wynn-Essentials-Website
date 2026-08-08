@@ -33,7 +33,18 @@ const fromFile = name => envFile.match(new RegExp(`^\\s*${name}\\s*=\\s*(.+)$`, 
 const chosen = CANDIDATES.find(name => process.env[name] || fromFile(name));
 const url = chosen && (process.env[chosen] || fromFile(chosen));
 
+// When invoked as part of a build (npm run db:migrate:deploy passes this flag),
+// a missing connection string must not fail the build: an environment that has
+// no database wired simply has nothing to migrate. The interactive command has
+// no flag and still treats a missing URL as a hard error.
+const skipIfUnconfigured = process.argv.includes("--skip-if-unconfigured");
+
 if (!url) {
+  if (skipIfUnconfigured) {
+    console.warn(`\n  · No orders database connection string found — skipping migrations.
+    Set one of ${CANDIDATES.join(", ")} to run them.\n`);
+    process.exit(0);
+  }
   console.error(`\n  ✗ No orders database connection string found.
     Checked the environment and .env.local for:
       ${CANDIDATES.join("\n      ")}
