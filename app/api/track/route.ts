@@ -7,7 +7,8 @@ const TYPES = new Set([
   "pageview", "product_view", "add_to_cart", "begin_checkout",
   // Shop by CrownPrint™ funnel events. No PII, no CrownPrint answers — only the
   // event name and (optionally) a product slug, exactly like the events above.
-  "shop_by_crownprint_viewed", "create_crownprint_clicked", "crownprint_connected",
+  "shop_by_crownprint_viewed", "create_crownprint_clicked", "connect_crownprint_clicked",
+  "crownprint_connected",
   "crownstate_update_clicked", "strong_match_viewed", "good_match_viewed",
   "conditional_match_viewed", "no_strong_match_viewed", "matched_product_clicked",
   "matched_product_added_to_cart", "matched_product_purchased",

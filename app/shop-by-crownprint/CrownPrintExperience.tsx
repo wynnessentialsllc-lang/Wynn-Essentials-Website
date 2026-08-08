@@ -123,30 +123,53 @@ function NoStrongMatch({ guidance, productHub }: { guidance?: WhatToLookFor; pro
   );
 }
 
-function ConnectPanel({ urls, note }: { urls: Urls; note?: string }) {
+// Two distinct outcomes, two distinct destinations. "Create" goes to the paid
+// Hair Wellness Lab CrownPrint assessment; "Connect" goes to the HWL
+// /crownprint/connect flow, which authenticates the shopper, verifies the
+// CrownPrint they already have, and sends them back with a one-time code. These
+// must never share a URL.
+function ConnectPanel({ urls, note, createPriceLabel }: { urls: Urls; note?: string; createPriceLabel: string }) {
   return (
     <section className="cp-panel cp-create" aria-labelledby="cp-create-heading">
       <p className="eyebrow">GET STARTED</p>
-      <h2 id="cp-create-heading">Create your CrownPrint™</h2>
+      <h2 id="cp-create-heading">Shop by your CrownPrint™</h2>
       {note && <p className="cp-note" role="status">{note}</p>}
       <p>
-        CrownPrint looks at more than one trait. In a few minutes at the Hair Wellness Lab, you&rsquo;ll
-        create a CrownPrint that reflects your hair&rsquo;s characteristics and current state — then come
-        back here to see which Wynn Essentials products may fit what your hair needs right now.
+        CrownPrint looks at more than one trait. It reflects your hair&rsquo;s characteristics and
+        current state, so we can show which Wynn Essentials products may fit what your hair needs
+        right now.
       </p>
       <div className="cp-create-steps">
         <div><span>01</span><p>Create your CrownPrint at the Hair Wellness Lab.</p></div>
         <div><span>02</span><p>We securely bring back a safe match — never your answers.</p></div>
         <div><span>03</span><p>Shop Wynn Essentials products matched to your current need.</p></div>
       </div>
-      <div className="actions">
-        <a className="button" href={urls.create} onClick={() => trackCrownPrintEvent("create_crownprint_clicked")}>
-          Create My CrownPrint™
-        </a>
-        <a className="outline-button" href={urls.connect} onClick={() => trackCrownPrintEvent("create_crownprint_clicked")}>
-          I already have a CrownPrint
-        </a>
+
+      <div className="cp-choices">
+        <div className="cp-choice">
+          <h3>New to CrownPrint?</h3>
+          <p>
+            Take the CrownPrint assessment at the Hair Wellness Lab. It takes a few minutes and
+            gives you your CrownPrint plus your Intelligence Report.
+          </p>
+          <a className="button full" href={urls.create} onClick={() => trackCrownPrintEvent("create_crownprint_clicked")}>
+            Create My CrownPrint™ — {createPriceLabel}
+          </a>
+          <small>Purchased and completed at the Hair Wellness Lab.</small>
+        </div>
+        <div className="cp-choice">
+          <h3>Already have a CrownPrint?</h3>
+          <p>
+            Sign in at the Hair Wellness Lab and we&rsquo;ll securely bring back your match. Nothing
+            to buy and nothing to redo.
+          </p>
+          <a className="outline-button full" href={urls.connect} onClick={() => trackCrownPrintEvent("connect_crownprint_clicked")}>
+            Connect My CrownPrint™
+          </a>
+          <small>Verifies your existing CrownPrint at the Hair Wellness Lab.</small>
+        </div>
       </div>
+
       <p className="cp-fine">Your CrownPrint answers stay at the Hair Wellness Lab. We never place them in the address bar.</p>
     </section>
   );
@@ -164,6 +187,7 @@ export default function CrownPrintExperience({
   hasStrong,
   products,
   urls,
+  createPriceLabel,
 }: {
   integrationReady: boolean;
   connected: boolean;
@@ -176,6 +200,7 @@ export default function CrownPrintExperience({
   hasStrong: boolean;
   products: CardProduct[];
   urls: Urls;
+  createPriceLabel: string;
 }) {
   const [toast, setToast] = useState("");
   const [status, setStatus] = useState<string | null>(null);
@@ -194,7 +219,7 @@ export default function CrownPrintExperience({
       const msg =
         s === "connected" ? "Your CrownPrint is connected — here are your matches."
         : s === "disconnected" ? "Your CrownPrint has been disconnected from this device."
-        : s === "cancelled" ? "No changes were made."
+        : s === "cancelled" ? "No CrownPrint was connected — nothing changed."
         : "";
       if (msg) setToast(msg);
       // Clean the status out of the URL so a refresh doesn't re-fire or re-toast.
@@ -297,7 +322,7 @@ export default function CrownPrintExperience({
           This is temporary — please try again in a few minutes.
         </p>
         <div className="actions">
-          <a className="button" href={urls.connect} onClick={() => trackCrownPrintEvent("create_crownprint_clicked")}>Try Again</a>
+          <a className="button" href={urls.connect} onClick={() => trackCrownPrintEvent("connect_crownprint_clicked")}>Try Again</a>
           <Link className="outline-button" href="/#shop">Shop the Essentials</Link>
         </div>
         <p className="cp-fine">No fake results, ever.</p>
@@ -306,12 +331,17 @@ export default function CrownPrintExperience({
   } else {
     // NO_CROWNPRINT — integration is live; this device has no CrownPrint yet (or a
     // secure link expired). Offer create/connect.
+    //
+    // Every return-leg outcome gets a persistent, distinct message. A silent
+    // bounce back to this panel is indistinguishable from the CTA doing
+    // nothing — which is exactly how a failed round-trip reads as a "loop".
     const note =
       status === "expired" ? "That secure link expired — please reconnect to see your match."
       : status === "error" ? "We couldn't verify that securely. Please reconnect."
       : status === "unavailable" ? "CrownPrint matching isn't available right now. Please try again soon."
+      : status === "cancelled" ? "You came back from the Hair Wellness Lab without a connected CrownPrint. If you already have one, choose “Connect My CrownPrint” and finish signing in there."
       : undefined;
-    body = <ConnectPanel urls={urls} note={note} />;
+    body = <ConnectPanel urls={urls} note={note} createPriceLabel={createPriceLabel} />;
   }
 
   return (

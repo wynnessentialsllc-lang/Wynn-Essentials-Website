@@ -92,24 +92,50 @@ Responses:
   gives continuity across views while the HWL code stays single-use.
 - `?disconnect=1` deletes the session row and clears the cookie.
 
-## 7. Create-CrownPrint flow
+## 6a. Two Wynn routes: source ≠ callback
 
-`?start=create` → redirect to `HWL_ASSESSMENT_URL?return=<wynn>` → user completes
-the assessment → HWL issues a **new** one-time code → return → Wynn exchanges once
-→ render. (No reusable token is echoed from the assessment.)
+| Route | Direction | Job |
+| --- | --- | --- |
+| `/shop-by-crownprint/start` | outbound | Every Wynn-initiated hop (`?flow=connect\|create\|refresh`, `?disconnect=1`). Sets the CSRF cookie and 303s to HWL. |
+| `/shop-by-crownprint/connect` | inbound | The **only** value ever sent to HWL as `return`. Redeems `?code=` once. Has no outbound behaviour at all. |
+
+These are deliberately different paths. When a single route is both the CTA
+target and the HWL callback, anything HWL round-trips back (a copy of the
+original query, or a bare return with no code) gets re-read as "start another
+outbound hop", or falls through to a bare redirect home — either way the shopper
+lands back on `/shop-by-crownprint` and the CTA looks like it does nothing.
+
+`buildOutboundRedirect()` additionally refuses any HWL target whose origin is the
+Wynn origin, so a misconfigured `HWL_*` env can never produce a self-redirect
+loop; it shows the explicit unavailable state instead.
+
+## 7. Create-CrownPrint flow (paid)
+
+`/shop-by-crownprint/start?flow=create` → redirect to
+`HWL_ASSESSMENT_URL?return=<wynn>&source=wynn-essentials` → shopper purchases and
+completes the CrownPrint assessment → HWL issues a **new** one-time code →
+return → Wynn exchanges once → render. (No reusable token is echoed from the
+assessment.) The CTA is labelled `Create My CrownPrint™ — <HWL_CROWNPRINT_PRICE>`
+(default `$9.99`); the charge happens at HWL, never at Wynn.
 
 ## 8. Reconnect flow (existing CrownPrint)
 
-`?start=connect` → redirect to `{HWL_API_BASE_URL}/crownprint/connect?return=<wynn>`
-→ HWL authenticates + verifies CrownPrint → issues a **new** one-time code →
-return → Wynn exchanges once → render.
+`/shop-by-crownprint/start?flow=connect` → redirect to
+`{HWL_API_BASE_URL}/crownprint/connect?return=https://wynnessentialsllc.us/shop-by-crownprint/connect&source=wynn-essentials`
+→ HWL authenticates the shopper if needed + verifies/loads the CrownPrint →
+issues a **new** one-time code → redirect back to
+`/shop-by-crownprint/connect?code=…` → Wynn exchanges once, server-side → safe
+context stored in `crownprint_sessions` → match results render.
+
+This CTA (`Connect My CrownPrint™`) is separate from the create CTA and never
+shares its URL.
 
 ## 9. CrownState refresh flow (stale)
 
-`?start=refresh` → redirect to `HWL_CROWNSTATE_UPDATE_URL?return=<wynn>` → user
-saves new CrownState → HWL issues a **new** one-time code → return → Wynn
-exchanges the **new** code once → refreshed context. The previous code is never
-reused.
+`/shop-by-crownprint/start?flow=refresh` → redirect to
+`HWL_CROWNSTATE_UPDATE_URL?return=<wynn>` → user saves new CrownState → HWL
+issues a **new** one-time code → return → Wynn exchanges the **new** code once →
+refreshed context. The previous code is never reused.
 
 ## 10. Failure states (all distinct; never fabricated)
 
@@ -120,6 +146,11 @@ reused.
   CrownPrint."
 - **NO_CROWNPRINT** — configured, no Wynn session (or `crownPrintPresent=false`,
   or an expired link). Offers create/connect.
+
+Every return-leg outcome also renders a persistent `.cp-note` message
+(`cancelled` / `expired` / `error` / `unavailable`), not just a transient toast.
+A silent bounce back to the landing panel is indistinguishable from a CTA that
+did nothing, which is how a failed round-trip gets reported as a "loop".
 
 ## 11. Safe response (WynnMatchContext) — the only fields Wynn accepts
 

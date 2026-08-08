@@ -47,6 +47,37 @@ test("keeps trusted Stripe configuration server-side", async () => {
   assert.match(webhook, /checkout\.session\.async_payment_succeeded/);
 });
 
+// The standalone-page shell (.legal-page — policies, About, Shop by CrownPrint)
+// has no wrapper padding of its own, so its brand bar, breadcrumb, and footer
+// used to render hard against the viewport edge while the body copy sat in a
+// centered column. Every page family must share one gutter token.
+test("every page shell gives the header the same horizontal gutter as its content", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+
+  // One token, defined once, responsive across mobile → tablet → desktop.
+  assert.match(css, /--page-gutter:\s*clamp\(18px,4vw,48px\)/);
+  // No page family hardcodes its own copy of it.
+  assert.equal(
+    (css.match(/padding:0 clamp\(18px,4vw,48px\)/g) || []).length,
+    0,
+    "page shells must use var(--page-gutter), not a repeated literal",
+  );
+  for (const shell of [/\.pdp\{[^}]*var\(--page-gutter\)/, /\.collection\{[^}]*var\(--page-gutter\)/]) {
+    assert.match(css, shell);
+  }
+
+  // .legal-page has no wrapper padding, so its direct children carry the gutter
+  // and share the page's content column (--page-max) with the main content.
+  assert.match(css, /\.legal-page\{[^}]*--page-max:760px/);
+  assert.match(
+    css,
+    /\.legal-page>\.pdp-bar,\s*\.legal-page>\.pdp-crumbs,\s*\.legal-page>\.pdp-footer\{[^}]*max-width:var\(--page-max\)[^}]*padding-inline:var\(--page-gutter\)/,
+  );
+  // Shop by CrownPrint widens the whole shell together, header included.
+  assert.match(css, /\.cp-page\{--page-max:1120px\}/);
+  assert.match(css, /\.cp-main\{max-width:var\(--page-max\)[^}]*var\(--page-gutter\)/);
+});
+
 test("renders checkout cancellation without clearing the cart", async () => {
   const response = await render("/order/cancelled");
   assert.equal(response.status, 200);

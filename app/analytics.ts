@@ -47,7 +47,8 @@ export function trackViewContent({ value, currency, contentId }: { value: number
 
 // Shop by CrownPrint™ funnel events. These are the named events the CrownPrint
 // experience emits (shop_by_crownprint_viewed, create_crownprint_clicked,
-// crownprint_connected, crownstate_update_clicked, strong/good/conditional/
+// connect_crownprint_clicked, crownprint_connected, crownstate_update_clicked,
+// strong/good/conditional/
 // no_strong_match_viewed, matched_product_clicked/added_to_cart/purchased).
 // Only a product identifier is ever attached — NEVER CrownPrint answers, scores,
 // or any personalized signal. Fired as custom events across whichever pixels are

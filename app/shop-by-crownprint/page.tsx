@@ -89,11 +89,14 @@ export default async function ShopByCrownPrintPage() {
     .filter((c): c is CardProduct => c !== null)
     .sort((a, b) => CLASS_ORDER[a.matchClass] - CLASS_ORDER[b.matchClass]);
 
+  // Every CTA goes to the OUTBOUND route (/start), never to this page and never
+  // to the HWL callback (/connect). `connect` and `create` are separate flows
+  // with separate HWL destinations — they must never share a URL.
   const urls = {
-    connect: `${CANONICAL}/connect?start=connect`,
-    create: `${CANONICAL}/connect?start=create`,
-    refresh: `${CANONICAL}/connect?start=refresh`,
-    disconnect: `${CANONICAL}/connect?disconnect=1`,
+    connect: `${CANONICAL}/start?flow=connect`,
+    create: `${CANONICAL}/start?flow=create`,
+    refresh: `${CANONICAL}/start?flow=refresh`,
+    disconnect: `${CANONICAL}/start?disconnect=1`,
     productHub: context?.safeLinks?.productHub ?? crownprintConfig.productHubUrl,
   };
 
@@ -135,6 +138,7 @@ export default async function ShopByCrownPrintPage() {
           hasStrong={context ? hasStrongMatch(context) : false}
           products={cards}
           urls={urls}
+          createPriceLabel={crownprintConfig.createPriceLabel}
         />
 
         <section className="cp-education" aria-labelledby="cp-edu-heading">

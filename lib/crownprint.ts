@@ -96,9 +96,11 @@ export type ExchangeResult =
 export const crownprintConfig = {
   apiBaseUrl: process.env.HWL_API_BASE_URL || null,                 // server-to-server base
   hmacSecret: process.env.WYNN_INTEGRATION_HMAC_SECRET || null,     // signs the exchange
-  assessmentUrl: process.env.HWL_ASSESSMENT_URL || null,           // create CrownPrint
+  assessmentUrl: process.env.HWL_ASSESSMENT_URL || null,           // create CrownPrint (paid)
   crownstateUpdateUrl: process.env.HWL_CROWNSTATE_UPDATE_URL || null, // refresh CrownState
   productHubUrl: process.env.HWL_PRODUCT_HUB_URL || null,           // no-strong-match CTA
+  // Display-only price shown on the create CTA. HWL charges it, Wynn never does.
+  createPriceLabel: process.env.HWL_CROWNPRINT_PRICE || "$9.99",
   // Wynn-LOCAL secret used only to sign Wynn's own session/CSRF cookies. It is
   // never the HWL connect-code secret and is never shared with HWL.
   sessionSecret: process.env.WYNN_SESSION_SECRET || process.env.ADMIN_ORDERS_TOKEN || null,
@@ -107,6 +109,14 @@ export const crownprintConfig = {
 // Fixed contract endpoints implemented by Hair Wellness Lab.
 const MATCH_PATH = "/api/integrations/wynn-essentials/match";
 const CONNECT_PATH = "/crownprint/connect";
+
+// Wynn's own two routes. They are deliberately DIFFERENT paths:
+//   START_PATH  — Wynn-initiated outbound hop (the CTAs point here)
+//   RETURN_PATH — the HWL callback, and the only value ever sent as `return`
+// Collapsing them into one route makes the callback URL also an outbound
+// trigger, so anything HWL echoes back can bounce the shopper straight out
+// again (or straight back to the landing page). Keep them separate.
+export const START_PATH = "/shop-by-crownprint/start";
 const RETURN_PATH = "/shop-by-crownprint/connect";
 
 // True when the safe-match exchange can be signed and sent.
@@ -288,7 +298,10 @@ export const hasStrongMatch = (c: WynnMatchContext) => c.matches.some((m) => m.m
 const SESSION_COOKIE = "we_crownprint_session";
 const PENDING_COOKIE = "we_cp_pending";
 const SESSION_TTL_SECONDS = 30 * 60;  // Wynn session; unrelated to the code's ~2-min TTL
-const PENDING_TTL_SECONDS = 15 * 60;
+// Long enough to sign in at HWL, pay for / complete an assessment, and come
+// back. Too short and a legitimate return fails CSRF and silently lands the
+// shopper back on the landing page, which reads exactly like a broken CTA.
+const PENDING_TTL_SECONDS = 45 * 60;
 
 async function packSigned(value: string, ttlSeconds: number): Promise<string> {
   const secret = crownprintConfig.sessionSecret;
@@ -387,12 +400,26 @@ export async function consumePending(): Promise<boolean> {
 // CrownPrint data. `connect` re-verifies an existing CrownPrint; `create` runs
 // the assessment; `refresh` updates CrownState. Each returns a NEW one-time code.
 // ---------------------------------------------------------------------------
+// The `return` URL we hand HWL must be a Wynn URL we actually own. `Host` and
+// `X-Forwarded-Host` are attacker-controllable, so a forwarded host is only
+// trusted when it matches the configured site host (or a Vercel preview /
+// localhost). Otherwise we fall back to the configured origin. This is what
+// makes "validated Wynn return URL" true rather than aspirational.
+function hostIsOurs(host: string): boolean {
+  const bare = host.split(":")[0].toLowerCase();
+  let configured = "";
+  try { configured = new URL(commerceConfig.siteUrl).hostname.toLowerCase(); } catch { /* ignore */ }
+  if (configured && (bare === configured || bare === `www.${configured}` || `www.${bare}` === configured)) return true;
+  if (bare === "localhost" || bare === "127.0.0.1") return true;
+  return bare.endsWith(".vercel.app");
+}
+
 export async function siteOrigin(): Promise<string> {
   try {
     const h = await headers();
     const host = h.get("x-forwarded-host") || h.get("host");
     const proto = h.get("x-forwarded-proto") || (process.env.NODE_ENV === "production" ? "https" : "http");
-    if (host) return `${proto}://${host}`;
+    if (host && hostIsOurs(host)) return `${proto}://${host}`;
   } catch { /* fall through */ }
   return new URL(commerceConfig.siteUrl).origin;
 }
@@ -400,16 +427,35 @@ export function returnUrl(origin: string) {
   return `${origin}${RETURN_PATH}`;
 }
 
+// Resolve the HWL destination for a flow. Each flow has its OWN target — the
+// connect CTA must never share a URL with the create CTA, and neither may
+// resolve to a Wynn URL.
+export function outboundBase(flow: "connect" | "create" | "refresh"): string | null {
+  if (flow === "connect") return crownprintConfig.apiBaseUrl ? `${crownprintConfig.apiBaseUrl}${CONNECT_PATH}` : null;
+  if (flow === "create") return crownprintConfig.assessmentUrl;
+  return crownprintConfig.crownstateUpdateUrl;
+}
+
 export async function buildOutboundRedirect(flow: "connect" | "create" | "refresh"): Promise<string | null> {
   if (!crownprintConfig.sessionSecret) return null;
-  const base =
-    flow === "connect" ? (crownprintConfig.apiBaseUrl ? `${crownprintConfig.apiBaseUrl}${CONNECT_PATH}` : null)
-    : flow === "create" ? crownprintConfig.assessmentUrl
-    : crownprintConfig.crownstateUpdateUrl;
+  const base = outboundBase(flow);
   if (!base) return null;
+
+  const origin = await siteOrigin();
+  const ret = returnUrl(origin);
+  let url: URL;
+  try { url = new URL(base); } catch { return null; }        // malformed env → explicit unavailable
+  if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+
+  // HARD GUARD against the connect loop: the outbound target must be Hair
+  // Wellness Lab, never Wynn Essentials. If an HWL_* env is misconfigured to a
+  // Wynn URL, the CTA becomes a self-redirect and the shopper bounces straight
+  // back to the page they started on. Refuse and show the explicit unavailable
+  // state instead of looping.
+  if (url.origin === new URL(ret).origin) return null;
+
   await issuePending();
-  const url = new URL(base);
-  url.searchParams.set("return", returnUrl(await siteOrigin()));
+  url.searchParams.set("return", ret);
   url.searchParams.set("source", "wynn-essentials");
   return url.toString();
 }

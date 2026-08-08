@@ -21,12 +21,13 @@ const files = () =>
   Promise.all([
     read("../lib/crownprint.ts"),
     read("../app/shop-by-crownprint/connect/route.ts"),
+    read("../app/shop-by-crownprint/start/route.ts"),
     read("../app/shop-by-crownprint/page.tsx"),
     read("../app/shop-by-crownprint/CrownPrintExperience.tsx"),
     read("../app/analytics.ts"),
     read("../.env.example"),
     read("../docs/wynn-essentials-integration.md"),
-  ]).then(([lib, route, page, client, analytics, env, doc]) => ({ lib, route, page, client, analytics, env, doc }));
+  ]).then(([lib, route, start, page, client, analytics, env, doc]) => ({ lib, route, start, page, client, analytics, env, doc }));
 
 // 1 + 3. The HWL one-time code is exchanged exactly once, server-side, and never
 // on page render.
@@ -95,14 +96,73 @@ test("connect-code expiry and replay are handled cleanly", async () => {
 // 7 + 8. Refresh and create each go out to their own HWL flow, which mints a NEW
 // one-time code that Wynn exchanges once (Wynn never reuses a prior code).
 test("create and refresh flows each obtain a fresh code", async () => {
-  const { lib, route, page } = await files();
-  assert.match(page, /start=create/);
-  assert.match(page, /start=refresh/);
-  assert.match(route, /buildOutboundRedirect\(flow\)/);
-  assert.match(lib, /flow === "create" \? crownprintConfig\.assessmentUrl/);
+  const { lib, start, page } = await files();
+  assert.match(page, /\/start\?flow=create/);
+  assert.match(page, /\/start\?flow=refresh/);
+  assert.match(start, /buildOutboundRedirect\(flow\)/);
+  assert.match(lib, /flow === "create"\) return crownprintConfig\.assessmentUrl/);
   assert.match(lib, /crownprintConfig\.crownstateUpdateUrl/);
   // There is no stored code to reuse — the only persisted artifact is the context.
   assert.doesNotMatch(lib, /reuse|reusable credential.*code/i);
+});
+
+// 11. The connect CTA must leave Wynn Essentials for the HWL connect flow — it
+// may not link back to the Shop by CrownPrint page, and it may not share the
+// create CTA's URL. This is the regression that made the CTA look like a loop.
+test("connect and create are separate CTAs with separate HWL destinations", async () => {
+  const { lib, page, client } = await files();
+
+  // Distinct outbound flows on the page…
+  assert.match(page, /connect: `\$\{CANONICAL\}\/start\?flow=connect`/);
+  assert.match(page, /create: `\$\{CANONICAL\}\/start\?flow=create`/);
+  // …and no CTA points at the landing page itself.
+  assert.doesNotMatch(page, /connect: `\$\{CANONICAL\}`/);
+
+  // Distinct HWL targets: connect → {HWL_API_BASE_URL}/crownprint/connect,
+  // create → HWL_ASSESSMENT_URL. Never the same value.
+  assert.match(lib, /CONNECT_PATH = "\/crownprint\/connect"/);
+  assert.match(lib, /flow === "connect"\) return crownprintConfig\.apiBaseUrl \? `\$\{crownprintConfig\.apiBaseUrl\}\$\{CONNECT_PATH\}`/);
+
+  // The two buttons render distinct labels and distinct hrefs.
+  assert.match(client, /href=\{urls\.create\}/);
+  assert.match(client, /href=\{urls\.connect\}/);
+  assert.match(client, /Create My CrownPrint/);
+  assert.match(client, /Connect My CrownPrint/);
+  // And they no longer report the same analytics event.
+  assert.match(client, /trackCrownPrintEvent\("connect_crownprint_clicked"\)/);
+});
+
+// 12. Source and callback are different routes, and the callback never starts a
+// new outbound hop — otherwise anything HWL echoes back can ping-pong.
+test("the HWL callback route is inbound-only and cannot redirect back out", async () => {
+  const { lib, route, start } = await files();
+
+  // The callback never builds an outbound HWL redirect.
+  assert.doesNotMatch(route, /buildOutboundRedirect/, "the callback must not send anyone to HWL");
+  assert.doesNotMatch(route, /searchParams\.get\("start"\)/, "the callback must not accept a start param");
+  // The outbound route never redeems a code.
+  assert.doesNotMatch(start, /exchangeConnectCode/, "the outbound route must not redeem codes");
+
+  // The two paths differ, and only the callback path is sent to HWL as `return`.
+  assert.match(lib, /START_PATH = "\/shop-by-crownprint\/start"/);
+  assert.match(lib, /RETURN_PATH = "\/shop-by-crownprint\/connect"/);
+  assert.match(lib, /return `\$\{origin\}\$\{RETURN_PATH\}`/);
+
+  // A misconfigured HWL_* env pointing at Wynn is refused, not followed.
+  assert.match(lib, /if \(url\.origin === new URL\(ret\)\.origin\) return null/);
+});
+
+// 13. Only a validated Wynn return URL leaves the site — no CrownPrint data,
+// and no attacker-supplied host.
+test("only a validated, same-site return URL is sent to HWL", async () => {
+  const { lib } = await files();
+  // The forwarded host is checked before it is trusted.
+  assert.match(lib, /hostIsOurs\(host\)/);
+  // Exactly two query parameters ever go outbound: return + source.
+  const params = lib.match(/url\.searchParams\.set\("([^"]+)"/g) || [];
+  assert.deepEqual(params.sort(), ['url.searchParams.set("return"', 'url.searchParams.set("source"']);
+  // Nothing sensitive is ever put in a query string.
+  assert.doesNotMatch(lib, /searchParams\.set\("(code|userUuid|userId|scores?|crownState|crownHistory|report|answers)"/i);
 });
 
 // 9. INTEGRATION_UNAVAILABLE, TEMPORARILY_UNAVAILABLE, and NO_CROWNPRINT are
