@@ -30,13 +30,18 @@ test("keeps trusted Stripe configuration server-side", async () => {
   ]);
   assert.match(catalog, /stripePriceId/);
   assert.match(checkout, /line_items:\s*resolved/);
-  // Non-option items charge via the stored Stripe price ID.
-  assert.match(checkout, /price: product\.stripePriceId/);
-  // price_data is used only to carry a chosen option (e.g. bonnet color) at the
-  // same price. Every unit_amount must derive from the server catalog
-  // (product.price), never from the client request body.
+  // The Stripe price id and the unit price are resolved from the server catalog
+  // (a chosen variant's, or the product's default) — never from the client
+  // request body.
+  assert.match(checkout, /const priceId = variant \? variant\.stripePriceId : product\.stripePriceId/);
+  assert.match(checkout, /const unitPrice = variant \? variant\.price : \(product\.price/);
+  // Non-option items charge via that server-resolved Stripe price id.
+  assert.match(checkout, /price: priceId/);
+  // price_data is used only to carry a chosen option (e.g. bonnet color) or a
+  // variant without its own Stripe price, at the same price. Every unit_amount
+  // must derive from the server-resolved unitPrice, never from the client body.
   for (const [, expr] of checkout.matchAll(/unit_amount:\s*([^,}]+)/g)) {
-    assert.match(expr, /product\.price/, "unit_amount must come from the server catalog, not the client");
+    assert.match(expr, /unitPrice/, "unit_amount must come from the server catalog, not the client");
   }
   assert.match(webhook, /constructEvent\(await request\.text\(\)/);
   assert.match(webhook, /checkout\.session\.async_payment_succeeded/);
