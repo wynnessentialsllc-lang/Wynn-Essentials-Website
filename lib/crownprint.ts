@@ -5,145 +5,143 @@
 // CrownState, CrownHistory, the CrownPrint assessment, its Intelligence Report,
 // the scientific/evidence architecture, and the Wynn Essentials Match™
 // deterministic intelligence. This file NEVER reimplements any of that. It is a
-// thin, safe adapter: it hands a shopper off to HWL to create/refresh their
-// CrownPrint, and it retrieves back only a minimal, consumer-safe match result.
+// thin, safe adapter. See docs/wynn-essentials-integration.md for the contract.
+//
+// THE APPROVED PROTOCOL (do not deviate)
+//  1. Wynn sends the shopper to an HWL flow (connect / create / refresh) with only
+//     a validated `return` URL — never CrownPrint data in query parameters.
+//  2. HWL authenticates the user, (re)verifies/updates the CrownPrint, mints an
+//     OPAQUE ONE-TIME connect code (~256-bit, ~2-min TTL, audience-bound to Wynn,
+//     stored HWL-side only as a keyed hash, atomically redeemed once, replay
+//     rejected), and redirects back to the Wynn return URL carrying ONLY that code.
+//  3. Wynn's server exchanges the code EXACTLY ONCE via an HMAC-signed
+//     server-to-server POST to /api/integrations/wynn-essentials/match. HWL
+//     atomically redeems the code and returns a safe WynnMatchContext.
+//  4. The code is dead after that single exchange. Wynn discards it and keeps only
+//     a minimal, server-side Wynn session (see lib session helpers) to render the
+//     experience. Wynn NEVER re-exchanges the HWL code and NEVER treats it as a
+//     reusable API credential.
 //
 // SECURITY
-// - The HWL service token is read from a server-only env var and is never sent
-//   to the browser (no NEXT_PUBLIC_ prefix). This module must only be imported
-//   from server components / route handlers.
-// - CrownPrint answers, raw scores, percentages, thresholds, scoring weights,
-//   decision trees, reason codes, and evidence weighting are NEVER accepted into
-//   the app. `normalizeSafeMatch` whitelists fields at the boundary, so even if a
-//   future HWL response includes those, they are dropped before anything renders.
-// - The shopper is identified by a short-lived, single-purpose, HMAC-signed,
-//   httpOnly cookie carrying an OPAQUE handoff token from HWL — never CrownPrint
-//   answers, CrownState/CrownHistory/report content, scoring weights, raw scores,
-//   or (unless HWL absolutely requires it) an email. HWL exchanges the token
-//   server-side; its only use here is to retrieve the safe match. Nothing is ever
-//   placed in a query parameter. This mirrors lib/admin-auth.ts.
+// - The HMAC secret (WYNN_INTEGRATION_HMAC_SECRET) is a server-only env var, never
+//   sent to the browser. There is NO Bearer service token in this contract.
+// - Wynn never possesses HWL's connect-code secret (WYNN_CONNECT_TOKEN_SECRET is
+//   HWL-only). Wynn cannot mint or verify connect codes itself.
+// - normalizeMatchContext() whitelists ONLY the approved safe fields at the
+//   boundary, so raw CrownPrint answers, axis values, CrownState/CrownHistory
+//   detail, report content, user UUIDs, raw scores, weights, thresholds, reason
+//   codes, and evidence logic can never enter Wynn even if HWL sends them.
 //
 // NO FABRICATION
-// This adapter NEVER invents match data. When HWL is not configured or a call
-// fails, getSafeMatch() returns an "unavailable" result and the storefront shows
-// an explicit integration-unavailable / connect-CrownPrint state — never fake
-// matches. The seam is built so the live HWL integration becomes active the
-// moment credentials + endpoint are supplied, with no UI rebuild.
+// This adapter NEVER invents match data. When HWL is unconfigured, a code is
+// missing/expired/replayed, or a call fails, the experience shows an explicit
+// state (integration-unavailable / temporarily-unavailable / no-CrownPrint) —
+// never fake matches. Supplying the env below activates the live integration with
+// no UI changes.
 
 import { cookies, headers } from "next/headers";
+import { eq } from "drizzle-orm";
 import { commerceConfig } from "./commerce-config";
 
 // ---------------------------------------------------------------------------
-// Consumer-safe contract. These are the ONLY fields the shopping experience
-// ever sees. Nothing here can express a score, weight, threshold, or reason code.
+// Approved safe contract (WynnMatchContext). These are the ONLY fields Wynn ever
+// stores or renders. Nothing here can express a score, weight, threshold, axis,
+// reason code, user id, or any raw CrownPrint / CrownState / CrownHistory detail.
 // ---------------------------------------------------------------------------
 
 export type MatchClass = "strong" | "good" | "conditional";
 
-export type MatchedProduct = {
-  // Matched product identifier — must map to a Product.slug in app/data.ts. The
-  // catalog stays the source of truth for image, name, price, and claims.
-  slug: string;
-  // Final match class only — no numeric score is ever carried.
+export type SafeMatchProduct = {
+  productKey: string;   // maps to a Product.slug in app/data.ts (catalog = truth)
+  productName: string;  // convenience label from HWL; catalog name is authoritative
   matchClass: MatchClass;
-  // Consumer-safe, personalized explanation of FIT (not a new efficacy claim).
-  explanation: string;
-  // Optional usage guidance relevant to the shopper's current need.
-  usage?: string;
+  why: string;          // consumer-safe explanation of FIT (not a new efficacy claim)
 };
 
-// Guidance shown when no Wynn Essentials product is a strong match. This is an
-// intentional, honest outcome — we do not force a recommendation.
-export type NoMatchGuidance = {
-  hairNeed: string;                     // WHAT YOUR HAIR NEEDS RIGHT NOW
-  productType: string;                  // PRODUCT TYPE TO LOOK FOR
-  formulationCharacteristics: string[]; // FORMULATION CHARACTERISTICS TO LOOK FOR
-  ingredientFunctions: string[];        // INGREDIENT FUNCTIONS TO CONSIDER
-  whatMayNotFit: string[];              // WHAT MAY NOT FIT YOUR CURRENT NEED
-  whyThisMatters: string;               // WHY THIS MATTERS FOR YOUR CURRENT CROWNPRINT
+// Consumer-safe, educational "what to look for" guidance for the no-strong-match
+// outcome. Contains no proprietary scoring — just shopper-facing direction.
+export type WhatToLookFor = {
+  hairNeed?: string;
+  productType?: string;
+  formulationCharacteristics: string[];
+  ingredientFunctions: string[];
+  whatMayNotFit: string[];
+  whyThisMatters?: string;
 };
 
-export type SafeMatch = {
-  available: boolean;          // CrownPrint available / unavailable
-  fresh: boolean;              // CrownState fresh / stale
-  currentPriority?: string;    // CURRENT HAIR PRIORITY (a consumer-safe label)
-  matches: MatchedProduct[];   // matched identifiers + class + explanation
-  noStrongMatch?: NoMatchGuidance; // present when nothing strongly matches
-  refreshRequired?: boolean;   // refresh requirement flag from HWL
+// Safe, allow-listed HWL links (e.g. the Product Hub). URLs only, no data.
+export type SafeLinks = { productHub?: string; assessment?: string; crownstateUpdate?: string };
+
+export type WynnMatchContext = {
+  crownPrintPresent: boolean;                 // CrownPrint exists / missing
+  crownState: { present: boolean; fresh: boolean; message?: string }; // fresh / stale / message
+  currentPriorityLabel?: string;              // consumer-safe priority label
+  matches: SafeMatchProduct[];                // product keys + class + why
+  noStrongMatch: boolean;                     // intentional no-strong-match outcome
+  whatToLookFor?: WhatToLookFor;              // guidance for the no-match outcome
+  safeLinks?: SafeLinks;                       // safe HWL links
+  ruleVersion?: string;                        // HWL rule/version stamp (safe)
+  generatedAt?: string;                        // when HWL produced this (safe)
 };
 
-const UNAVAILABLE: SafeMatch = { available: false, fresh: false, matches: [] };
+// Result of the one-time exchange. `reason` drives which explicit state renders.
+export type ExchangeResult =
+  | { ok: true; context: WynnMatchContext }
+  | { ok: false; reason: "expired" | "unavailable" | "error" };
 
 // ---------------------------------------------------------------------------
-// Configuration (all server-only).
+// Configuration (all server-only). NO Bearer token. NO HWL connect-code secret.
 // ---------------------------------------------------------------------------
 
 export const crownprintConfig = {
-  // Server-to-server base URL for the approved HWL safe-match API.
-  apiBaseUrl: process.env.HWL_API_BASE_URL || null,
-  // Bearer service credential for the safe-match API. SERVER ONLY.
-  serviceToken: process.env.HWL_SERVICE_TOKEN || null,
-  // Path on the HWL API that exchanges a handoff token for a safe match.
-  matchPath: process.env.HWL_MATCH_PATH || "/api/wynn-essentials-match",
-  // Public HWL flows the shopper is redirected to.
-  assessmentUrl: process.env.HWL_ASSESSMENT_URL || null,       // create CrownPrint
+  apiBaseUrl: process.env.HWL_API_BASE_URL || null,                 // server-to-server base
+  hmacSecret: process.env.WYNN_INTEGRATION_HMAC_SECRET || null,     // signs the exchange
+  assessmentUrl: process.env.HWL_ASSESSMENT_URL || null,           // create CrownPrint
   crownstateUpdateUrl: process.env.HWL_CROWNSTATE_UPDATE_URL || null, // refresh CrownState
-  productHubUrl: process.env.HWL_PRODUCT_HUB_URL || null,       // no-strong-match CTA
-  // HMAC secret for signing the handoff cookie + CSRF state. Falls back to the
-  // admin token so links keep working if a dedicated secret isn't set, but a
-  // dedicated value is recommended.
-  handoffSecret: process.env.CROWNPRINT_HANDOFF_SECRET || process.env.ADMIN_ORDERS_TOKEN || null,
+  productHubUrl: process.env.HWL_PRODUCT_HUB_URL || null,           // no-strong-match CTA
+  // Wynn-LOCAL secret used only to sign Wynn's own session/CSRF cookies. It is
+  // never the HWL connect-code secret and is never shared with HWL.
+  sessionSecret: process.env.WYNN_SESSION_SECRET || process.env.ADMIN_ORDERS_TOKEN || null,
 };
 
-// True when the safe-match API is wired up (base URL + service token).
+// Fixed contract endpoints implemented by Hair Wellness Lab.
+const MATCH_PATH = "/api/integrations/wynn-essentials/match";
+const CONNECT_PATH = "/crownprint/connect";
+const RETURN_PATH = "/shop-by-crownprint/connect";
+
+// True when the safe-match exchange can be signed and sent.
 export function crownprintApiConfigured() {
-  return Boolean(crownprintConfig.apiBaseUrl && crownprintConfig.serviceToken);
+  return Boolean(crownprintConfig.apiBaseUrl && crownprintConfig.hmacSecret);
 }
 
-// True when the whole round-trip can work: a shopper can be sent to HWL to
-// create/refresh a CrownPrint AND we can retrieve their safe match afterward. If
-// this is false, the experience shows an explicit integration-unavailable state
-// instead of a create CTA that would go nowhere — and never fabricated results.
+// True when the whole round-trip can work (send to HWL, exchange, store a Wynn
+// session). When false the experience shows an explicit integration-unavailable
+// state — never fabricated results, never a dead CTA.
 export function crownprintIntegrationReady() {
-  return crownprintApiConfigured() && Boolean(crownprintConfig.assessmentUrl) && Boolean(crownprintConfig.handoffSecret);
+  return crownprintApiConfigured() && Boolean(crownprintConfig.assessmentUrl) && Boolean(crownprintConfig.sessionSecret);
 }
 
 // ---------------------------------------------------------------------------
-// Handoff cookie: an HMAC-signed, httpOnly cookie holding an OPAQUE value only —
-// the HWL handoff token, which HWL exchanges server-side. It is never CrownPrint
-// answers/state/history/report/scores and is never exposed to client JavaScript.
+// HMAC helpers.
 // ---------------------------------------------------------------------------
-
-const COOKIE = "we_crownprint";
-const STATE_COOKIE = "we_crownprint_state";
-// Short-lived pointer only. The authoritative token TTL / one-time-use and
-// revocation are enforced by HWL server-side; this cookie is a brief, single-
-// purpose handle that is re-exchanged on each view. A fresh handoff re-issues it.
-const MAX_AGE_SECONDS = 60 * 60; // one hour
 const encoder = new TextEncoder();
 
-function b64url(bytes: Uint8Array) {
+async function hmac(secret: string, message: string, encoding: "hex" | "b64url"): Promise<string> {
+  const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const sig = new Uint8Array(await crypto.subtle.sign("HMAC", key, encoder.encode(message)));
+  if (encoding === "hex") return Array.from(sig).map((b) => b.toString(16).padStart(2, "0")).join("");
   let bin = "";
-  for (const b of bytes) bin += String.fromCharCode(b);
+  for (const b of sig) bin += String.fromCharCode(b);
   return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
-function b64urlDecode(s: string) {
-  const pad = s.length % 4 === 0 ? "" : "=".repeat(4 - (s.length % 4));
-  const bin = atob(s.replace(/-/g, "+").replace(/_/g, "/") + pad);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
+
+// The exact request signature HWL verifies: HMAC-SHA256 over "<timestamp>.<rawBody>".
+export function signExchange(timestamp: string, rawBody: string): Promise<string> {
+  if (!crownprintConfig.hmacSecret) throw new Error("WYNN_INTEGRATION_HMAC_SECRET is not configured.");
+  return hmac(crownprintConfig.hmacSecret, `${timestamp}.${rawBody}`, "hex");
 }
 
-async function sign(message: string) {
-  const secret = crownprintConfig.handoffSecret;
-  if (!secret) throw new Error("CrownPrint handoff secret is not configured.");
-  const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(message));
-  return b64url(new Uint8Array(sig));
-}
-
-// Constant-time string compare so a bad signature leaks nothing through timing.
+// Constant-time compare for cookie signatures.
 function safeEqual(a: string, b: string) {
   const ab = encoder.encode(a), bb = encoder.encode(b);
   let mismatch = ab.length ^ bb.length;
@@ -152,82 +150,242 @@ function safeEqual(a: string, b: string) {
   return mismatch === 0;
 }
 
-// value.expiry.signature — where value is base64url of the opaque token.
-async function pack(value: string) {
-  const expiresAt = Date.now() + MAX_AGE_SECONDS * 1000;
-  const payload = `${b64url(encoder.encode(value))}.${expiresAt}`;
-  return `${payload}.${await sign(payload)}`;
+function b64url(bytes: Uint8Array) {
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
-async function unpack(raw: string): Promise<string | null> {
+
+// ---------------------------------------------------------------------------
+// THE ONE-TIME EXCHANGE. Called EXACTLY ONCE per connect code, server-side only.
+// The code is used here and then discarded by the caller — never stored as a
+// reusable credential, never re-exchanged on subsequent views.
+// ---------------------------------------------------------------------------
+export async function exchangeConnectCode(code: string, returnUrl: string): Promise<ExchangeResult> {
+  if (!crownprintApiConfigured()) return { ok: false, reason: "unavailable" };
+  // Body is signed verbatim; keep it stable so the signature matches on the wire.
+  const rawBody = JSON.stringify({ code, return: returnUrl });
+  const timestamp = String(Date.now());
+  let signature: string;
+  try {
+    signature = await signExchange(timestamp, rawBody);
+  } catch {
+    return { ok: false, reason: "unavailable" };
+  }
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch(`${crownprintConfig.apiBaseUrl}${MATCH_PATH}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        // Exact header names implemented by Hair Wellness Lab. No Bearer token.
+        "X-Wynn-Timestamp": timestamp,
+        "X-Wynn-Signature": signature,
+      },
+      body: rawBody,
+      cache: "no-store",
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timer));
+
+    if (res.status === 200) return { ok: true, context: normalizeMatchContext(await res.json()) };
+    // 404/409/410 → code unknown / already redeemed (replay) / expired.
+    if (res.status === 404 || res.status === 409 || res.status === 410) return { ok: false, reason: "expired" };
+    // 503 → HWL temporarily unavailable (distinct from "no CrownPrint").
+    if (res.status === 503) return { ok: false, reason: "unavailable" };
+    return { ok: false, reason: "error" };
+  } catch {
+    // Network error / timeout → temporarily unavailable, never fabricated.
+    return { ok: false, reason: "unavailable" };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Boundary normalization: accept ONLY approved safe fields. Everything else on
+// the wire (userUuid, scores, weights, thresholds, axis values, reasonCodes,
+// crownState/crownHistory detail, report content, evidence logic) is dropped.
+// ---------------------------------------------------------------------------
+const str = (v: unknown, max = 600): string | undefined =>
+  typeof v === "string" && v.trim() ? v.trim().slice(0, max) : undefined;
+const list = (v: unknown, maxItems = 8, maxLen = 200): string[] =>
+  Array.isArray(v) ? v.map((x) => str(x, maxLen)).filter((x): x is string => Boolean(x)).slice(0, maxItems) : [];
+const asClass = (v: unknown): MatchClass | null =>
+  v === "strong" || v === "good" || v === "conditional" ? v : null;
+
+export function normalizeMatchContext(input: unknown): WynnMatchContext {
+  const empty: WynnMatchContext = { crownPrintPresent: false, crownState: { present: false, fresh: false }, matches: [], noStrongMatch: false };
+  if (!input || typeof input !== "object") return empty;
+  const raw = input as Record<string, unknown>;
+
+  const matches: SafeMatchProduct[] = Array.isArray(raw.matches)
+    ? raw.matches
+        .map((m): SafeMatchProduct | null => {
+          if (!m || typeof m !== "object") return null;
+          const r = m as Record<string, unknown>;
+          const productKey = str(r.productKey, 120);
+          const matchClass = asClass(r.matchClass);
+          const why = str(r.why, 400);
+          if (!productKey || !matchClass || !why) return null;
+          return { productKey, productName: str(r.productName, 120) || productKey, matchClass, why };
+        })
+        .filter((m): m is SafeMatchProduct => m !== null)
+        .slice(0, 12)
+    : [];
+
+  const cs = (raw.crownState && typeof raw.crownState === "object" ? raw.crownState : {}) as Record<string, unknown>;
+
+  let whatToLookFor: WhatToLookFor | undefined;
+  const g = raw.whatToLookFor;
+  if (g && typeof g === "object") {
+    const r = g as Record<string, unknown>;
+    const hairNeed = str(r.hairNeed);
+    const productType = str(r.productType);
+    const whyThisMatters = str(r.whyThisMatters);
+    whatToLookFor = {
+      ...(hairNeed ? { hairNeed } : {}),
+      ...(productType ? { productType } : {}),
+      formulationCharacteristics: list(r.formulationCharacteristics),
+      ingredientFunctions: list(r.ingredientFunctions),
+      whatMayNotFit: list(r.whatMayNotFit),
+      ...(whyThisMatters ? { whyThisMatters } : {}),
+    };
+  }
+
+  let safeLinks: SafeLinks | undefined;
+  const l = raw.safeLinks;
+  if (l && typeof l === "object") {
+    const r = l as Record<string, unknown>;
+    const productHub = str(r.productHub, 400);
+    const assessment = str(r.assessment, 400);
+    const crownstateUpdate = str(r.crownstateUpdate, 400);
+    if (productHub || assessment || crownstateUpdate) {
+      safeLinks = { ...(productHub ? { productHub } : {}), ...(assessment ? { assessment } : {}), ...(crownstateUpdate ? { crownstateUpdate } : {}) };
+    }
+  }
+
+  return {
+    crownPrintPresent: raw.crownPrintPresent === true,
+    crownState: { present: cs.present === true, fresh: cs.fresh === true, ...(str(cs.message, 300) ? { message: str(cs.message, 300) } : {}) },
+    ...(str(raw.currentPriorityLabel, 160) ? { currentPriorityLabel: str(raw.currentPriorityLabel, 160) } : {}),
+    matches,
+    noStrongMatch: raw.noStrongMatch === true || !matches.some((m) => m.matchClass === "strong"),
+    ...(whatToLookFor ? { whatToLookFor } : {}),
+    ...(safeLinks ? { safeLinks } : {}),
+    ...(str(raw.ruleVersion, 60) ? { ruleVersion: str(raw.ruleVersion, 60) } : {}),
+    ...(str(raw.generatedAt, 60) ? { generatedAt: str(raw.generatedAt, 60) } : {}),
+  };
+}
+
+export const hasStrongMatch = (c: WynnMatchContext) => c.matches.some((m) => m.matchClass === "strong");
+
+// ---------------------------------------------------------------------------
+// Wynn-side session. AFTER the single exchange we store ONLY the safe context
+// server-side (crownprint_sessions), keyed by an opaque id held in a signed,
+// httpOnly cookie. This is a Wynn-local mechanism, entirely separate from the
+// HWL one-time code (which is already dead). It gives match continuity across
+// views WITHOUT ever re-contacting HWL with the code.
+// ---------------------------------------------------------------------------
+const SESSION_COOKIE = "we_crownprint_session";
+const PENDING_COOKIE = "we_cp_pending";
+const SESSION_TTL_SECONDS = 30 * 60;  // Wynn session; unrelated to the code's ~2-min TTL
+const PENDING_TTL_SECONDS = 15 * 60;
+
+async function packSigned(value: string, ttlSeconds: number): Promise<string> {
+  const secret = crownprintConfig.sessionSecret;
+  if (!secret) throw new Error("WYNN_SESSION_SECRET is not configured.");
+  const expiresAt = Date.now() + ttlSeconds * 1000;
+  const payload = `${b64url(encoder.encode(value))}.${expiresAt}`;
+  return `${payload}.${await hmac(secret, payload, "b64url")}`;
+}
+async function readSigned(raw: string | undefined): Promise<string | null> {
+  const secret = crownprintConfig.sessionSecret;
+  if (!secret || !raw) return null;
   const parts = raw.split(".");
   if (parts.length !== 3) return null;
-  const [encoded, expiresAt, signature] = parts;
+  const [encoded, expiresAt, sig] = parts;
   if (!/^\d+$/.test(expiresAt) || Number(expiresAt) < Date.now()) return null;
-  if (!safeEqual(signature, await sign(`${encoded}.${expiresAt}`))) return null;
+  if (!safeEqual(sig, await hmac(secret, `${encoded}.${expiresAt}`, "b64url"))) return null;
+  try { return new TextDecoder().decode(Uint8Array.from(atob(encoded.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0))); } catch { return null; }
+}
+
+// Store the freshly exchanged safe context; set the session cookie. Returns
+// false if the session could not be persisted (caller then shows an explicit
+// temporarily-unavailable state rather than fabricating anything).
+export async function createMatchSession(context: WynnMatchContext): Promise<boolean> {
+  if (!crownprintConfig.sessionSecret) return false;
+  const id = b64url(crypto.getRandomValues(new Uint8Array(32)));
   try {
-    return new TextDecoder().decode(b64urlDecode(encoded));
+    const { getDb } = await import("../db");
+    const { crownprintSessions } = await import("../db/schema");
+    await getDb().insert(crownprintSessions).values({ id, context, expiresAt: new Date(Date.now() + SESSION_TTL_SECONDS * 1000) });
+  } catch {
+    return false;
+  }
+  (await cookies()).set(SESSION_COOKIE, await packSigned(id, SESSION_TTL_SECONDS), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: SESSION_TTL_SECONDS,
+  });
+  return true;
+}
+
+// Read the current safe context from the Wynn session (render-time; read-only).
+export async function readMatchSession(): Promise<WynnMatchContext | null> {
+  const id = await readSigned((await cookies()).get(SESSION_COOKIE)?.value);
+  if (!id) return null;
+  try {
+    const { getDb } = await import("../db");
+    const { crownprintSessions } = await import("../db/schema");
+    const rows = await getDb().select().from(crownprintSessions).where(eq(crownprintSessions.id, id)).limit(1);
+    const row = rows[0];
+    if (!row) return null;
+    if (row.expiresAt && new Date(row.expiresAt).getTime() < Date.now()) return null;
+    return row.context as WynnMatchContext;
   } catch {
     return null;
   }
 }
 
-// Persist the handoff. Called from the connect route after HWL returns.
-export async function setHandoff(value: string) {
-  if (!crownprintConfig.handoffSecret) return; // fail open — no signing key, no cookie
-  (await cookies()).set(COOKIE, await pack(value), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax", // lax so the cookie survives the top-level redirect back from HWL
-    path: "/",
-    maxAge: MAX_AGE_SECONDS,
-  });
+export async function clearMatchSession(): Promise<void> {
+  const jar = await cookies();
+  const id = await readSigned(jar.get(SESSION_COOKIE)?.value);
+  jar.delete(SESSION_COOKIE);
+  if (!id) return;
+  try {
+    const { getDb } = await import("../db");
+    const { crownprintSessions } = await import("../db/schema");
+    await getDb().delete(crownprintSessions).where(eq(crownprintSessions.id, id));
+  } catch { /* best effort */ }
 }
 
-export async function clearHandoff() {
-  (await cookies()).delete(COOKIE);
-}
-
-async function readHandoff(): Promise<string | null> {
-  if (!crownprintConfig.handoffSecret) return null;
-  const raw = (await cookies()).get(COOKIE)?.value;
-  if (!raw) return null;
-  return unpack(raw);
-}
-
-export async function hasHandoff() {
-  return (await readHandoff()) !== null;
-}
-
-// CSRF state for the outbound → inbound redirect. A signed random value is
-// stored in a short-lived cookie and echoed by HWL as `state` on return.
-export async function issueState(): Promise<string> {
+// ---------------------------------------------------------------------------
+// CSRF: a signed, httpOnly "pending" cookie set on the outbound hop. Its valid
+// presence on return proves THIS browser initiated the connect within the window
+// — mitigating blind connect-code injection without HWL echoing any state.
+// ---------------------------------------------------------------------------
+export async function issuePending(): Promise<void> {
   const nonce = b64url(crypto.getRandomValues(new Uint8Array(16)));
-  const value = `${nonce}.${await sign(nonce)}`;
-  (await cookies()).set(STATE_COOKIE, value, {
+  (await cookies()).set(PENDING_COOKIE, await packSigned(nonce, PENDING_TTL_SECONDS), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: 15 * 60,
+    maxAge: PENDING_TTL_SECONDS,
   });
-  return value;
 }
-export async function consumeState(returned: string | null): Promise<boolean> {
+export async function consumePending(): Promise<boolean> {
   const jar = await cookies();
-  const stored = jar.get(STATE_COOKIE)?.value;
-  jar.delete(STATE_COOKIE);
-  if (!stored) return false;
-  if (!returned) return false;
-  // Both must match exactly AND the nonce must carry a valid signature.
-  if (!safeEqual(stored, returned)) return false;
-  const [nonce, sig] = stored.split(".");
-  if (!nonce || !sig) return false;
-  return safeEqual(sig, await sign(nonce));
+  const raw = jar.get(PENDING_COOKIE)?.value;
+  jar.delete(PENDING_COOKIE);
+  return (await readSigned(raw)) !== null;
 }
 
 // ---------------------------------------------------------------------------
-// Absolute URL for the return endpoint HWL redirects back to. Derived from the
-// live request so it is correct in dev and prod without extra config.
+// Outbound redirects to HWL. Only a validated `return` URL is sent — never any
+// CrownPrint data. `connect` re-verifies an existing CrownPrint; `create` runs
+// the assessment; `refresh` updates CrownState. Each returns a NEW one-time code.
 // ---------------------------------------------------------------------------
 export async function siteOrigin(): Promise<string> {
   try {
@@ -238,122 +396,20 @@ export async function siteOrigin(): Promise<string> {
   } catch { /* fall through */ }
   return new URL(commerceConfig.siteUrl).origin;
 }
+export function returnUrl(origin: string) {
+  return `${origin}${RETURN_PATH}`;
+}
 
-// Build the outbound redirect to an HWL flow, preserving a secure return
-// destination and a CSRF state. `flow` selects create vs. update.
-export async function buildHwlRedirect(flow: "create" | "update"): Promise<string | null> {
-  const base = flow === "create" ? crownprintConfig.assessmentUrl : crownprintConfig.crownstateUpdateUrl;
-  // No target flow or no signing secret → treat as unavailable rather than error.
-  if (!base || !crownprintConfig.handoffSecret) return null;
-  const state = await issueState();
-  const returnTo = `${await siteOrigin()}/shop-by-crownprint/connect`;
+export async function buildOutboundRedirect(flow: "connect" | "create" | "refresh"): Promise<string | null> {
+  if (!crownprintConfig.sessionSecret) return null;
+  const base =
+    flow === "connect" ? (crownprintConfig.apiBaseUrl ? `${crownprintConfig.apiBaseUrl}${CONNECT_PATH}` : null)
+    : flow === "create" ? crownprintConfig.assessmentUrl
+    : crownprintConfig.crownstateUpdateUrl;
+  if (!base) return null;
+  await issuePending();
   const url = new URL(base);
-  // return_to is our own connect endpoint (not sensitive); state guards the hop.
-  url.searchParams.set("return_to", returnTo);
-  url.searchParams.set("state", state);
+  url.searchParams.set("return", returnUrl(await siteOrigin()));
   url.searchParams.set("source", "wynn-essentials");
   return url.toString();
 }
-
-// ---------------------------------------------------------------------------
-// Boundary normalization: accept ONLY the safe contract fields. Anything else
-// on the wire (scores, weights, reason codes, raw answers, …) is dropped here.
-// ---------------------------------------------------------------------------
-
-const clampStr = (v: unknown, max = 600): string | undefined =>
-  typeof v === "string" && v.trim() ? v.trim().slice(0, max) : undefined;
-
-const clampList = (v: unknown, maxItems = 12, maxLen = 200): string[] =>
-  Array.isArray(v)
-    ? v.map((x) => clampStr(x, maxLen)).filter((x): x is string => Boolean(x)).slice(0, maxItems)
-    : [];
-
-const asClass = (v: unknown): MatchClass | null =>
-  v === "strong" || v === "good" || v === "conditional" ? v : null;
-
-export function normalizeSafeMatch(input: unknown): SafeMatch {
-  if (!input || typeof input !== "object") return UNAVAILABLE;
-  const raw = input as Record<string, unknown>;
-  if (raw.available === false) return { ...UNAVAILABLE, available: false };
-
-  const matches: MatchedProduct[] = Array.isArray(raw.matches)
-    ? raw.matches
-        .map((m): MatchedProduct | null => {
-          if (!m || typeof m !== "object") return null;
-          const r = m as Record<string, unknown>;
-          const slug = clampStr(r.slug, 120);
-          const matchClass = asClass(r.matchClass);
-          const explanation = clampStr(r.explanation, 600);
-          if (!slug || !matchClass || !explanation) return null;
-          const usage = clampStr(r.usage, 400);
-          return { slug, matchClass, explanation, ...(usage ? { usage } : {}) };
-        })
-        .filter((m): m is MatchedProduct => m !== null)
-        .slice(0, 24)
-    : [];
-
-  let noStrongMatch: NoMatchGuidance | undefined;
-  const g = raw.noStrongMatch;
-  if (g && typeof g === "object") {
-    const r = g as Record<string, unknown>;
-    const hairNeed = clampStr(r.hairNeed);
-    const productType = clampStr(r.productType);
-    const whyThisMatters = clampStr(r.whyThisMatters);
-    if (hairNeed || productType || whyThisMatters) {
-      noStrongMatch = {
-        hairNeed: hairNeed || "",
-        productType: productType || "",
-        formulationCharacteristics: clampList(r.formulationCharacteristics),
-        ingredientFunctions: clampList(r.ingredientFunctions),
-        whatMayNotFit: clampList(r.whatMayNotFit),
-        whyThisMatters: whyThisMatters || "",
-      };
-    }
-  }
-
-  return {
-    available: raw.available !== false,
-    fresh: raw.fresh === true,
-    currentPriority: clampStr(raw.currentPriority, 160),
-    matches,
-    ...(noStrongMatch ? { noStrongMatch } : {}),
-    ...(raw.refreshRequired === true ? { refreshRequired: true } : {}),
-  };
-}
-
-// ---------------------------------------------------------------------------
-// The one call the shopping experience makes. Reads the handoff cookie, asks
-// HWL server-to-server for the safe match, and returns the normalized contract.
-// Never throws; always resolves to a SafeMatch (UNAVAILABLE on any problem).
-// ---------------------------------------------------------------------------
-export async function getSafeMatch(): Promise<SafeMatch> {
-  const handoff = await readHandoff();
-  if (!handoff) return UNAVAILABLE;
-
-  // No fabrication: without a configured API we cannot retrieve a real match, so
-  // we report unavailable rather than inventing one.
-  if (!crownprintApiConfigured()) return UNAVAILABLE;
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
-    const res = await fetch(`${crownprintConfig.apiBaseUrl}${crownprintConfig.matchPath}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${crownprintConfig.serviceToken}`,
-      },
-      // Only the opaque handoff is sent — never answers, never PII we can avoid.
-      body: JSON.stringify({ handoff }),
-      signal: controller.signal,
-      cache: "no-store",
-    }).finally(() => clearTimeout(timeout));
-    if (!res.ok) return UNAVAILABLE;
-    return normalizeSafeMatch(await res.json());
-  } catch {
-    return UNAVAILABLE; // fail open to the "create your CrownPrint" state
-  }
-}
-
-// Convenience selectors used by the page.
-export const strongMatches = (m: SafeMatch) => m.matches.filter((x) => x.matchClass === "strong");
-export const hasStrongMatch = (m: SafeMatch) => m.matches.some((x) => x.matchClass === "strong");
