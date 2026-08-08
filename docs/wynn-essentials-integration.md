@@ -71,10 +71,41 @@ Resolved production values:
 | CrownState refresh | `https://hairwellnessslab.com/crownstate` |
 | Product Hub (no-strong-match CTA) | `https://hairwellnessslab.com/product-hub` |
 
-Wynn Essentials hardcodes **none** of these: the host enters only through the
-`HWL_*` environment variables above, so correcting a misspelling is a Vercel
-env change, not a code change. Wynn's own canonical origin is separate and
-unaffected — `https://wynnessentialsllc.us` (`app/seo.ts`).
+Wynn's own canonical origin is separate and unaffected —
+`https://wynnessentialsllc.us` (`app/seo.ts`).
+
+#### Enforcement
+
+`HWL_CANONICAL_ORIGIN` in `lib/crownprint.ts` is the single host literal in the
+codebase; every other HWL reference is composed from configuration. All five
+HWL URL sinks are validated by `hwlUrl()`, which resolves a URL only if it sits
+on the origin of `HWL_API_BASE_URL`:
+
+| # | Sink | Source | If it is off-origin |
+| --- | --- | --- | --- |
+| 1 | Server-to-server exchange | `HWL_API_BASE_URL` + fixed path | n/a — defines the origin |
+| 2 | Connect | `HWL_API_BASE_URL` + fixed path | n/a — contract-derived |
+| 3 | Create | `HWL_ASSESSMENT_URL` override | rejected → falls back to `{base}/crownprint` |
+| 4 | CrownState refresh | `HWL_CROWNSTATE_UPDATE_URL` override | rejected → falls back to `{base}/crownstate` |
+| 5 | Product Hub | `safeLinks.productHub` response field, else `HWL_PRODUCT_HUB_URL` | rejected → CTA omitted |
+
+Sink 5 matters most: it is the only HWL-controlled value rendered directly into
+an `href`, so `normalizeMatchContext()` origin-checks it at the response
+boundary. A foreign host, a near-miss host, or a non-HTTP scheme
+(`javascript:`, `data:`) is dropped rather than linked.
+
+The base URL is stored slash-trimmed, so a trailing slash in the env var can no
+longer compose into `https://host//crownprint`.
+
+`productionOriginOk()` returns false when `NODE_ENV=production` and the
+configured base is not the canonical origin. The base intentionally remains
+env-driven so a local or staging HWL can be pointed at during development;
+production correctness is asserted by `tests/domain-canonical.test.mjs`.
+
+> **Caveat:** validation is an exact origin match, so a `www.` variant is a
+> *different* origin and would be rejected. If HWL ever serves any of these
+> from `www.` or a subdomain, widen `hwlUrl()` deliberately rather than
+> loosening the base URL.
 
 ## 4. Exact HMAC request
 

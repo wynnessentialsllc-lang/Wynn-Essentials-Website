@@ -6,6 +6,7 @@ import {
   crownprintConfig,
   crownprintIntegrationReady,
   hasStrongMatch,
+  hwlUrl,
   readMatchSession,
   type MatchClass,
 } from "../../lib/crownprint";
@@ -94,7 +95,10 @@ export default async function ShopByCrownPrintPage() {
     create: `${CANONICAL}/connect?start=create`,
     refresh: `${CANONICAL}/connect?start=refresh`,
     disconnect: `${CANONICAL}/connect?disconnect=1`,
-    productHub: context?.safeLinks?.productHub ?? crownprintConfig.productHubUrl,
+    // Both sources are origin-checked: safeLinks.productHub was validated at the
+    // response boundary, and the HWL_PRODUCT_HUB_URL fallback is validated here.
+    // A link off the trusted HWL origin omits the CTA rather than rendering it.
+    productHub: context?.safeLinks?.productHub ?? hwlUrl(crownprintConfig.productHubUrl, "HWL_PRODUCT_HUB_URL"),
   };
 
   return (

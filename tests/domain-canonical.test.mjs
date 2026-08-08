@@ -53,14 +53,21 @@ test("the misspelled Hair Wellness Lab host appears nowhere in the repository", 
   assert.deepEqual(hits, [], `misspelled HWL host (…${WRONG_HOST}) found:\n${hits.join("\n")}`);
 });
 
-// 2. Production URL helpers resolve the HWL host from configuration only. Wynn
-// hardcodes no HWL host at all, so a domain correction is an env change and can
-// never be stranded in application code.
-test("no HWL host is hardcoded in application code — the host is env-driven only", async () => {
+// 2. Exactly ONE HWL host literal exists in application code: the canonical
+// origin constant that hwlUrl() validates against. Every other reference must
+// come from configuration, so a routing change stays an env change.
+test("the only HWL host literal in application code is the canonical origin constant", async () => {
   const hits = await scan(
     (line, file) => /^(app|lib|scripts|worker)\//.test(file) && /hairwellness/i.test(line),
   );
-  assert.deepEqual(hits, [], `HWL host hardcoded in application code:\n${hits.join("\n")}`);
+  // Strip the "file:line:" prefix so the comparison is about WHICH literals
+  // exist, not which line they happen to sit on.
+  assert.deepEqual(
+    hits.map((h) => h.replace(/^\S+?:\d+:\s*/, "")),
+    [`export const HWL_CANONICAL_ORIGIN = "${HWL}";`],
+    `unexpected HWL host literal in application code:\n${hits.join("\n")}`,
+  );
+  assert.ok(hits[0].startsWith("lib/crownprint.ts:"), "the canonical constant belongs in lib/crownprint.ts");
 
   // The four HWL_* vars are the only inbound path for that host.
   const lib = await read("../lib/crownprint.ts");
@@ -131,6 +138,96 @@ test("Stripe success/cancel URLs and email links use the configured Wynn site UR
 
   for (const [name, body] of Object.entries({ checkout, reviewEmails })) {
     assert.doesNotMatch(body, /hairwellness/i, `${name} must not link to an HWL host`);
+  }
+});
+
+// Every HWL URL sink is audited against the canonical origin AT RUNTIME, not
+// just in source text. lib/crownprint.ts is loaded with real env values through
+// a stub for next/headers, so these exercise the shipped hwlUrl() logic.
+async function loadCrownprint(env) {
+  for (const k of ["HWL_API_BASE_URL", "HWL_ASSESSMENT_URL", "HWL_CROWNSTATE_UPDATE_URL", "HWL_PRODUCT_HUB_URL"]) delete process.env[k];
+  Object.assign(process.env, env);
+  // buildOutboundRedirect() refuses to build a URL without these, and it is the
+  // HWL destination — not the session plumbing — that is under test here.
+  process.env.WYNN_SESSION_SECRET ||= "test-session-secret-not-a-real-credential";
+  process.env.WYNN_INTEGRATION_HMAC_SECRET ||= "test-hmac-secret-not-a-real-credential";
+  return import(`../lib/crownprint.ts?canonical=${encodeURIComponent(JSON.stringify(env))}`);
+}
+
+// Node can only import the .ts source directly under --experimental-strip-types,
+// and only with next/headers stubbed. Skip cleanly elsewhere rather than fail.
+const canLoadSource = await loadCrownprint({ HWL_API_BASE_URL: HWL }).then(() => true, () => false);
+
+test("every HWL URL sink resolves to the canonical origin at runtime", { skip: !canLoadSource }, async () => {
+  const m = await loadCrownprint({ HWL_API_BASE_URL: HWL, HWL_PRODUCT_HUB_URL: `${HWL}/product-hub` });
+  const dest = async (flow) => {
+    const u = await m.buildOutboundRedirect(flow);
+    const parsed = new URL(u);
+    parsed.search = "";
+    return parsed.toString();
+  };
+  assert.equal(await dest("connect"), `${HWL}/crownprint/connect`);
+  assert.equal(await dest("create"), `${HWL}/crownprint`);
+  assert.equal(await dest("refresh"), `${HWL}/crownstate`);
+  assert.equal(m.hwlUrl(m.crownprintConfig.productHubUrl), `${HWL}/product-hub`);
+  assert.equal(`${m.crownprintConfig.apiBaseUrl}/api/integrations/wynn-essentials/match`, `${HWL}/api/integrations/wynn-essentials/match`);
+  assert.equal(m.productionOriginOk(), true);
+});
+
+test("a trailing slash on the base never composes into a double-slashed HWL URL", { skip: !canLoadSource }, async () => {
+  const m = await loadCrownprint({ HWL_API_BASE_URL: `${HWL}/` });
+  assert.equal(m.crownprintConfig.apiBaseUrl, HWL, "the stored origin is slash-trimmed");
+  const u = new URL(await m.buildOutboundRedirect("connect"));
+  u.search = "";
+  assert.equal(u.toString(), `${HWL}/crownprint/connect`);
+});
+
+test("an HWL_* override off the canonical origin is rejected and falls back to the contract path", { skip: !canLoadSource }, async () => {
+  const m = await loadCrownprint({
+    HWL_API_BASE_URL: HWL,
+    // The two-s near-miss host and an unrelated host must BOTH be refused.
+    HWL_ASSESSMENT_URL: `https://${WRONG_HOST}/crownprint`,
+    HWL_CROWNSTATE_UPDATE_URL: "https://evil.example/crownstate",
+    HWL_PRODUCT_HUB_URL: `https://${WRONG_HOST}/product-hub`,
+  });
+  const dest = async (flow) => {
+    const u = new URL(await m.buildOutboundRedirect(flow));
+    u.search = "";
+    return u.toString();
+  };
+  // Degrades to the correct URL rather than redirecting shoppers off-origin.
+  assert.equal(await dest("create"), `${HWL}/crownprint`);
+  assert.equal(await dest("refresh"), `${HWL}/crownstate`);
+  // The Product Hub CTA is omitted rather than pointed at the wrong host.
+  assert.equal(m.hwlUrl(m.crownprintConfig.productHubUrl), null);
+});
+
+test("safeLinks from the HWL response are origin-checked before becoming hrefs", { skip: !canLoadSource }, async () => {
+  const m = await loadCrownprint({ HWL_API_BASE_URL: HWL });
+  const links = (v) => m.normalizeMatchContext({ safeLinks: { productHub: v, assessment: v, crownstateUpdate: v } }).safeLinks;
+
+  assert.deepEqual(links(`${HWL}/product-hub`), {
+    productHub: `${HWL}/product-hub`,
+    assessment: `${HWL}/product-hub`,
+    crownstateUpdate: `${HWL}/product-hub`,
+  });
+
+  // A near-miss host, a foreign host, and a script URL are all dropped. The
+  // last matters most: this value is rendered directly into an href.
+  for (const bad of [`https://${WRONG_HOST}/product-hub`, "https://evil.example/phish", "javascript:alert(1)", "data:text/html,<script>", "not a url"]) {
+    assert.equal(links(bad), undefined, `safeLinks must reject ${bad}`);
+  }
+});
+
+test("a production deployment pointed off the canonical origin is reported as misconfigured", { skip: !canLoadSource }, async () => {
+  const prior = process.env.NODE_ENV;
+  try {
+    process.env.NODE_ENV = "production";
+    assert.equal((await loadCrownprint({ HWL_API_BASE_URL: HWL })).productionOriginOk(), true);
+    assert.equal((await loadCrownprint({ HWL_API_BASE_URL: `https://${WRONG_HOST}` })).productionOriginOk(), false);
+    assert.equal((await loadCrownprint({})).productionOriginOk(), false);
+  } finally {
+    process.env.NODE_ENV = prior;
   }
 });
 
