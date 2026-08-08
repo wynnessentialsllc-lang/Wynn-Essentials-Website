@@ -7,6 +7,7 @@ import { brandConfig, ingredientDescriptions, method, products, Product } from "
 import { relativeDate, Review, ReviewSummary, reviewsFor, sortReviews, summarize } from "./reviews";
 import { trackAddToCart, trackInitiateCheckout, trackViewContent } from "./analytics";
 import PayInFour from "./PayInFour";
+import QuietVideo from "./QuietVideo";
 
 type CartItem = { slug: string; quantity: number; color?: string; variantId?: string };
 type FooterInfoKey = "contact" | "shipping" | "returns" | "faq" | "track" | "accessibility" | "privacy" | "terms" | "refunds" | "cookies" | "credits";
@@ -85,34 +86,6 @@ function ProductArt({ product, small = false }: { product: Product; small?: bool
   return <div className={`product-art ${small ? "small" : ""}`} role="img" aria-label={`Placeholder pack shot for ${product.name} ${product.subtitle}`}>
     <span className="bottle-cap" /><span className="bottle-label">WYNN<small>ESSENTIALS</small><b>{product.name}</b></span>
   </div>;
-}
-
-// Plays a muted video when it scrolls into view and pauses it when it leaves,
-// so a below-the-fold clip starts on scroll instead of autoplaying (and
-// finishing) off-screen. No loop — it plays through while in view.
-function ScrollPlayVideo({ src, poster, ariaLabel, loop = false, preload = "metadata", rootMargin = "0px" }: { src: string; poster?: string; ariaLabel?: string; loop?: boolean; preload?: "auto" | "metadata" | "none"; rootMargin?: string }) {
-  const ref = useRef<HTMLVideoElement>(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    // Respect prefers-reduced-motion: don't auto-play moving video for these
-    // users. The native controls (below) let them start it themselves.
-    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    if (!("IntersectionObserver" in window)) { el.play().catch(() => {}); return; }
-    // rootMargin extends the trigger area beyond the viewport so a clip starts
-    // loading/playing before it's actually on screen — removing the buffering
-    // stall when it comes into view.
-    const io = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting) el.play().catch(() => {});
-        else el.pause();
-      }
-    }, { threshold: 0, rootMargin });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [rootMargin]);
-  // controls give a visible pause/stop mechanism for auto-playing motion (WCAG 2.2.2).
-  return <video ref={ref} src={src} poster={poster} muted loop={loop} playsInline preload={preload} controls controlsList="nodownload noplaybackrate" aria-label={ariaLabel} />;
 }
 
 // The Edge Control product in the routine section, made to feel like a tangible
@@ -442,11 +415,12 @@ function FirstOrderOffer({ onClose, onContinue }: { onClose: () => void; onConti
   </ModalShell>;
 }
 
-// A single hover/click/keyboard-accessible dropdown for the desktop primary nav.
-// Grouping the links into a couple of these keeps the bar uncluttered. It opens on
+// A hover/click/keyboard-accessible dropdown for the desktop primary nav. The
+// panel drops the full width of the header — an editorial mega menu with
+// labelled columns and a featured rail rather than a small list. It opens on
 // hover, on click, and on keyboard focus, and closes on Escape, blur, or a link
 // tap. Desktop only — below 1050px the nav is hidden and the ☰ menu takes over.
-function NavDropdown({ label, children }: { label: string; children: React.ReactNode }) {
+function NavDropdown({ label, id, children }: { label: string; id: string; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   useEffect(() => {
     if (!open) return;
@@ -462,32 +436,86 @@ function NavDropdown({ label, children }: { label: string; children: React.React
       onFocus={() => setOpen(true)}
       onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setOpen(false); }}
     >
-      <button type="button" className="nav-dd-trigger" aria-haspopup="true" aria-expanded={open} onClick={() => setOpen(o => !o)}>
+      <button type="button" className="nav-dd-trigger" aria-expanded={open} aria-controls={id} onClick={() => setOpen(o => !o)}>
         {label}<span className="nav-dd-caret" aria-hidden="true">▾</span>
       </button>
-      <div className="nav-dd-panel" role="menu" onClick={() => setOpen(false)}>{children}</div>
+      <div className="nav-dd-panel" id={id} onClick={() => setOpen(false)}>{children}</div>
     </div>
   );
 }
 
-function Header({ count, wishCount, openCart, openSearch, openWishlist, viewInvite }: { count: number; wishCount: number; openCart: () => void; openSearch: () => void; openWishlist: () => void; viewInvite: () => void }) {
+// The pack shots on the Shop menu's featured rail: one product from each end of
+// the routine, in the order a wash day runs.
+const navFeatured = ["lathyr-shampoo", "hydrate-herbal-hair-mist", "nourish-oil", "edge-control"]
+  .map(slug => products.find(p => p.slug === slug))
+  .filter((p): p is Product => Boolean(p?.images?.length));
+
+function Header({ count, wishCount, openCart, openSearch, openWishlist, viewInvite, openProduct, shopCategory }: { count: number; wishCount: number; openCart: () => void; openSearch: () => void; openWishlist: () => void; viewInvite: () => void; openProduct: (p: Product) => void; shopCategory: (category: string) => void }) {
   const [menu, setMenu] = useState(false);
   return <>
     <div className="announcement"><div className="announcement-track" aria-hidden="true">{[0,1].map(g=>(<div className="announcement-group" key={g}>{Array.from({length:10}).map((_,i)=>(<span className="announcement-item" key={i}>{brandConfig.announcement}</span>))}</div>))}</div><span className="sr-only">{brandConfig.announcement}</span></div>
     <header className="site-header">
       <button className="icon-button menu-trigger" aria-label="Open menu" onClick={() => setMenu(true)}>☰</button>
       <nav aria-label="Primary">
-        <NavDropdown label="Shop">
-          <a href="#shop">All Products</a>
-          <a href="#best-sellers">Best Sellers</a>
-          <a href="#shop-by-concern">Shop by Concern</a>
-          <a href="#shop-by-style">Shop by Style</a>
-          <Link href="/shop-by-crownprint">Shop by CrownPrint</Link>
+        <NavDropdown label="Shop" id="nav-panel-shop">
+          <div className="nav-mega">
+            <div className="nav-mega-cols">
+              <div className="nav-mega-col">
+                <p className="nav-mega-label">By product</p>
+                <button type="button" onClick={() => shopCategory("All")}>All Products</button>
+                {["Cleanse", "Condition", "Treat", "Moisturize", "Oils", "Style"].map(c => (
+                  <button type="button" key={c} onClick={() => shopCategory(c)}>{c}</button>
+                ))}
+              </div>
+              <div className="nav-mega-col">
+                <p className="nav-mega-label">By routine</p>
+                <a href="#best-sellers">Best Sellers</a>
+                <a href="#shop-by-concern">Shop by Concern</a>
+                <a href="#shop-by-style">Shop by Style</a>
+                <Link href="/shop-by-crownprint">Shop by CrownPrint</Link>
+                <a href="#hair-accessories">Hair &amp; Accessories</a>
+              </div>
+            </div>
+            <div className="nav-mega-feature">
+              <p className="nav-mega-label">Start the practice</p>
+              <div className="nav-mega-products">
+                {navFeatured.map(p => (
+                  <button type="button" className="nav-mega-product" key={p.slug} onClick={() => openProduct(p)}>
+                    <span className="nav-mega-thumb"><img src={p.images![0].src} alt="" width="600" height="600" loading="lazy" /></span>
+                    <b>{p.name}</b>
+                    <small>{p.subtitle}</small>
+                  </button>
+                ))}
+              </div>
+              <button type="button" className="nav-mega-cta" onClick={() => shopCategory("All")}>Shop All Essentials</button>
+            </div>
+          </div>
         </NavDropdown>
-        <NavDropdown label="Discover">
-          <a href="#the-wynn-method">The Wynn Method</a>
-          <a href="#our-story">Our Story</a>
-          <Link href="/blog">Insights</Link>
+        <NavDropdown label="Discover" id="nav-panel-discover">
+          <div className="nav-mega">
+            <div className="nav-mega-cols">
+              <div className="nav-mega-col">
+                <p className="nav-mega-label">The practice</p>
+                <a href="#the-wynn-method">The Wynn Method</a>
+                <a href="#routine-finder">Routine Finder</a>
+                <a href="#ingredients">Ingredients</a>
+              </div>
+              <div className="nav-mega-col">
+                <p className="nav-mega-label">The brand</p>
+                <a href="#our-story">Our Story</a>
+                <Link href="/blog">Insights</Link>
+                <Link href="/about">About Wynn Essentials</Link>
+              </div>
+            </div>
+            <Link className="nav-mega-editorial" href="/blog">
+              <span className="nav-mega-editorial-image"><img src="/editorial/wellness-ritual.jpeg" alt="" width="1206" height="1800" loading="lazy" /></span>
+              <span className="nav-mega-editorial-copy">
+                <span className="nav-mega-label">From the journal</span>
+                <b>Healthy hair is a practice. Read the routines behind it.</b>
+                <em>Read Insights</em>
+              </span>
+            </Link>
+          </div>
         </NavDropdown>
       </nav>
       <a href="/" className="logo" aria-label="Wynn Essentials home"><BrandLogo compact /></a>
@@ -690,7 +718,7 @@ function ProductReviews({ product, submitted }: { product: Product; submitted: R
         </li>)}</ul>
       </div>}
       {media.length > 0 && <div className="review-media">{media.map(r => <figure className="review-media-item" key={`${r.id}-media`}>
-        {r.video ? <video src={r.video} poster={r.videoPoster} controls playsInline preload="metadata" aria-label={`Customer video from ${r.author}`} /> : <img src={r.image} alt={`Customer photo from ${r.author}`} loading="lazy" />}
+        {r.video ? <QuietVideo src={r.video} poster={r.videoPoster} ariaLabel={`Customer video from ${r.author}`} /> : <img src={r.image} alt={`Customer photo from ${r.author}`} loading="lazy" />}
         <figcaption>{r.author}{r.location ? ` · ${r.location}` : ""}</figcaption>
       </figure>)}</div>}
       <ul className="review-list">{cards.map(r => <li className="review-card" key={r.id}>
@@ -744,7 +772,7 @@ function ProductDetail({ product, add, onClose, soldOut, submittedReviews, wishe
   };
   return <ModalShell label={`${product.name} product details`} onClose={onClose} className="product-shell"><article className="product-modal">
     <button className="product-close" onClick={onClose}>Close</button>
-    <div className="product-gallery">{product.video && <div className="product-art product-photo product-video" key="video"><video src={product.video} muted loop playsInline autoPlay preload="metadata" controls controlsList="nodownload noplaybackrate" aria-label={`${product.name} product video`}/></div>}{(galleryImages.length ? galleryImages : [null, null]).map((image,index)=>image ? <div className="product-art product-photo" key={image.src}><img src={image.src} alt={image.alt} width="1600" height="1600" loading={index ? "lazy" : undefined}/></div> : <ProductArt product={product} key={index}/>)}</div>
+    <div className="product-gallery">{product.video && <div className="product-art product-photo product-video" key="video"><QuietVideo src={product.video} autoPlay loop preload="metadata" ariaLabel={`${product.name} product video`}/></div>}{(galleryImages.length ? galleryImages : [null, null]).map((image,index)=>image ? <div className="product-art product-photo" key={image.src}><img src={image.src} alt={image.alt} width="1600" height="1600" loading={index ? "lazy" : undefined}/></div> : <ProductArt product={product} key={index}/>)}</div>
     <div className="product-info"><p className="eyebrow">{isHair ? `THE WYNN METHOD · STEP ${product.methodStep} OF 6` : product.subtitle.toUpperCase()}</p><h2>{product.name}<span>{product.subtitle}</span></h2><p className="product-price">{money(displayPrice)}{selVariant ? ` · ${selVariant.length}` : product.size ? ` · ${product.size}` : ""}</p><PayInFour price={displayPrice} /><p>{product.description}</p>{needsColor && <fieldset className="color-picker"><legend>Color{color ? `: ${color}` : ""}</legend>{product.colors!.map(c=><button type="button" key={c} className={color===c?"active":""} aria-pressed={color===c} onClick={()=>setColor(c)}>{c}</button>)}</fieldset>}{showLen && <fieldset className="color-picker"><legend>{variantLegend}{!product.variantLabel && len ? `: ${len}` : ""}</legend>{lengths.map(l=><button type="button" key={l} className={len===l?"active":""} aria-pressed={len===l} onClick={()=>setLen(l)}>{l}</button>)}</fieldset>}{showCol && <fieldset className="color-picker"><legend>Color{vcolor ? `: ${vcolor}` : ""}</legend>{colorOpts.map(c=><button type="button" key={c} className={vcolor===c?"active":""} aria-pressed={vcolor===c} onClick={()=>setVcolor(c)}>{c}</button>)}</fieldset>}{soldOut ?<div className="waitlist"><p className="waitlist-heading">Sold Out</p>{wlState==="ok" ? <p className="waitlist-done">You’re on the list — we’ll email you the moment {product.name} is back in stock.</p> : <form onSubmit={joinWaitlist}><label htmlFor="wl-email">Join the waitlist and we’ll email you when it’s restocked.</label><input id="wl-email" type="email" required placeholder="Enter your email" value={wlEmail} onChange={e=>setWlEmail(e.target.value)} /><button className="button full" type="submit" disabled={wlState==="sending"}>{wlState==="sending"?"Joining…":"Join the Waitlist"}</button>{wlState==="err" && <p className="waitlist-err" role="alert">Something went wrong — please try again.</p>}<small>{brandConfig.waitlistConsent}</small></form>}</div> : <><label>Quantity<select value={qty} onChange={e=>setQty(Number(e.target.value))}>{[1,2,3,4].map(n=><option key={n}>{n}</option>)}</select></label><button className="button full" disabled={(needsColor && !color) || variantSoldOut} onClick={()=>add(product,qty,color||undefined,selVariant?.id)}>{variantSoldOut ? "This option is sold out" : needsColor && !color ? "Select a color" : "Add to Cart"}</button><button type="button" className="outline-button full wish-toggle" aria-pressed={wished} onClick={onToggleWish}>{wished ? "♥ Saved to favorites" : "♡ Save to favorites"}</button></>}
       <h3>Why You’ll Love It</h3><ul className="benefit-list">{(product.featured ? hydrateBenefits : [product.benefit,"Supports a consistent routine","Created for textured-hair care"]).map(x=><li key={x}>{x}</li>)}</ul>
       <div className="accordions">{Object.entries(accordions).map(([title,body])=><details key={title}><summary>{title}</summary><p>{body}</p></details>)}</div>
@@ -897,7 +925,7 @@ export default function WynnShop() {
     <a className="skip-link" href="#main">Skip to content</a>
     <div className={`toast${notice ? " show" : ""}`} role="status" aria-live="polite">{notice}</div>
     {invitation && <Invitation manual={invitation==="manual"} onDone={()=>setInvitation(false)}/>}
-    <Header count={cart.reduce((s,i)=>s+i.quantity,0)} wishCount={wishlist.length} openCart={()=>setCartOpen(true)} openSearch={()=>setSearchOpen(true)} openWishlist={()=>setWishOpen(true)} viewInvite={()=>setInvitation("manual")}/>
+    <Header count={cart.reduce((s,i)=>s+i.quantity,0)} wishCount={wishlist.length} openCart={()=>setCartOpen(true)} openSearch={()=>setSearchOpen(true)} openWishlist={()=>setWishOpen(true)} viewInvite={()=>setInvitation("manual")} openProduct={openProduct} shopCategory={(category)=>{setFilter(category);setIngredientFilter(null);setConcernFilter(null);scroll("shop");}}/>
     <main id="main">
       <section className={`hero${playHeroVid && !heroReveal ? " hero-holding" : ""}`}><div className="hero-copy"><p className="eyebrow">TEXTURED-HAIR WELLNESS, MADE INTENTIONAL</p><h1 id="main-heading" tabIndex={-1}>The Practice<br />Starts Here.</h1><p>Moisture, strength, scalp, and styling essentials created for textured hair and the routines that keep it healthy.</p><div className="actions"><button className="button" onClick={()=>scroll("shop")}>Shop the Essentials</button><button className="outline-button" onClick={()=>scroll("routine-finder")}>Find My Routine</button></div><small>Made for curls, coils, braids, locs, and protective styles.</small></div><HeroMedia play={playHeroVid} invitationOpen={invitation!==false} onReveal={()=>setHeroReveal(true)}/></section>
       <section className="statement section"><div className="statement-copy"><p className="eyebrow">BUILD YOUR ROUTINE</p><h2>Hair care for every part<br /><em>of your routine.</em></h2><p>Wynn Essentials offers gentle shampoo, moisture-rich conditioners, daily hydration, scalp and sealing oils, styling cream, edge control, satin accessories, and premium human hair for protective styles. Choose the products that fit your hair and build a routine around what it needs.</p><a href="#shop" className="button">Explore the Collection</a></div><RoutineProduct onOpen={()=>openProduct(products.find(p=>p.slug==="edge-control")!)} /></section>
@@ -909,7 +937,7 @@ export default function WynnShop() {
       ].map(([src,name,subtitle,alt])=><button className="editorial-card" key={name} onClick={()=>openProduct(products.find(p=>p.name===name)!)} aria-label={`Shop ${name}`}><img src={src} alt={alt} width="1206" height="1800" loading="lazy"/><span><b>{name}</b><small>{subtitle}</small><em>Shop now</em></span></button>)}</div></section>
       <section id="shop" className="shop section"><div className="section-heading"><p className="eyebrow">THE COLLECTION</p><h2>Shop the Essentials</h2></div><div className="filters" aria-label="Filter products">{["All","Cleanse","Condition","Treat","Moisturize","Oils","Style","Accessories","Bundles"].map(x=><button aria-pressed={filter===x && !ingredientFilter && !concernFilter} onClick={()=>{setFilter(x);setIngredientFilter(null);setConcernFilter(null);}} key={x}>{x}</button>)}</div>{ingredientFilter && <p className="ingredient-filter-note" aria-live="polite">Showing products formulated with <strong>{ingredientFilter}</strong>. <button className="text-button" onClick={()=>setIngredientFilter(null)}>Show all products</button></p>}{concernFilter && <p className="ingredient-filter-note" aria-live="polite">Showing products for <strong>{concernFilter}</strong>. <button className="text-button" onClick={()=>setConcernFilter(null)}>Show all products</button></p>}<div className="product-grid">{visible.map(p=><article className={`product-card${soldOut(p)?" is-sold-out":""}`} key={p.slug}><button className="art-button" onClick={()=>openProduct(p)} aria-label={`View ${p.name} details`}><ProductArt product={p}/>{soldOut(p) && <span className="sold-out-badge">Sold Out</span>}</button><WishHeart active={inWishlist(p.slug)} onToggle={()=>toggleWish(p.slug)} label={p.name}/><div><p className="eyebrow">{p.kind ? p.category.toUpperCase() : `STEP ${p.methodStep} · ${p.category.toUpperCase()}`}</p><button className="product-title" onClick={()=>openProduct(p)}><h3>{p.name}</h3><span>{p.subtitle}</span></button><CardRating summary={ratingFor(p.slug)} onClick={()=>openProduct(p)}/><p>{p.benefit}</p><small>{p.size ?? "Size to be confirmed"}</small><strong>{money(p.price)}</strong>{soldOut(p) ? <button className="outline-button full sold-out-cta" onClick={()=>openProduct(p)}>Sold Out · Join the Waitlist</button> : p.colors?.length ? <button className="outline-button full" onClick={()=>openProduct(p)}>Select Options</button> : <button className="outline-button full" onClick={()=>add(p)}>Add to Cart</button>}</div></article>)}</div></section>
       <section id="the-wynn-method" className="method section kraft-panel"><div className="section-heading"><p className="eyebrow">ONE ROUTINE. EVERY ESSENTIAL.</p><h2>The Wynn Method</h2></div><div className="method-grid">{method.map((m,i)=><article key={m[0]}><div className="method-image"><span>{String(i+1).padStart(2,"0")}</span><ProductArt product={products.find(p=>p.methodStep===i+1)!}/></div><h3>{m[0]}</h3><p>{m[1]}</p></article>)}</div><div className="center-actions"><a className="button" href="#shop">Explore the Wynn Method</a><span>Not sure where to start?</span><a className="outline-button" href="#routine-finder">Build My Routine</a></div></section>
-      <section className="campaign hydrate"><div><p className="eyebrow">HYDRATE HERBAL HAIR MIST</p><h2>Moisture Does Not Stop<br />When the Style Begins.</h2><p>Hydrate Herbal Hair Mist supports daily moisture for curls, coils, braids, locs, twists, and protective styles.</p><div className="actions"><button className="button" onClick={()=>openProduct(products[0])}>Shop Hydrate</button><button className="outline-button" onClick={()=>openProduct(products[0])}>See How to Use It</button></div><small>Lightweight moisture. No routine reset required.</small></div><div className="product-art product-photo campaign-video"><ScrollPlayVideo src="/products/hydrate-campaign-v2.mov" ariaLabel="Hydrate Herbal Hair Mist used while styling textured hair" /></div></section>
+      <section className="campaign hydrate"><div><p className="eyebrow">HYDRATE HERBAL HAIR MIST</p><h2>Moisture Does Not Stop<br />When the Style Begins.</h2><p>Hydrate Herbal Hair Mist supports daily moisture for curls, coils, braids, locs, twists, and protective styles.</p><div className="actions"><button className="button" onClick={()=>openProduct(products[0])}>Shop Hydrate</button><button className="outline-button" onClick={()=>openProduct(products[0])}>See How to Use It</button></div><small>Lightweight moisture. No routine reset required.</small></div><div className="product-art product-photo campaign-video"><QuietVideo src="/products/hydrate-campaign-v2.mov" autoPlay ariaLabel="Hydrate Herbal Hair Mist used while styling textured hair" /></div></section>
       <section id="shop-by-concern" className="category-section section"><p className="eyebrow">SHOP BY CONCERN</p><h2>What Does Your Hair Need?</h2><div>{["Dryness","Weakness and Breakage","Scalp Care","Protective Style Care","Definition and Styling"].map((x,i)=><a href="#shop" onClick={()=>{setConcernFilter(x);setIngredientFilter(null);setFilter("All");}} key={x}><span>{String(i+1).padStart(2,"0")}</span>{x}<b>Explore</b></a>)}</div></section>
       <section id="shop-by-style" className="style-section section"><p className="eyebrow">CURATED ROUTINES</p><h2>Shop by Style</h2><div>{["Braids","Locs","Twists","Natural Curls","Silk Press","Wigs and Weaves"].map(x=><a key={x} href="#routine-finder">{x}<span>Find a routine</span></a>)}</div></section>
       <section className="editorial-shop editorial-shop-dark section" aria-labelledby="editorial-everyday"><div className="section-heading"><div><p className="eyebrow">CARE IN REAL LIFE</p><h2 id="editorial-everyday">Wellness, Styled<br/>Your Way.</h2></div><p>From wash day to protective styling, tap any image to shop the product shown.</p></div><div className="editorial-grid editorial-grid-wide">
@@ -918,8 +946,12 @@ export default function WynnShop() {
       <section id="essential-oils-care" className="oil-care section" aria-labelledby="essential-oils-heading">
         <div className="section-heading"><div><p className="eyebrow">SCALP · LENGTHS · ENDS</p><h2 id="essential-oils-heading">Essential Oils Care</h2></div><p>Three purposeful blends for moisture retention, scalp comfort, and stronger-looking hair. Choose the support your routine needs.</p></div>
         <div className="oil-care-videos">
-          <article className="oil-care-video" aria-label="Explore Wynn Essentials oil care"><ScrollPlayVideo src="/shoppable/care-video-2.mp4" loop preload="metadata" rootMargin="600px 0px" /><div><p className="eyebrow">YOUR OIL ROUTINE</p><h3>Grow · Relief · Nourish</h3><p>Target the scalp, support moisture, and finish your routine with intentional oil care.</p><div className="oil-care-links"><button onClick={()=>openProduct(products.find(p=>p.slug==="grow-oil")!)}>Shop Grow</button><button onClick={()=>openProduct(products.find(p=>p.slug==="relief-oil")!)}>Shop Relief</button><button onClick={()=>openProduct(products.find(p=>p.slug==="nourish-oil")!)}>Shop Nourish</button></div></div></article>
-          <button className="oil-care-video" onClick={()=>openProduct(products.find(p=>p.slug==="relief-oil")!)} aria-label="Shop Relief Organic Scalp Oil"><ScrollPlayVideo src="/shoppable/care-video-3.mp4" loop preload="metadata" rootMargin="600px 0px" /><div><p className="eyebrow">SCALP COMFORT</p><h3>Relief</h3><p>Targeted hydration for dry, itchy, or irritated areas—especially while wearing protective styles.</p><b>Shop Relief</b></div></button>
+          <article className="oil-care-video" aria-label="Explore Wynn Essentials oil care"><QuietVideo src="/shoppable/care-video-2.mp4" autoPlay loop preload="metadata" rootMargin="600px 0px" /><div><p className="eyebrow">YOUR OIL ROUTINE</p><h3>Grow · Relief · Nourish</h3><p>Target the scalp, support moisture, and finish your routine with intentional oil care.</p><div className="oil-care-links"><button onClick={()=>openProduct(products.find(p=>p.slug==="grow-oil")!)}>Shop Grow</button><button onClick={()=>openProduct(products.find(p=>p.slug==="relief-oil")!)}>Shop Relief</button><button onClick={()=>openProduct(products.find(p=>p.slug==="nourish-oil")!)}>Shop Nourish</button></div></div></article>
+          {/* The whole card is clickable, but it can't be a <button> any more: the
+              video carries its own play/pause control, and buttons can't nest.
+              Keyboard and screen-reader users reach it through "Shop Relief",
+              whose click bubbles up to the card handler. */}
+          <div className="oil-care-video oil-care-video--action" onClick={()=>openProduct(products.find(p=>p.slug==="relief-oil")!)}><QuietVideo src="/shoppable/care-video-3.mp4" autoPlay loop preload="metadata" rootMargin="600px 0px" /><div><p className="eyebrow">SCALP COMFORT</p><h3>Relief</h3><p>Targeted hydration for dry, itchy, or irritated areas—especially while wearing protective styles.</p><button className="oil-care-shop" aria-label="Shop Relief Organic Scalp Oil">Shop Relief</button></div></div>
         </div>
         <div className="oil-care-products">{products.filter(p=>p.category==="Oils").map(p=><article key={p.slug}><button className="oil-care-product-image" onClick={()=>openProduct(p)} aria-label={`View ${p.name} details`}><ProductArt product={p}/></button><p className="eyebrow">{p.name==="Grow"?"GROWTH SUPPORT":p.name==="Relief"?"SCALP COMFORT":"MOISTURE SEALING"}</p><button className="product-title" onClick={()=>openProduct(p)}><h3>{p.name}</h3><span>{p.subtitle}</span></button><p>{p.benefit}</p><strong>{money(p.price)}</strong><button className="outline-button full" onClick={()=>add(p)}>Add to Cart</button></article>)}</div>
       </section>
