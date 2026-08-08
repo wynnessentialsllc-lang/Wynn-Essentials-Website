@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { trackAddToCart, trackCrownPrintEvent } from "../analytics";
-import type { MatchClass, WhatToLookFor } from "../../lib/crownprint";
+import type { ExperienceState, MatchClass, WhatToLookFor } from "../../lib/crownprint";
 
 export type CardProduct = {
   slug: string;
@@ -26,6 +26,26 @@ const CLASS_LABEL: Record<MatchClass, string> = {
   strong: "Strong Wynn Essentials Match",
   good: "Good Wynn Essentials Match",
   conditional: "Conditional Wynn Essentials Match",
+};
+
+// One sentence, used everywhere CrownPrint is offered, so the paid Premium
+// assessment is described identically in every state. Pricing is Hair Wellness
+// Lab's and is not set here.
+const CROWNPRINT_EXPLAINER =
+  "CrownPrint™ is a Premium, science-informed hair intelligence assessment that helps identify how your hair behaves and what it may need right now.";
+
+const STALE_HEADLINE = "Your CrownPrint is connected, but your current hair needs may have changed.";
+
+// One funnel event per resolved state, so we can see WHY a shopper didn't reach
+// matches. The event name is the only payload — no CrownPrint data, ever.
+const STATE_EVENT: Record<ExperienceState, string> = {
+  MATCH_READY: "crownprint_state_match_ready_viewed",
+  CROWNSTATE_STALE: "crownprint_state_crownstate_stale_viewed",
+  NO_CROWNPRINT: "crownprint_state_no_crownprint_viewed",
+  AUTH_REQUIRED: "crownprint_state_auth_required_viewed",
+  TEMPORARILY_UNAVAILABLE: "crownprint_state_temporarily_unavailable_viewed",
+  INTEGRATION_UNAVAILABLE: "crownprint_state_integration_unavailable_viewed",
+  CONNECT: "crownprint_state_connect_viewed",
 };
 
 // Cart shape and key must match the storefront (app/WynnShop.tsx) so items added
@@ -123,44 +143,195 @@ function NoStrongMatch({ guidance, productHub }: { guidance?: WhatToLookFor; pro
   );
 }
 
+// Shared price block: CrownPrint is a one-time $9.99 Hair Wellness Lab purchase,
+// never a subscription. Rendered wherever the create CTA appears.
+function PremiumPrice() {
+  return (
+    <div className="cp-price">
+      <strong>$9.99 one-time</strong>
+      <span>No subscription</span>
+    </div>
+  );
+}
+
+function CreateCta({ href }: { href: string }) {
+  return (
+    <a className="button" href={href} onClick={() => trackCrownPrintEvent("create_crownprint_clicked")}>
+      Create My CrownPrint&trade; — $9.99
+    </a>
+  );
+}
+
+// The "I already have my CrownPrint" CTA. It ALWAYS goes to our connect hop,
+// which redirects to Hair Wellness Lab /crownprint/connect so HWL resolves the
+// shopper's real state. It must never point back at /shop-by-crownprint.
+function ConnectCta({ href, label, primary }: { href: string; label: string; primary?: boolean }) {
+  return (
+    <a
+      className={primary ? "button" : "outline-button"}
+      href={href}
+      onClick={() => trackCrownPrintEvent("connect_crownprint_clicked")}
+    >
+      {label}
+    </a>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// One panel per resolved state. Every state says what happened and offers the
+// action that actually moves the shopper forward.
+// ---------------------------------------------------------------------------
+
+// CONNECT — nothing connected on this device yet. Educational intro + both CTAs.
 function ConnectPanel({ urls, note }: { urls: Urls; note?: string }) {
   return (
     <section className="cp-panel cp-create" aria-labelledby="cp-create-heading">
       <p className="eyebrow">GET STARTED</p>
-      <h2 id="cp-create-heading">Create your CrownPrint™</h2>
+      <h2 id="cp-create-heading">Create your CrownPrint&trade;</h2>
       {note && <p className="cp-note" role="status">{note}</p>}
       <p>
         CrownPrint looks at more than one trait. At the Hair Wellness Lab you&rsquo;ll create a CrownPrint
         that reflects your hair&rsquo;s characteristics and current state — then come back here to see which
-        Wynn Essentials products may fit what your hair needs right now. CrownPrint is a one-time $9.99
-        Hair Wellness Lab purchase — no subscription.
+        Wynn Essentials products may fit what your hair needs right now.
       </p>
+      <PremiumPrice />
       <div className="cp-create-steps">
         <div><span>01</span><p>Create your CrownPrint at the Hair Wellness Lab.</p></div>
         <div><span>02</span><p>We securely bring back a safe match — never your answers.</p></div>
         <div><span>03</span><p>Shop Wynn Essentials products matched to your current need.</p></div>
       </div>
       {/* Two DISTINCT destinations: `create` starts the paid HWL CrownPrint
-          flow; `connect` re-verifies an existing CrownPrint and mints a fresh
-          one-time code. They must never point at the same URL. */}
+          flow; `connect` sends the shopper to HWL /crownprint/connect, which
+          resolves whether they actually have one. They must never point at the
+          same URL, and neither may point back at this page. */}
       <div className="actions">
-        <a className="button" href={urls.create} onClick={() => trackCrownPrintEvent("create_crownprint_clicked")}>
-          Create My CrownPrint™ — $9.99
-        </a>
-        <a className="outline-button" href={urls.connect} onClick={() => trackCrownPrintEvent("connect_crownprint_clicked")}>
-          Connect My CrownPrint™
-        </a>
+        <CreateCta href={urls.create} />
+        <ConnectCta href={urls.connect} label="I Already Have My CrownPrint&trade;" />
       </div>
       <p className="cp-fine">Your CrownPrint answers stay at the Hair Wellness Lab. We never place them in the address bar.</p>
     </section>
   );
 }
 
+// NO_CROWNPRINT — HWL identified the shopper and confirmed they have no usable
+// CrownPrint (never purchased/completed, or the entitlement was refunded or
+// revoked). This is a verdict, so it is stated plainly and priced honestly.
+function NoCrownPrintPanel({ urls }: { urls: Urls }) {
+  return (
+    <section className="cp-panel cp-nocrownprint" aria-labelledby="cp-nocp-heading">
+      <p className="eyebrow">CROWNPRINT NOT FOUND</p>
+      <h2 id="cp-nocp-heading">You don&rsquo;t have a CrownPrint yet.</h2>
+      <p>{CROWNPRINT_EXPLAINER}</p>
+      <p>
+        Once it exists, we can bring back a safe match and show you which Wynn Essentials products may fit
+        what your hair needs right now. Until then there&rsquo;s nothing for us to match against — so we
+        won&rsquo;t guess.
+      </p>
+      <PremiumPrice />
+      <div className="actions">
+        <CreateCta href={urls.create} />
+        <ConnectCta href={urls.connect} label="I Already Have My CrownPrint&trade;" />
+      </div>
+      <p className="cp-fine">
+        Created your CrownPrint under a different Hair Wellness Lab account? Use &ldquo;I already have my
+        CrownPrint&rdquo; to connect that one.
+      </p>
+    </section>
+  );
+}
+
+// AUTH_REQUIRED — HWL could not identify the user. Signing in is only step one:
+// HWL re-checks entitlement afterwards, so this promises nothing about matches.
+function AuthRequiredPanel({ urls }: { urls: Urls }) {
+  return (
+    <section className="cp-panel cp-auth" aria-labelledby="cp-auth-heading">
+      <p className="eyebrow">ONE STEP FIRST</p>
+      <h2 id="cp-auth-heading">Sign in to connect your CrownPrint.</h2>
+      <p>
+        Your CrownPrint lives in your Hair Wellness Lab account. Sign in there and we&rsquo;ll bring back a
+        safe match — your answers never leave the Lab.
+      </p>
+      <p>
+        If that account doesn&rsquo;t have a CrownPrint yet, you&rsquo;ll come back here with the option to
+        create one.
+      </p>
+      <div className="actions">
+        <ConnectCta href={urls.connect} label="Sign In to Connect My CrownPrint&trade;" primary />
+        <Link className="outline-button" href="/#shop">Keep Shopping</Link>
+      </div>
+      <p className="cp-fine">We never see your Hair Wellness Lab password, and we never receive your CrownPrint answers.</p>
+    </section>
+  );
+}
+
+// CROWNSTATE_STALE without a renderable session — the CrownPrint is real, so we
+// never ask for payment again; we ask for a CrownState refresh.
+function StalePanel({ urls, message }: { urls: Urls; message?: string }) {
+  return (
+    <section className="cp-panel cp-stale-panel" aria-labelledby="cp-stale-heading">
+      <p className="eyebrow">A QUICK CHECK-IN</p>
+      <h2 id="cp-stale-heading">{STALE_HEADLINE}</h2>
+      <p>
+        {message ||
+          "Your CrownPrint foundation stays relatively consistent, but what your hair needs right now can change — after protective styles, takedowns, heat, chemical services, buildup, dryness, scalp changes, or a recent treatment."}
+      </p>
+      <div className="actions">
+        <a className="button" href={urls.refresh} onClick={() => trackCrownPrintEvent("crownstate_update_clicked")}>
+          Update My Hair Needs
+        </a>
+        <Link className="outline-button" href="/#shop">Keep Shopping</Link>
+      </div>
+      <p className="cp-fine">This is a quick update to your current hair needs — no additional payment.</p>
+    </section>
+  );
+}
+
+// TEMPORARILY_UNAVAILABLE — configured, but HWL didn't answer. Explicitly NOT a
+// statement about whether the shopper has a CrownPrint.
+function TemporarilyUnavailablePanel({ urls }: { urls: Urls }) {
+  return (
+    <section className="cp-panel cp-temp" aria-labelledby="cp-temp-heading">
+      <p className="eyebrow">PLEASE TRY AGAIN</p>
+      <h2 id="cp-temp-heading">CrownPrint matching is temporarily unavailable.</h2>
+      <p>
+        We couldn&rsquo;t reach the Hair Wellness Lab just now, so we can&rsquo;t show your match yet.
+        This is temporary and says nothing about your CrownPrint — please try again in a few minutes.
+      </p>
+      <div className="actions">
+        <ConnectCta href={urls.connect} label="Try Again" primary />
+        <Link className="outline-button" href="/#shop">Shop the Essentials</Link>
+      </div>
+      <p className="cp-fine">No fake results, ever.</p>
+    </section>
+  );
+}
+
+// INTEGRATION_UNAVAILABLE — the Wynn↔HWL connection isn't live on this
+// deployment. Also distinct from "you don't have a CrownPrint".
+function IntegrationUnavailablePanel() {
+  return (
+    <section className="cp-panel cp-unavailable" aria-labelledby="cp-unavailable-heading">
+      <p className="eyebrow">CONNECTING SOON</p>
+      <h2 id="cp-unavailable-heading">CrownPrint matching isn&rsquo;t available just yet.</h2>
+      <p>
+        Shop by CrownPrint pairs your Hair Wellness Lab CrownPrint with Wynn Essentials products.
+        The secure connection to the Hair Wellness Lab isn&rsquo;t live on this site yet — so rather
+        than show you guesses, we&rsquo;ll wait until it can give you a real, personalized match.
+      </p>
+      <p>In the meantime, you can still shop the full collection and build a routine.</p>
+      <div className="actions">
+        <Link className="button" href="/#shop">Shop the Essentials</Link>
+        <Link className="outline-button" href="/#routine-finder">Try the Routine Finder</Link>
+      </div>
+      <p className="cp-fine">No fake results, ever. Your CrownPrint stays at the Hair Wellness Lab.</p>
+    </section>
+  );
+}
+
 export default function CrownPrintExperience({
-  integrationReady,
-  connected,
-  crownPrintPresent,
-  crownStateFresh,
+  state,
+  showResults,
+  note,
   crownStateMessage,
   currentPriorityLabel,
   noStrongMatch,
@@ -169,10 +340,9 @@ export default function CrownPrintExperience({
   products,
   urls,
 }: {
-  integrationReady: boolean;
-  connected: boolean;
-  crownPrintPresent: boolean;
-  crownStateFresh: boolean;
+  state: ExperienceState;
+  showResults: boolean;
+  note?: string;
   crownStateMessage?: string;
   currentPriorityLabel?: string;
   noStrongMatch: boolean;
@@ -181,35 +351,32 @@ export default function CrownPrintExperience({
   products: CardProduct[];
   urls: Urls;
 }) {
-  const [toast, setToast] = useState("");
-  const [status, setStatus] = useState<string | null>(null);
+  // The opening toast is derived from the server-resolved state, so it is the
+  // initial value rather than an effect that re-renders.
+  const [toast, setToast] = useState(
+    () => note || (showResults ? "Your CrownPrint is connected — here are your matches." : ""),
+  );
   const toastTimer = useRef<number | undefined>(undefined);
-  const showResults = connected && crownPrintPresent;
+  const stale = state === "CROWNSTATE_STALE";
 
   useEffect(() => {
     trackCrownPrintEvent("shop_by_crownprint_viewed");
-
-    let s: string | null = null;
-    try { s = new URLSearchParams(window.location.search).get("status"); } catch { /* ignore */ }
-    setStatus(s);
-
-    if (s === "connected") trackCrownPrintEvent("crownprint_connected");
-    if (s) {
-      const msg =
-        s === "connected" ? "Your CrownPrint is connected — here are your matches."
-        : s === "disconnected" ? "Your CrownPrint has been disconnected from this device."
-        : s === "cancelled" ? "No changes were made."
-        : "";
-      if (msg) setToast(msg);
-      // Clean the status out of the URL so a refresh doesn't re-fire or re-toast.
-      try { window.history.replaceState(null, "", window.location.pathname); } catch { /* ignore */ }
-    }
+    trackCrownPrintEvent(STATE_EVENT[state]);
 
     if (showResults) {
+      trackCrownPrintEvent("crownprint_connected");
       if (products.some((p) => p.matchClass === "strong")) trackCrownPrintEvent("strong_match_viewed");
       if (products.some((p) => p.matchClass === "good")) trackCrownPrintEvent("good_match_viewed");
       if (products.some((p) => p.matchClass === "conditional")) trackCrownPrintEvent("conditional_match_viewed");
       if (noStrongMatch || !hasStrong) trackCrownPrintEvent("no_strong_match_viewed");
+    }
+
+    // Drop the marker from the URL only when the render no longer depends on it:
+    // a session-backed result (or a plain acknowledgement) survives a refresh,
+    // while an HWL verdict like NO_CROWNPRINT must stay addressable so reloading
+    // doesn't silently downgrade the shopper back to the generic intro.
+    if (showResults || state === "CONNECT") {
+      try { window.history.replaceState(null, "", window.location.pathname); } catch { /* ignore */ }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -227,9 +394,11 @@ export default function CrownPrintExperience({
     setToast(`${p.name} added to your bag.`);
   };
 
-  // ----- Explicit non-result states (never fabricated matches) -----
+  // ----- One body per resolved state (never fabricated matches) -----
   let body: React.ReactNode;
+
   if (showResults) {
+    // MATCH_READY, or CROWNSTATE_STALE with matches we can still show.
     body = (
       <section className="cp-panel cp-results" aria-labelledby="cp-results-heading">
         {currentPriorityLabel && (
@@ -239,9 +408,10 @@ export default function CrownPrintExperience({
           </div>
         )}
 
-        {!crownStateFresh && (
+        {stale && (
           <div className="cp-stale" role="note">
             <p className="eyebrow">A QUICK CHECK-IN</p>
+            <p><b>{STALE_HEADLINE}</b></p>
             <p>
               {crownStateMessage ||
                 "Your CrownPrint foundation may stay relatively consistent, but what your hair needs right now can change — after protective styles, takedowns, heat, chemical services, buildup, dryness, scalp changes, or a recent treatment."}
@@ -249,6 +419,7 @@ export default function CrownPrintExperience({
             <a className="button" href={urls.refresh} onClick={() => trackCrownPrintEvent("crownstate_update_clicked")}>
               Update My Hair Needs
             </a>
+            <p className="cp-fine">No additional payment — your CrownPrint stays yours.</p>
           </div>
         )}
 
@@ -269,52 +440,17 @@ export default function CrownPrintExperience({
         </p>
       </section>
     );
-  } else if (!integrationReady) {
-    // INTEGRATION_UNAVAILABLE — HWL isn't configured yet. Distinct from a shopper
-    // simply not having a CrownPrint. No fake matches, no dead CTA.
-    body = (
-      <section className="cp-panel cp-unavailable" aria-labelledby="cp-unavailable-heading">
-        <p className="eyebrow">CONNECTING SOON</p>
-        <h2 id="cp-unavailable-heading">CrownPrint matching isn&rsquo;t available just yet.</h2>
-        <p>
-          Shop by CrownPrint pairs your Hair Wellness Lab CrownPrint with Wynn Essentials products.
-          The secure connection to the Hair Wellness Lab isn&rsquo;t live on this site yet — so rather
-          than show you guesses, we&rsquo;ll wait until it can give you a real, personalized match.
-        </p>
-        <p>In the meantime, you can still shop the full collection and build a routine.</p>
-        <div className="actions">
-          <Link className="button" href="/#shop">Shop the Essentials</Link>
-          <Link className="outline-button" href="/#routine-finder">Try the Routine Finder</Link>
-        </div>
-        <p className="cp-fine">No fake results, ever. Your CrownPrint stays at the Hair Wellness Lab.</p>
-      </section>
-    );
-  } else if (status === "temporarily_unavailable") {
-    // TEMPORARILY_UNAVAILABLE — HWL is configured but returned 503 / timed out on
-    // the exchange. Explicitly NOT "you don't have a CrownPrint."
-    body = (
-      <section className="cp-panel cp-temp" aria-labelledby="cp-temp-heading">
-        <p className="eyebrow">PLEASE TRY AGAIN</p>
-        <h2 id="cp-temp-heading">CrownPrint matching is temporarily unavailable.</h2>
-        <p>
-          We couldn&rsquo;t reach the Hair Wellness Lab just now, so we can&rsquo;t show your match yet.
-          This is temporary — please try again in a few minutes.
-        </p>
-        <div className="actions">
-          <a className="button" href={urls.connect} onClick={() => trackCrownPrintEvent("create_crownprint_clicked")}>Try Again</a>
-          <Link className="outline-button" href="/#shop">Shop the Essentials</Link>
-        </div>
-        <p className="cp-fine">No fake results, ever.</p>
-      </section>
-    );
+  } else if (state === "NO_CROWNPRINT") {
+    body = <NoCrownPrintPanel urls={urls} />;
+  } else if (state === "AUTH_REQUIRED") {
+    body = <AuthRequiredPanel urls={urls} />;
+  } else if (state === "CROWNSTATE_STALE") {
+    body = <StalePanel urls={urls} message={crownStateMessage} />;
+  } else if (state === "TEMPORARILY_UNAVAILABLE") {
+    body = <TemporarilyUnavailablePanel urls={urls} />;
+  } else if (state === "INTEGRATION_UNAVAILABLE") {
+    body = <IntegrationUnavailablePanel />;
   } else {
-    // NO_CROWNPRINT — integration is live; this device has no CrownPrint yet (or a
-    // secure link expired). Offer create/connect.
-    const note =
-      status === "expired" ? "That secure link expired — please reconnect to see your match."
-      : status === "error" ? "We couldn't verify that securely. Please reconnect."
-      : status === "unavailable" ? "CrownPrint matching isn't available right now. Please try again soon."
-      : undefined;
     body = <ConnectPanel urls={urls} note={note} />;
   }
 

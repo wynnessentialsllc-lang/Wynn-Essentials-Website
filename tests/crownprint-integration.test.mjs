@@ -20,13 +20,14 @@ async function render(path) {
 const files = () =>
   Promise.all([
     read("../lib/crownprint.ts"),
+    read("../lib/crownprint-state.mjs"),
     read("../app/shop-by-crownprint/connect/route.ts"),
     read("../app/shop-by-crownprint/page.tsx"),
     read("../app/shop-by-crownprint/CrownPrintExperience.tsx"),
     read("../app/analytics.ts"),
     read("../.env.example"),
     read("../docs/wynn-essentials-integration.md"),
-  ]).then(([lib, route, page, client, analytics, env, doc]) => ({ lib, route, page, client, analytics, env, doc }));
+  ]).then(([lib, state, route, page, client, analytics, env, doc]) => ({ lib, state, route, page, client, analytics, env, doc }));
 
 // 1 + 3. The HWL one-time code is exchanged exactly once, server-side, and never
 // on page render.
@@ -88,8 +89,8 @@ test("connect-code expiry and replay are handled cleanly", async () => {
   assert.match(lib, /reason:\s*"expired"/);
   assert.match(lib, /res\.status === 503/);
   assert.match(lib, /reason:\s*"unavailable"/);
-  assert.match(route, /status=expired/);
-  assert.match(route, /status=temporarily_unavailable/);
+  assert.match(route, /landing\("EXPIRED"\)/);
+  assert.match(route, /landing\("TEMPORARILY_UNAVAILABLE"\)/);
 });
 
 // 7 + 8. Refresh and create each go out to their own HWL flow, which mints a NEW
@@ -110,21 +111,26 @@ test("create and refresh flows each obtain a fresh code", async () => {
 });
 
 // 9. INTEGRATION_UNAVAILABLE, TEMPORARILY_UNAVAILABLE, and NO_CROWNPRINT are
-// distinct states.
+// distinct states with their own panels.
 test("integration_unavailable is distinct from temporarily-unavailable and no-crownprint", async () => {
   const { client } = await files();
-  assert.match(client, /!integrationReady/);
+  assert.match(client, /state === "INTEGRATION_UNAVAILABLE"/);
   assert.match(client, /available just yet/i);                 // INTEGRATION_UNAVAILABLE
   assert.match(client, /temporarily unavailable/i);            // TEMPORARILY_UNAVAILABLE (503)
-  assert.match(client, /status === "temporarily_unavailable"/);
-  assert.match(client, /Create your CrownPrint/);              // NO_CROWNPRINT
+  assert.match(client, /state === "TEMPORARILY_UNAVAILABLE"/);
+  assert.match(client, /state === "NO_CROWNPRINT"/);
+  assert.match(client, /don&rsquo;t have a CrownPrint yet/);   // NO_CROWNPRINT
+  assert.match(client, /Create your CrownPrint/);              // CONNECT (intro)
 });
 
 // 10. No prohibited HWL data can enter Wynn state or analytics.
 test("no prohibited HWL data enters Wynn state or analytics", async () => {
-  const { lib, client } = await files();
-  // The boundary never READS prohibited fields off the wire.
-  assert.doesNotMatch(lib, /raw\.(userUuid|scores?|weights?|thresholds?|reasonCodes?|axis|crownHistory|report|evidence)/i);
+  const { lib, state, client } = await files();
+  // The boundary never READS prohibited fields off the wire. (`report\b` allows
+  // an entitlement flag like `reportReady` while still barring report content.)
+  const prohibited = /raw\.(userUuid|scores?|weights?|thresholds?|reasonCodes?|axis|crownHistory|report\b|reportContent|reportUrl|answers|evidence)/i;
+  assert.doesNotMatch(lib, prohibited);
+  assert.doesNotMatch(state, prohibited);
   // Analytics only ever carries a product identifier. Inspect the object argument
   // (if any) of every event call — the event NAME may contain "crownstate", so we
   // only check keys of a passed object literal, never the name string.
@@ -157,6 +163,62 @@ test("unconfigured integration renders the explicit unavailable state, not fake 
   assert.doesNotMatch(html, /CURRENT HAIR PRIORITY/);
 });
 
+// Behavioral: each returned state renders ITS OWN panel server-side. This is the
+// end of the connect loop — a shopper who is not match-ready lands on an
+// explanation, not on the generic intro.
+test("each resolved state renders its own panel, server-side", async () => {
+  const cases = [
+    ["NO_CROWNPRINT", /You don.t have a CrownPrint yet\./],
+    ["AUTH_REQUIRED", /Sign in to connect your CrownPrint\./],
+    ["CROWNSTATE_STALE", /Your CrownPrint is connected, but your current hair needs may have changed\./],
+    ["TEMPORARILY_UNAVAILABLE", /CrownPrint matching isn.t available just yet\./], // unconfigured here
+  ];
+  for (const [state, copy] of cases) {
+    const res = await render(`/shop-by-crownprint?state=${state}`);
+    assert.equal(res.status, 200, state);
+    const html = await res.text();
+    assert.match(html, copy, `${state} must render its own panel`);
+    // Never a fabricated match, in any state.
+    assert.doesNotMatch(html, /Strong Wynn Essentials Match/, state);
+    assert.doesNotMatch(html, /CURRENT HAIR PRIORITY/, state);
+  }
+});
+
+// The no-CrownPrint state must carry the Premium framing, the one-time $9.99
+// price, and a create CTA that leaves for the HWL paid flow.
+test("no-CrownPrint renders the Premium $9.99 one-time offer and create CTA", async () => {
+  const res = await render("/shop-by-crownprint?state=NO_CROWNPRINT");
+  const html = await res.text();
+  assert.match(html, /You don.t have a CrownPrint yet\./);
+  assert.match(html, /Premium, science-informed hair intelligence assessment/);
+  assert.match(html, /\$9\.99 one-time/);
+  assert.match(html, /No subscription/);
+  assert.match(html, /Create My CrownPrint™ — \$9\.99/);
+  assert.match(html, /\/shop-by-crownprint\/connect\?start=create/);
+  // "I already have my CrownPrint" leaves through the HWL connect resolver.
+  assert.match(html, /\/shop-by-crownprint\/connect\?start=connect/);
+});
+
+// The unavailable state must never be dressed up as "you have no CrownPrint".
+test("an integration failure never renders the no-CrownPrint verdict", async () => {
+  for (const state of ["TEMPORARILY_UNAVAILABLE", "INTEGRATION_UNAVAILABLE"]) {
+    const html = await (await render(`/shop-by-crownprint?state=${state}`)).text();
+    assert.doesNotMatch(html, /You don.t have a CrownPrint yet\./, state);
+    assert.doesNotMatch(html, /\$9\.99/, state);
+  }
+});
+
+// Wynn-local hiccups (expired/failed secure link) are never dressed up as a
+// CrownPrint verdict. The explanatory note itself is asserted behaviorally in
+// tests/crownprint-state.test.mjs, which can configure the integration.
+test("an expired or failed secure link never claims the shopper has no CrownPrint", async () => {
+  for (const state of ["EXPIRED", "ERROR", "CANCELLED", "DISCONNECTED"]) {
+    const html = await (await render(`/shop-by-crownprint?state=${state}`)).text();
+    assert.doesNotMatch(html, /You don.t have a CrownPrint yet\./, state);
+    assert.doesNotMatch(html, /Strong Wynn Essentials Match/, state);
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Connect vs. Create: two DISTINCT destinations.
 //
@@ -172,10 +234,95 @@ test("create and connect CTAs point at different flows, never the same URL", asy
   assert.match(page, /connect:\s*`\$\{CANONICAL\}\/connect\?start=connect`/);
   assert.match(page, /create:\s*`\$\{CANONICAL\}\/connect\?start=create`/);
   // ...and the two CTAs consume the two different ones.
-  assert.match(client, /href=\{urls\.create\}[\s\S]{0,160}Create My CrownPrint/);
-  assert.match(client, /href=\{urls\.connect\}[\s\S]{0,160}Connect My CrownPrint/);
+  assert.match(client, /CreateCta[\s\S]{0,200}href=\{href\}[\s\S]{0,200}Create My CrownPrint/);
+  assert.match(client, /<CreateCta href=\{urls\.create\} \/>/);
+  // "I already have my CrownPrint" ALWAYS routes through our connect hop (which
+  // redirects to HWL /crownprint/connect) — never straight back to the landing.
+  assert.match(client, /<ConnectCta href=\{urls\.connect\} label="I Already Have My CrownPrint/);
+  assert.doesNotMatch(client, /<ConnectCta href=\{urls\.(create|refresh|disconnect)\}/);
   // The connect CTA must never be wired to the landing page or the create flow.
   assert.doesNotMatch(client, /href="\/shop-by-crownprint"/);
+});
+
+// ---------------------------------------------------------------------------
+// State resolution: HWL's verdict decides the destination, and every outcome
+// reaches a panel that explains itself.
+// ---------------------------------------------------------------------------
+
+test("the connect callback maps every HWL outcome to an explicit state", async () => {
+  const { route } = await files();
+  // A status is read under each name HWL might use, so a naming difference can't
+  // degrade back into an unexplained bounce.
+  assert.match(route, /parseConnectStatus\(\s*url\.searchParams\.get\("status"\) \?\? url\.searchParams\.get\("state"\) \?\? url\.searchParams\.get\("result"\)/);
+  // Each outcome gets its own landing state.
+  for (const state of ["NO_CROWNPRINT", "TEMPORARILY_UNAVAILABLE", "EXPIRED", "ERROR", "CANCELLED", "DISCONNECTED", "INTEGRATION_UNAVAILABLE"]) {
+    assert.match(route, new RegExp(`landing\\("${state}"\\)`), `missing landing state: ${state}`);
+  }
+  // Every redirect out of the callback carries a state marker — none is bare.
+  assert.match(route, /\$\{LANDING\}\?state=\$\{state\}/);
+  // A non-match-ready verdict drops any session left from an earlier visit.
+  assert.match(route, /status === "NO_CROWNPRINT" \|\| status === "AUTH_REQUIRED"\) await clearMatchSession\(\)/);
+  // MATCH_READY without a code is a contract violation, not a CrownPrint verdict.
+  assert.match(route, /if \(status === "MATCH_READY"\)[\s\S]{0,220}landing\("TEMPORARILY_UNAVAILABLE"\)/);
+});
+
+test("a code alone never proves match-readiness — the context is re-checked", async () => {
+  const { route } = await files();
+  // Even after a successful exchange, entitlement gates the outcome: a revoked
+  // CrownPrint resolves to NO_CROWNPRINT instead of rendering matches.
+  assert.match(route, /const resolved = deriveContextStatus\(result\.context\)/);
+  assert.match(route, /if \(resolved === "NO_CROWNPRINT"\)[\s\S]{0,160}landing\("NO_CROWNPRINT"\)/);
+  assert.match(route, /return landing\(resolved\)/);
+});
+
+test("the page resolves the state on the server, so results are in the first paint", async () => {
+  const { page, client } = await files();
+  assert.match(page, /const requested = parseReturnState\(sp\.state \?\? sp\.status\)/);
+  assert.match(page, /resolveExperienceState\(\{ integrationReady, context, requested \}\)/);
+  assert.match(page, /state=\{state\}/);
+  assert.match(page, /showResults=\{showResults\}/);
+  // The client component renders from the resolved state, not from a
+  // browser-only read of the query string.
+  assert.doesNotMatch(client, /window\.location\.search/);
+});
+
+test("every resolved state has its own panel and CTA", async () => {
+  const { client } = await files();
+  const panels = {
+    NO_CROWNPRINT: /You don&rsquo;t have a CrownPrint yet\./,
+    AUTH_REQUIRED: /Sign in to connect your CrownPrint\./,
+    CROWNSTATE_STALE: /Your CrownPrint is connected, but your current hair needs may have changed\./,
+    TEMPORARILY_UNAVAILABLE: /CrownPrint matching is temporarily unavailable\./,
+    INTEGRATION_UNAVAILABLE: /CrownPrint matching isn&rsquo;t available just yet\./,
+  };
+  for (const [state, copy] of Object.entries(panels)) assert.match(client, copy, `missing copy for ${state}`);
+  // The no-CrownPrint state carries the Premium explanation, the one-time price,
+  // and the create CTA.
+  assert.match(client, /Premium, science-informed hair intelligence assessment/);
+  assert.match(client, /\$9\.99 one-time/);
+  assert.match(client, /No subscription/);
+  assert.match(client, /Create My CrownPrint&trade; — \$9\.99/);
+  // The stale state asks for a CrownState refresh, never another payment.
+  assert.match(client, /Update My Hair Needs/);
+  assert.match(client, /no additional payment/i);
+  // Sign-in promises nothing about matches.
+  assert.match(client, /doesn&rsquo;t have a CrownPrint yet, you&rsquo;ll come back here/);
+});
+
+test("the unavailable states never claim the shopper has no CrownPrint", async () => {
+  const { client } = await files();
+  const panel = (name) => {
+    const start = client.indexOf(`function ${name}(`);
+    assert.ok(start > -1, `missing panel: ${name}`);
+    return client.slice(start, client.indexOf("\n}", start));
+  };
+  for (const name of ["TemporarilyUnavailablePanel", "IntegrationUnavailablePanel"]) {
+    const body = panel(name);
+    assert.doesNotMatch(body, /don&rsquo;t have a CrownPrint/i, `${name} must not assert a CrownPrint verdict`);
+    assert.doesNotMatch(body, /\$9\.99/, `${name} must not upsell on a failure`);
+  }
+  // And the sign-in panel doesn't assert one either.
+  assert.doesNotMatch(panel("AuthRequiredPanel"), /You don&rsquo;t have a CrownPrint yet/);
 });
 
 test("every outbound flow resolves from HWL_API_BASE_URL, so one unset optional env can't dead-end a CTA", async () => {

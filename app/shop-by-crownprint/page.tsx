@@ -7,7 +7,9 @@ import {
   crownprintIntegrationReady,
   hasStrongMatch,
   hwlUrl,
+  parseReturnState,
   readMatchSession,
+  resolveExperienceState,
   type MatchClass,
 } from "../../lib/crownprint";
 import CrownPrintExperience, { type CardProduct } from "./CrownPrintExperience";
@@ -60,12 +62,23 @@ function landingSchema() {
 
 const CLASS_ORDER: Record<MatchClass, number> = { strong: 0, good: 1, conditional: 2 };
 
-export default async function ShopByCrownPrintPage() {
+export default async function ShopByCrownPrintPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ state?: string; status?: string }>;
+}) {
   // Read the Wynn-side session (populated once, after the one-time HWL exchange).
   // This never re-contacts HWL and never touches the dead connect code.
   const context = await readMatchSession();
-  const connected = context !== null;
   const integrationReady = crownprintIntegrationReady();
+
+  // The state HWL resolved for this shopper, carried back by our own callback as
+  // an opaque enum (`?status=` is the legacy spelling and still parses). Resolved
+  // on the SERVER so the correct panel is in the first paint — a shopper with a
+  // completed CrownPrint lands on their results, never on the generic intro.
+  const sp = await searchParams;
+  const requested = parseReturnState(sp.state ?? sp.status);
+  const { state, showResults, note } = resolveExperienceState({ integrationReady, context, requested });
 
   // Join safe product keys with the real catalog so cards use actual Wynn
   // Essentials data (image, name, price, URL). Product claims are never changed
@@ -128,10 +141,9 @@ export default async function ShopByCrownPrintPage() {
         </section>
 
         <CrownPrintExperience
-          integrationReady={integrationReady}
-          connected={connected}
-          crownPrintPresent={context?.crownPrintPresent ?? false}
-          crownStateFresh={context?.crownState.fresh ?? true}
+          state={state}
+          showResults={showResults}
+          note={note}
           crownStateMessage={context?.crownState.message}
           currentPriorityLabel={context?.currentPriorityLabel}
           noStrongMatch={context?.noStrongMatch ?? false}

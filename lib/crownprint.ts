@@ -10,17 +10,31 @@
 // THE APPROVED PROTOCOL (do not deviate)
 //  1. Wynn sends the shopper to an HWL flow (connect / create / refresh) with only
 //     a validated `return` URL — never CrownPrint data in query parameters.
-//  2. HWL authenticates the user, (re)verifies/updates the CrownPrint, mints an
-//     OPAQUE ONE-TIME connect code (~256-bit, ~2-min TTL, audience-bound to Wynn,
-//     stored HWL-side only as a keyed hash, atomically redeemed once, replay
-//     rejected), and redirects back to the Wynn return URL carrying ONLY that code.
-//  3. Wynn's server exchanges the code EXACTLY ONCE via an HMAC-signed
+//  2. HWL RESOLVES THE USER'S ACTUAL STATE — authenticate, verify the CrownPrint
+//     entitlement is active (not refunded/revoked), verify the assessment is
+//     complete and its results exist, read the latest CrownState — and returns
+//     ONE of:
+//       • MATCH_READY            → plus an OPAQUE ONE-TIME connect code
+//                                  (~256-bit, ~2-min TTL, audience-bound to Wynn,
+//                                  stored HWL-side only as a keyed hash,
+//                                  atomically redeemed once, replay rejected)
+//       • NO_CROWNPRINT          → status only, NO code
+//       • CROWNSTATE_STALE       → status (optionally with a code so Wynn can
+//                                  still show the existing matches)
+//       • AUTH_REQUIRED          → status only, NO code
+//       • TEMPORARILY_UNAVAILABLE→ status only, NO code
+//     A code is minted ONLY for a genuinely match-ready shopper. Being merely
+//     authenticated is never enough.
+//  3. Wynn's server exchanges a code EXACTLY ONCE via an HMAC-signed
 //     server-to-server POST to /api/integrations/wynn-essentials/match. HWL
 //     atomically redeems the code and returns a safe WynnMatchContext.
 //  4. The code is dead after that single exchange. Wynn discards it and keeps only
 //     a minimal, server-side Wynn session (see lib session helpers) to render the
 //     experience. Wynn NEVER re-exchanges the HWL code and NEVER treats it as a
-//     reusable API credential.
+//     long-lived API credential.
+//  5. Every outcome resolves to an explicit state (lib/crownprint-state.mjs) that
+//     the Shop by CrownPrint page renders with its own message and CTA. Nothing
+//     bounces the shopper back to the generic intro page unexplained.
 //
 // SECURITY
 // - The HMAC secret (WYNN_INTEGRATION_HMAC_SECRET) is a server-only env var, never
@@ -42,6 +56,44 @@
 import { cookies, headers } from "next/headers";
 import { eq } from "drizzle-orm";
 import { commerceConfig } from "./commerce-config";
+import {
+  deriveContextStatus as deriveContextStatusJs,
+  hasStrongMatch as hasStrongMatchJs,
+  normalizeMatchContext as normalizeMatchContextJs,
+  parseConnectStatus as parseConnectStatusJs,
+  parseReturnState as parseReturnStateJs,
+  resolveExperienceState as resolveExperienceStateJs,
+} from "./crownprint-state.mjs";
+
+// The state machine itself is plain, dependency-free JS so it can be unit-tested
+// directly (tests/crownprint-state.test.mjs) and so the callback route and the
+// page render can never drift apart. These wrappers put the TypeScript contract
+// back on top of it.
+
+/** What HWL may assert on the return hop. */
+export type ConnectStatus =
+  | "MATCH_READY"
+  | "NO_CROWNPRINT"
+  | "CROWNSTATE_STALE"
+  | "AUTH_REQUIRED"
+  | "INTEGRATION_UNAVAILABLE"
+  | "TEMPORARILY_UNAVAILABLE";
+
+/** Wynn-local markers our own callback adds; never a claim about CrownPrint. */
+export type LocalReturnState = "EXPIRED" | "CANCELLED" | "DISCONNECTED" | "ERROR";
+
+/** Everything the landing page knows how to render. */
+export type ExperienceState = Exclude<ConnectStatus, never> | "CONNECT";
+
+export type ResolvedExperience = { state: ExperienceState; showResults: boolean; note?: string };
+
+/** Parse a status HWL put on the return hop (null when absent/unrecognized). */
+export const parseConnectStatus = (raw: unknown): ConnectStatus | null =>
+  parseConnectStatusJs(raw) as ConnectStatus | null;
+
+/** Parse the `?state=` marker on the Wynn landing URL (superset of the above). */
+export const parseReturnState = (raw: unknown): ConnectStatus | LocalReturnState | null =>
+  parseReturnStateJs(raw) as ConnectStatus | LocalReturnState | null;
 
 // ---------------------------------------------------------------------------
 // Approved safe contract (WynnMatchContext). These are the ONLY fields Wynn ever
@@ -295,84 +347,39 @@ export async function exchangeConnectCode(code: string, returnUrl: string): Prom
 }
 
 // ---------------------------------------------------------------------------
-// Boundary normalization: accept ONLY approved safe fields. Everything else on
-// the wire (userUuid, scores, weights, thresholds, axis values, reasonCodes,
-// crownState/crownHistory detail, report content, evidence logic) is dropped.
+// Boundary normalization + state resolution. The implementations live in
+// lib/crownprint-state.mjs; these are the typed entry points. The whitelist
+// accepts ONLY approved safe fields — everything else on the wire (userUuid,
+// scores, weights, thresholds, axis values, reasonCodes, CrownState/CrownHistory
+// detail, report content, evidence logic) is dropped — and it gates matches on a
+// usable entitlement, so a refunded or revoked CrownPrint yields no matches.
 // ---------------------------------------------------------------------------
-const str = (v: unknown, max = 600): string | undefined =>
-  typeof v === "string" && v.trim() ? v.trim().slice(0, max) : undefined;
-const list = (v: unknown, maxItems = 8, maxLen = 200): string[] =>
-  Array.isArray(v) ? v.map((x) => str(x, maxLen)).filter((x): x is string => Boolean(x)).slice(0, maxItems) : [];
-const asClass = (v: unknown): MatchClass | null =>
-  v === "strong" || v === "good" || v === "conditional" ? v : null;
 
 export function normalizeMatchContext(input: unknown): WynnMatchContext {
-  const empty: WynnMatchContext = { crownPrintPresent: false, crownState: { present: false, fresh: false }, matches: [], noStrongMatch: false };
-  if (!input || typeof input !== "object") return empty;
-  const raw = input as Record<string, unknown>;
-
-  const matches: SafeMatchProduct[] = Array.isArray(raw.matches)
-    ? raw.matches
-        .map((m): SafeMatchProduct | null => {
-          if (!m || typeof m !== "object") return null;
-          const r = m as Record<string, unknown>;
-          const productKey = str(r.productKey, 120);
-          const matchClass = asClass(r.matchClass);
-          const why = str(r.why, 400);
-          if (!productKey || !matchClass || !why) return null;
-          return { productKey, productName: str(r.productName, 120) || productKey, matchClass, why };
-        })
-        .filter((m): m is SafeMatchProduct => m !== null)
-        .slice(0, 12)
-    : [];
-
-  const cs = (raw.crownState && typeof raw.crownState === "object" ? raw.crownState : {}) as Record<string, unknown>;
-
-  let whatToLookFor: WhatToLookFor | undefined;
-  const g = raw.whatToLookFor;
-  if (g && typeof g === "object") {
-    const r = g as Record<string, unknown>;
-    const hairNeed = str(r.hairNeed);
-    const productType = str(r.productType);
-    const whyThisMatters = str(r.whyThisMatters);
-    whatToLookFor = {
-      ...(hairNeed ? { hairNeed } : {}),
-      ...(productType ? { productType } : {}),
-      formulationCharacteristics: list(r.formulationCharacteristics),
-      ingredientFunctions: list(r.ingredientFunctions),
-      whatMayNotFit: list(r.whatMayNotFit),
-      ...(whyThisMatters ? { whyThisMatters } : {}),
-    };
-  }
-
-  let safeLinks: SafeLinks | undefined;
-  const l = raw.safeLinks;
-  if (l && typeof l === "object") {
-    const r = l as Record<string, unknown>;
-    // These arrive in the HWL response body and are rendered as hrefs, so each
-    // is validated against the trusted HWL origin before it can reach the page.
-    const productHub = hwlUrl(str(r.productHub, 400), "safeLinks.productHub");
-    const assessment = hwlUrl(str(r.assessment, 400), "safeLinks.assessment");
-    const crownstateUpdate = hwlUrl(str(r.crownstateUpdate, 400), "safeLinks.crownstateUpdate");
-    if (productHub || assessment || crownstateUpdate) {
-      safeLinks = { ...(productHub ? { productHub } : {}), ...(assessment ? { assessment } : {}), ...(crownstateUpdate ? { crownstateUpdate } : {}) };
-    }
-  }
-
-  return {
-    crownPrintPresent: raw.crownPrintPresent === true,
-    crownState: { present: cs.present === true, fresh: cs.fresh === true, ...(str(cs.message, 300) ? { message: str(cs.message, 300) } : {}) },
-    ...(str(raw.currentPriorityLabel, 160) ? { currentPriorityLabel: str(raw.currentPriorityLabel, 160) } : {}),
-    matches,
-    noStrongMatch: raw.noStrongMatch === true || !matches.some((m) => m.matchClass === "strong"),
-    ...(whatToLookFor ? { whatToLookFor } : {}),
-    ...(safeLinks ? { safeLinks } : {}),
-    ...(str(raw.ruleVersion, 60) ? { ruleVersion: str(raw.ruleVersion, 60) } : {}),
-    ...(str(raw.generatedAt, 60) ? { generatedAt: str(raw.generatedAt, 60) } : {}),
-  };
+  // safeLinks arrive in the HWL response BODY and are rendered directly into
+  // hrefs, so the shared normalizer validates each one against the trusted HWL
+  // origin. Passing hwlOrigin() in keeps crownprint-state.mjs dependency-free
+  // (no env, no next/*) while preserving the origin check; with no origin the
+  // normalizer fails closed and drops every link.
+  return normalizeMatchContextJs(input, { hwlOrigin: hwlOrigin() }) as WynnMatchContext;
 }
 
-export const hasStrongMatch = (c: WynnMatchContext) => c.matches.some((m) => m.matchClass === "strong");
+export const hasStrongMatch = (c: WynnMatchContext) => hasStrongMatchJs(c) as boolean;
+
+/**
+ * The status a freshly exchanged context represents. Entitlement is the gate, so
+ * a context without a usable CrownPrint is NO_CROWNPRINT regardless of anything
+ * else HWL sent — a revoked CrownPrint can never resolve to MATCH_READY.
+ */
+export const deriveContextStatus = (c: WynnMatchContext | null): ConnectStatus =>
+  deriveContextStatusJs(c) as ConnectStatus;
+
+/** Decide what /shop-by-crownprint renders for this request. */
+export const resolveExperienceState = (input: {
+  integrationReady?: boolean;
+  context?: WynnMatchContext | null;
+  requested?: ConnectStatus | LocalReturnState | null;
+}): ResolvedExperience => resolveExperienceStateJs(input) as ResolvedExperience;
 
 // ---------------------------------------------------------------------------
 // Wynn-side session. AFTER the single exchange we store ONLY the safe context
