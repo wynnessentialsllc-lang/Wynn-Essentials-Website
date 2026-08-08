@@ -21,6 +21,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Personalized results share this one URL and are marked noindex per-request,
     // so no per-result URLs are ever emitted here.
     { url: `${SITE_URL}/shop-by-crownprint`, priority: 0.8, changeFrequency: "weekly" },
+    // The CrownPrint-code page. Its bare form is educational (what the five axes
+    // mean); personalized results live on the same URL behind a query string and
+    // are marked noindex per-request, so nothing per-shopper is ever listed here.
+    { url: `${SITE_URL}/crownprint`, priority: 0.8, changeFrequency: "weekly" },
     { url: `${SITE_URL}/blog`, priority: 0.7, changeFrequency: "weekly" },
     // Each product now has its own crawlable, indexable page. Search engines and
     // AI assistants discard the old "/#product-slug" fragments, so the real

@@ -15,6 +15,10 @@ export type CardProduct = {
   simple: boolean; // no color/variant options → safe to add straight to the bag
   matchClass: MatchClass;
   why: string;
+  // Wynn's own catalog knowledge, added server-side. HWL sends neither, and the
+  // shopper needs both to act on a match: which need it serves, and when to use it.
+  need?: string;
+  whenToUse?: string;
 };
 
 type Urls = { connect: string; create: string; refresh: string; disconnect: string; productHub: string | null };
@@ -85,7 +89,9 @@ function MatchCard({ product, onAdd }: { product: CardProduct; onAdd: (p: CardPr
         <p className="eyebrow">{product.subtitle}</p>
         <h4>{product.name}</h4>
         <strong className="cp-card-price">{money(product.price)}</strong>
+        {product.need && <p className="cp-card-need"><b>Need it serves:</b> {product.need}</p>}
         <p className="cp-card-why"><b>Why it may fit:</b> {product.why}</p>
+        {product.whenToUse && <p className="cp-card-usage"><b>When to use it:</b> {product.whenToUse}</p>}
         <div className="cp-card-actions">
           {product.simple && product.price != null ? (
             <button className="button full" onClick={() => onAdd(product)}>Add to Cart</button>
@@ -162,6 +168,26 @@ function CreateCta({ href }: { href: string }) {
   );
 }
 
+// The escape hatch from every non-result state.
+//
+// Connecting depends on the whole Hair Wellness Lab round trip succeeding. When
+// any part of it doesn't — not signed in, HWL erroring on the exchange, the
+// integration not live on this deployment — a shopper who is holding their
+// CrownPrint code has no reason to be stuck. /crownprint matches them from that
+// code alone, so no state on this page is a dead end any more.
+function CodeShortcut() {
+  return (
+    <p className="cp-shortcut">
+      <b>Have your CrownPrint code?</b> It&rsquo;s the five axes at the top of your CrownPrint Intelligence Report, like{" "}
+      <code>P2-D3-T3-S2-E2</code>. You can skip the sign-in entirely —{" "}
+      <Link href="/crownprint" onClick={() => trackCrownPrintEvent("crownprint_code_shortcut_clicked")}>
+        enter your code and shop it now
+      </Link>
+      .
+    </p>
+  );
+}
+
 // The "I already have my CrownPrint" CTA. It ALWAYS goes to our connect hop,
 // which redirects to Hair Wellness Lab /crownprint/connect so HWL resolves the
 // shopper's real state. It must never point back at /shop-by-crownprint.
@@ -181,6 +207,38 @@ function ConnectCta({ href, label, primary }: { href: string; label: string; pri
 // One panel per resolved state. Every state says what happened and offers the
 // action that actually moves the shopper forward.
 // ---------------------------------------------------------------------------
+
+// RECOVERY — the handoff itself broke (expired link, failed handshake, or a
+// return hop that arrived without this browser's session). The shopper very
+// likely OWNS a CrownPrint, so this must never be the create-and-pay intro: no
+// price, no assessment, no Routine Builder. Just finish the connection.
+function ReconnectPanel({ urls, note }: { urls: Urls; note?: string }) {
+  return (
+    <section className="cp-panel cp-reconnect" aria-labelledby="cp-reconnect-heading">
+      <p className="eyebrow">ALMOST THERE</p>
+      <h2 id="cp-reconnect-heading">Let&rsquo;s finish connecting your CrownPrint.</h2>
+      {note && <p className="cp-note" role="status">{note}</p>}
+      <p>
+        The secure handoff didn&rsquo;t complete, so we stopped rather than show you anything we couldn&rsquo;t stand
+        behind. This says nothing about your CrownPrint — it&rsquo;s still yours, still active, and still at the Hair
+        Wellness Lab.
+      </p>
+      <p>
+        <b>You will not be charged again, and you will not retake the assessment.</b> Connecting simply issues a fresh
+        secure link.
+      </p>
+      <div className="actions">
+        <ConnectCta href={urls.connect} label="Try Connecting Again" primary />
+        <Link className="outline-button" href="/#shop">Keep Shopping</Link>
+      </div>
+      <CodeShortcut />
+      <p className="cp-fine">
+        If it keeps failing, finish the Hair Wellness Lab step in this same browser rather than switching devices
+        mid-flow — that&rsquo;s the most common cause.
+      </p>
+    </section>
+  );
+}
 
 // CONNECT — nothing connected on this device yet. Educational intro + both CTAs.
 function ConnectPanel({ urls, note }: { urls: Urls; note?: string }) {
@@ -208,6 +266,7 @@ function ConnectPanel({ urls, note }: { urls: Urls; note?: string }) {
         <CreateCta href={urls.create} />
         <ConnectCta href={urls.connect} label="I Already Have My CrownPrint&trade;" />
       </div>
+      <CodeShortcut />
       <p className="cp-fine">Your CrownPrint answers stay at the Hair Wellness Lab. We never place them in the address bar.</p>
     </section>
   );
@@ -232,6 +291,7 @@ function NoCrownPrintPanel({ urls }: { urls: Urls }) {
         <CreateCta href={urls.create} />
         <ConnectCta href={urls.connect} label="I Already Have My CrownPrint&trade;" />
       </div>
+      <CodeShortcut />
       <p className="cp-fine">
         Created your CrownPrint under a different Hair Wellness Lab account? Use &ldquo;I already have my
         CrownPrint&rdquo; to connect that one.
@@ -259,6 +319,7 @@ function AuthRequiredPanel({ urls }: { urls: Urls }) {
         <ConnectCta href={urls.connect} label="Sign In to Connect My CrownPrint&trade;" primary />
         <Link className="outline-button" href="/#shop">Keep Shopping</Link>
       </div>
+      <CodeShortcut />
       <p className="cp-fine">We never see your Hair Wellness Lab password, and we never receive your CrownPrint answers.</p>
     </section>
   );
@@ -281,6 +342,7 @@ function StalePanel({ urls, message }: { urls: Urls; message?: string }) {
         </a>
         <Link className="outline-button" href="/#shop">Keep Shopping</Link>
       </div>
+      <CodeShortcut />
       <p className="cp-fine">This is a quick update to your current hair needs — no additional payment.</p>
     </section>
   );
@@ -301,6 +363,7 @@ function TemporarilyUnavailablePanel({ urls }: { urls: Urls }) {
         <ConnectCta href={urls.connect} label="Try Again" primary />
         <Link className="outline-button" href="/#shop">Shop the Essentials</Link>
       </div>
+      <CodeShortcut />
       <p className="cp-fine">No fake results, ever.</p>
     </section>
   );
@@ -323,6 +386,7 @@ function IntegrationUnavailablePanel() {
         <Link className="button" href="/#shop">Shop the Essentials</Link>
         <Link className="outline-button" href="/#routine-finder">Try the Routine Finder</Link>
       </div>
+      <CodeShortcut />
       <p className="cp-fine">No fake results, ever. Your CrownPrint stays at the Hair Wellness Lab.</p>
     </section>
   );
@@ -332,6 +396,8 @@ export default function CrownPrintExperience({
   state,
   showResults,
   note,
+  recovery,
+  functions,
   crownStateMessage,
   currentPriorityLabel,
   noStrongMatch,
@@ -343,6 +409,10 @@ export default function CrownPrintExperience({
   state: ExperienceState;
   showResults: boolean;
   note?: string;
+  /** The marker on the URL means the handoff broke, not that they lack a CrownPrint. */
+  recovery: boolean;
+  /** Routine functions these matches cover, so the shopper sees the shape of the plan. */
+  functions: string[];
   crownStateMessage?: string;
   currentPriorityLabel?: string;
   noStrongMatch: boolean;
@@ -423,6 +493,14 @@ export default function CrownPrintExperience({
           </div>
         )}
 
+        {functions.length > 0 && (
+          <div className="cp-functions-inline">
+            <p className="eyebrow">PRODUCT FUNCTIONS YOU NEED</p>
+            <ul>{functions.map((f) => <li key={f}>{f}</li>)}</ul>
+          </div>
+        )}
+
+        <h3 className="cp-section-heading">Best Wynn matches</h3>
         <MatchGroup cls="strong" cards={products} onAdd={onAdd} />
         <MatchGroup cls="good" cards={products} onAdd={onAdd} />
         <MatchGroup cls="conditional" cards={products} onAdd={onAdd} />
@@ -451,7 +529,9 @@ export default function CrownPrintExperience({
   } else if (state === "INTEGRATION_UNAVAILABLE") {
     body = <IntegrationUnavailablePanel />;
   } else {
-    body = <ConnectPanel urls={urls} note={note} />;
+    // A broken handoff gets the reconnect panel; only a genuinely fresh visit
+    // gets the create-and-pay intro.
+    body = recovery ? <ReconnectPanel urls={urls} note={note} /> : <ConnectPanel urls={urls} note={note} />;
   }
 
   return (

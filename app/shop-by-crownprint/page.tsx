@@ -7,11 +7,13 @@ import {
   crownprintIntegrationReady,
   hasStrongMatch,
   hwlUrl,
+  isRecoveryMarker,
   parseReturnState,
   readMatchSession,
   resolveExperienceState,
   type MatchClass,
 } from "../../lib/crownprint";
+import { productUsage } from "../../lib/crownprint-fit";
 import CrownPrintExperience, { type CardProduct } from "./CrownPrintExperience";
 
 // Reads the (httpOnly) Wynn session cookie to personalize, so per-request.
@@ -88,6 +90,10 @@ export default async function ShopByCrownPrintPage({
       const p = products.find((x) => x.slug === m.productKey);
       if (!p) return null; // ignore anything not in the live catalog
       const simple = !(p.colors?.length) && !((p.variants?.length ?? 0) > 1);
+      // HWL owns the match and the "why". Which routine need a product serves and
+      // how often to use it are facts about OUR catalog, so we add them here
+      // rather than asking HWL to carry them across the boundary.
+      const usage = productUsage(p.slug);
       return {
         slug: p.slug,
         name: p.name,
@@ -98,10 +104,15 @@ export default async function ShopByCrownPrintPage({
         simple,
         matchClass: m.matchClass,
         why: m.why,
+        ...(usage ? { need: usage.need, whenToUse: usage.whenToUse } : {}),
       };
     })
     .filter((c): c is CardProduct => c !== null)
     .sort((a, b) => CLASS_ORDER[a.matchClass] - CLASS_ORDER[b.matchClass]);
+
+  // The distinct routine functions these matches cover — derived from the Wynn
+  // catalog, never from anything HWL sent.
+  const functions = [...new Set(cards.map((c) => c.need).filter((n): n is string => Boolean(n)))];
 
   const urls = {
     connect: `${CANONICAL}/connect?start=connect`,
@@ -144,6 +155,8 @@ export default async function ShopByCrownPrintPage({
           state={state}
           showResults={showResults}
           note={note}
+          recovery={isRecoveryMarker(requested)}
+          functions={functions}
           crownStateMessage={context?.crownState.message}
           currentPriorityLabel={context?.currentPriorityLabel}
           noStrongMatch={context?.noStrongMatch ?? false}
@@ -169,7 +182,7 @@ export default async function ShopByCrownPrintPage({
       </main>
 
       <footer className="pdp-footer">
-        <p><Link href="/#shop">Browse all products</Link> · <Link href="/#shop-by-concern">Shop by Concern</Link> · <Link href="/privacy">Privacy</Link> · <Link href="/">Back to home</Link></p>
+        <p><Link href="/#shop">Browse all products</Link> · <Link href="/crownprint">Shop by CrownPrint code</Link> · <Link href="/#shop-by-concern">Shop by Concern</Link> · <Link href="/privacy">Privacy</Link> · <Link href="/">Back to home</Link></p>
         <small>© {new Date().getFullYear()} Wynn Essentials. All rights reserved. CrownPrint™ assessment and intelligence provided in partnership with Hair Wellness Lab.</small>
       </footer>
     </div>
