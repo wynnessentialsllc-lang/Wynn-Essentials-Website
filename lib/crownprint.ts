@@ -108,17 +108,38 @@ export const crownprintConfig = {
 const MATCH_PATH = "/api/integrations/wynn-essentials/match";
 const CONNECT_PATH = "/crownprint/connect";
 const RETURN_PATH = "/shop-by-crownprint/connect";
+// CrownPrint is a paid ($9.99 one-time) Hair Wellness Lab product, so "create"
+// sends the shopper to the CrownPrint landing/purchase page — NOT straight into
+// the assessment, which HWL gates behind its own entitlement check.
+const CREATE_PATH = "/crownprint";
+const CROWNSTATE_PATH = "/crownstate";
 
 // True when the safe-match exchange can be signed and sent.
 export function crownprintApiConfigured() {
   return Boolean(crownprintConfig.apiBaseUrl && crownprintConfig.hmacSecret);
 }
 
+/**
+ * Absolute HWL URL for an outbound flow.
+ *
+ * The HWL_* env overrides stay authoritative when set, but each flow falls back
+ * to its fixed contract path on HWL_API_BASE_URL. Without these fallbacks a
+ * single unset optional env var (e.g. HWL_ASSESSMENT_URL) silently made a CTA
+ * unbuildable, which surfaced to shoppers as a redirect straight back to the
+ * Shop by CrownPrint page.
+ */
+function hwlFlowUrl(flow: "connect" | "create" | "refresh"): string | null {
+  const base = crownprintConfig.apiBaseUrl;
+  if (flow === "connect") return base ? `${base}${CONNECT_PATH}` : null;
+  if (flow === "create") return crownprintConfig.assessmentUrl || (base ? `${base}${CREATE_PATH}` : null);
+  return crownprintConfig.crownstateUpdateUrl || (base ? `${base}${CROWNSTATE_PATH}` : null);
+}
+
 // True when the whole round-trip can work (send to HWL, exchange, store a Wynn
 // session). When false the experience shows an explicit integration-unavailable
 // state — never fabricated results, never a dead CTA.
 export function crownprintIntegrationReady() {
-  return crownprintApiConfigured() && Boolean(crownprintConfig.assessmentUrl) && Boolean(crownprintConfig.sessionSecret);
+  return crownprintApiConfigured() && Boolean(hwlFlowUrl("create")) && Boolean(crownprintConfig.sessionSecret);
 }
 
 // ---------------------------------------------------------------------------
@@ -401,14 +422,21 @@ export function returnUrl(origin: string) {
 }
 
 export async function buildOutboundRedirect(flow: "connect" | "create" | "refresh"): Promise<string | null> {
-  if (!crownprintConfig.sessionSecret) return null;
-  const base =
-    flow === "connect" ? (crownprintConfig.apiBaseUrl ? `${crownprintConfig.apiBaseUrl}${CONNECT_PATH}` : null)
-    : flow === "create" ? crownprintConfig.assessmentUrl
-    : crownprintConfig.crownstateUpdateUrl;
-  if (!base) return null;
+  if (!crownprintConfig.sessionSecret) {
+    // Logged so a misconfiguration is diagnosable instead of surfacing to the
+    // shopper as an unexplained bounce back to the landing page.
+    console.error(`[crownprint] ${flow} redirect unavailable: WYNN_SESSION_SECRET is not set.`);
+    return null;
+  }
+  const base = hwlFlowUrl(flow);
+  if (!base) {
+    console.error(`[crownprint] ${flow} redirect unavailable: HWL_API_BASE_URL is not set.`);
+    return null;
+  }
   await issuePending();
   const url = new URL(base);
+  // ONLY the validated Wynn callback URL crosses to HWL — never CrownPrint
+  // answers, user ids, scores, CrownState, CrownHistory or report content.
   url.searchParams.set("return", returnUrl(await siteOrigin()));
   url.searchParams.set("source", "wynn-essentials");
   return url.toString();
