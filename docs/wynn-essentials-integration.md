@@ -46,6 +46,36 @@ receives it and never mints or verifies connect codes.
 
 None are `NEXT_PUBLIC_`. The HMAC secret is never exposed to the browser.
 
+### Canonical Hair Wellness Lab production origin
+
+```
+https://hairwellnessslab.com
+```
+
+Spelling: **hair + wellness + s + lab** — three consecutive `s` characters
+where "wellness" meets "slab". A two-`s` near-miss host (dropping the `s` that
+begins "slab") is **not** production. Every HWL-facing value — the
+server-to-server base, the outbound CTAs, and any Supabase/Google/Stripe
+redirect allowlist entry on the HWL side — must use the three-`s` spelling.
+Store origins with **no trailing slash**: `hwlFlowUrl()` concatenates the fixed
+contract paths (`/crownprint`, `/crownprint/connect`, `/crownstate`) directly
+onto `HWL_API_BASE_URL`, so a trailing slash yields a double-slashed URL.
+
+Resolved production values:
+
+| Flow | URL |
+| --- | --- |
+| Server-to-server exchange | `https://hairwellnessslab.com/api/integrations/wynn-essentials/match` |
+| Connect (existing CrownPrint) | `https://hairwellnessslab.com/crownprint/connect` |
+| Create (paid CrownPrint landing) | `https://hairwellnessslab.com/crownprint` |
+| CrownState refresh | `https://hairwellnessslab.com/crownstate` |
+| Product Hub (no-strong-match CTA) | `https://hairwellnessslab.com/product-hub` |
+
+Wynn Essentials hardcodes **none** of these: the host enters only through the
+`HWL_*` environment variables above, so correcting a misspelling is a Vercel
+env change, not a code change. Wynn's own canonical origin is separate and
+unaffected — `https://wynnessentialsllc.us` (`app/seo.ts`).
+
 ## 4. Exact HMAC request
 
 ```
