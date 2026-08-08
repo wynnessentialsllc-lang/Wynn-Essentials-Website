@@ -81,7 +81,7 @@ const ingredientImages: Record<string, { src: string; alt: string; source?: stri
   "Jojoba Oil": { src: "/ingredients/jojoba.webp", alt: "Jojoba seeds with the shrub's leaves and flowers, on a white background" },
   "Sunflower Oil": { src: "/ingredients/sunflower.webp", alt: "Cut sunflower stems in bloom on a white background" },
   Chamomile: { src: "/ingredients/chamomile.webp", alt: "Bundle of fresh chamomile flowers on a white background" },
-  "Grapeseed Oil": { src: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Grapes_%282%29.jpg?width=1000", alt: "Fresh green grapes on a white background", source: "https://commons.wikimedia.org/wiki/File:Grapes_(2).jpg" },
+  "Grapeseed Oil": { src: "/ingredients/grapeseed.webp", alt: "Bunch of dark red grapes on the vine, on a white background" },
   "Vitamin E": { src: "/ingredients/vitamin-e.webp", alt: "Golden Vitamin E capsules on a white background" },
   Lavender: { src: "/ingredients/lavender.webp", alt: "Bundle of fresh lavender stems in flower on a white background" },
   Peppermint: { src: "/ingredients/peppermint.webp", alt: "Fresh peppermint sprig on a white background" },
@@ -320,7 +320,14 @@ function FooterInfo({ page, onClose }: { page: FooterInfoKey; onClose: () => voi
     terms: { title: "Website Terms", body: <><p>Product availability, pricing, promotions, and shipping terms may change. An order is accepted when it is confirmed for fulfillment; we may cancel or refund an order affected by inventory, pricing, fraud, or address issues.</p><p>Hair-care information on this website is educational and is not medical advice. Stop use if irritation occurs and consult a qualified professional when appropriate.</p><p>Site copy, branding, photography, and designs belong to Wynn Essentials or their respective owners and may not be reused without permission.</p></> },
     refunds: { title: "Refund Policy", body: <><p>Approved refunds are returned to the original payment method. Bank processing time may vary after Wynn Essentials issues the refund.</p><p>Opened or used hair-care products and bulk human hair may be ineligible for refund for hygiene reasons. Report damage, defects, or incorrect items within 5 calendar days of delivery. Contact us before returning anything; unauthorized returns may not be accepted.</p><p>Email <a href="mailto:wynnessentialsllc@gmail.com">wynnessentialsllc@gmail.com</a> with your order number and photos when applicable.</p></> },
     cookies: { title: "Cookies & Local Storage", body: <><p>This site uses essential browser storage to remember your shopping bag and whether you have viewed the welcome invitation. Checkout and security providers may also use cookies needed to prevent fraud and complete payment.</p><p>You can clear or block cookies and local storage in your browser settings. Blocking essential storage may prevent the bag, checkout, or other site features from working correctly.</p></> },
-    credits: { title: "Photo Credits", body: <><p>Some ingredient photography is used under Wikimedia Commons licensing, with thanks to the photographers and contributors. Photography not listed below is our own.</p><ul>{Object.entries(ingredientImages).filter(([, img]) => img.source).map(([name, img]) => <li key={name}>{name} — <a href={img.source} target="_blank" rel="noopener noreferrer">Wikimedia Commons</a></li>)}</ul></> },
+    // Only ingredients still sourced from Commons are credited here. Every
+    // image is currently supplied by us, so the list renders empty and the
+    // panel falls back to a plain statement.
+    credits: { title: "Photo Credits", body: (() => {
+      const credited = Object.entries(ingredientImages).filter(([, img]) => img.source);
+      if (!credited.length) return <p>Ingredient photography is provided by Wynn Essentials.</p>;
+      return <><p>Some ingredient photography is used under Wikimedia Commons licensing, with thanks to the photographers and contributors. Photography not listed below is provided by Wynn Essentials.</p><ul>{credited.map(([name, img]) => <li key={name}>{name} — <a href={img.source} target="_blank" rel="noopener noreferrer">Wikimedia Commons</a></li>)}</ul></>;
+    })() },
   };
   const item = content[page];
   return <ModalShell label={item.title} onClose={onClose} className="footer-info-shell"><article className="footer-info-modal"><header><p className="eyebrow">WYNN ESSENTIALS</p><button onClick={onClose} aria-label="Close information">Close</button></header><h2>{item.title}</h2><div className="footer-info-body">{item.body}</div></article></ModalShell>;
