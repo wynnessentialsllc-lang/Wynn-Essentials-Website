@@ -9,7 +9,7 @@ import { trackAddToCart, trackInitiateCheckout, trackViewContent } from "./analy
 import PayInFour from "./PayInFour";
 
 type CartItem = { slug: string; quantity: number; color?: string; variantId?: string };
-type FooterInfoKey = "contact" | "shipping" | "returns" | "faq" | "track" | "accessibility" | "privacy" | "terms" | "refunds" | "cookies" | "credits";
+type FooterInfoKey = "contact" | "shipping" | "returns" | "faq" | "track" | "accessibility" | "privacy" | "terms" | "refunds" | "cookies";
 const money = (value: number | null) => value == null ? "Price to be confirmed" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
 const focusable = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 // First-party, no-PII visitor tracking for the admin traffic dashboard. Uses a
@@ -63,18 +63,12 @@ const shoppableCare: { name: string; detail: string; image: string; alt: string;
   { name: "Soft Life Bonnet", detail: "Overnight Protection", image: "/shoppable/bonnet-bedroom.png", alt: "Woman adjusting a Soft Life Bonnet in her bedroom", slug: "soft-life-bonnet" },
   { name: "Uplyft", detail: "Moisture Rich Conditioner", image: "/shoppable/uplyft-peach-honey.webp", alt: "Hand holding a gold plate of peach cake and honey topped with a jar of Uplyft Moisture Rich Conditioner", slug: "uplyft-conditioner" },
 ];
-// Ingredient photography. Every entry should be a studio shot of the
+// Ingredient photography, served from public/ingredients and normalised to a
+// 1000x1000 white canvas. Every entry should be a studio shot of the
 // ingredient alone on a white ground so the tiles read as a consistent set —
-// outdoor/in-situ shots break the look of the grid.
-//
-// Images under /ingredients are ours, served from public/ and normalised to a
-// 1000x1000 white canvas. The rest are still hotlinked from Wikimedia Commons
-// and carry a `source` so the Photo Credits panel can attribute them; entries
-// without one are simply left out of that list. A file that fails to load
-// hides itself rather than showing a broken icon (see the onError below),
-// which matters most for the hotlinked ones — they can be renamed or deleted
-// upstream at any time.
-const ingredientImages: Record<string, { src: string; alt: string; source?: string }> = {
+// outdoor/in-situ shots break the look of the grid. A file that fails to load
+// hides itself rather than showing a broken icon (see the onError below).
+const ingredientImages: Record<string, { src: string; alt: string }> = {
   Aloe: { src: "/ingredients/aloe.webp", alt: "Cut aloe vera leaf and fresh aloe slices on a white background" },
   Rosemary: { src: "/ingredients/rosemary.webp", alt: "Tied bundle of fresh rosemary sprigs on a white background" },
   Nettle: { src: "/ingredients/nettle.webp", alt: "Fresh nettle leaves on the stem, on a white background" },
@@ -320,14 +314,6 @@ function FooterInfo({ page, onClose }: { page: FooterInfoKey; onClose: () => voi
     terms: { title: "Website Terms", body: <><p>Product availability, pricing, promotions, and shipping terms may change. An order is accepted when it is confirmed for fulfillment; we may cancel or refund an order affected by inventory, pricing, fraud, or address issues.</p><p>Hair-care information on this website is educational and is not medical advice. Stop use if irritation occurs and consult a qualified professional when appropriate.</p><p>Site copy, branding, photography, and designs belong to Wynn Essentials or their respective owners and may not be reused without permission.</p></> },
     refunds: { title: "Refund Policy", body: <><p>Approved refunds are returned to the original payment method. Bank processing time may vary after Wynn Essentials issues the refund.</p><p>Opened or used hair-care products and bulk human hair may be ineligible for refund for hygiene reasons. Report damage, defects, or incorrect items within 5 calendar days of delivery. Contact us before returning anything; unauthorized returns may not be accepted.</p><p>Email <a href="mailto:wynnessentialsllc@gmail.com">wynnessentialsllc@gmail.com</a> with your order number and photos when applicable.</p></> },
     cookies: { title: "Cookies & Local Storage", body: <><p>This site uses essential browser storage to remember your shopping bag and whether you have viewed the welcome invitation. Checkout and security providers may also use cookies needed to prevent fraud and complete payment.</p><p>You can clear or block cookies and local storage in your browser settings. Blocking essential storage may prevent the bag, checkout, or other site features from working correctly.</p></> },
-    // Only ingredients still sourced from Commons are credited here. Every
-    // image is currently supplied by us, so the list renders empty and the
-    // panel falls back to a plain statement.
-    credits: { title: "Photo Credits", body: (() => {
-      const credited = Object.entries(ingredientImages).filter(([, img]) => img.source);
-      if (!credited.length) return <p>Ingredient photography is provided by Wynn Essentials.</p>;
-      return <><p>Some ingredient photography is used under Wikimedia Commons licensing, with thanks to the photographers and contributors. Photography not listed below is provided by Wynn Essentials.</p><ul>{credited.map(([name, img]) => <li key={name}>{name} — <a href={img.source} target="_blank" rel="noopener noreferrer">Wikimedia Commons</a></li>)}</ul></>;
-    })() },
   };
   const item = content[page];
   return <ModalShell label={item.title} onClose={onClose} className="footer-info-shell"><article className="footer-info-modal"><header><p className="eyebrow">WYNN ESSENTIALS</p><button onClick={onClose} aria-label="Close information">Close</button></header><h2>{item.title}</h2><div className="footer-info-body">{item.body}</div></article></ModalShell>;
@@ -981,7 +967,7 @@ export default function WynnShop() {
       <div><h3>Shop</h3><a href="#shop">All Products</a><a href="#best-sellers">Best Sellers</a><a href="#bundle">Hair Wellness Bundle</a><a href="#shop-by-concern">Shop by Concern</a><a href="#shop-by-style">Shop by Style</a><Link href="/shop-by-crownprint">Shop by CrownPrint</Link><a href="#boho-hair">Boho Hair</a></div>
       <div><h3>Discover</h3><Link href="/blog">Wynn Essentials Insights</Link><Link href="/about">About Us</Link><a href="#the-wynn-method">The Wynn Method</a><a href="#routine-finder">Routine Finder</a><a href="#ingredients">Ingredient Library</a><a href="#essential-oils-care">Essential Oils Care</a></div>
       <div><h3>Help</h3><button className="footer-link" onClick={()=>setFooterInfo("contact")}>Contact</button><Link className="footer-link" href="/shipping">Shipping</Link><Link className="footer-link" href="/returns">Returns</Link><Link className="footer-link" href="/refunds">Refunds</Link><button className="footer-link" onClick={()=>setFooterInfo("faq")}>FAQ</button><button className="footer-link" onClick={()=>setFooterInfo("track")}>Track Order</button><Link className="footer-link" href="/accessibility">Accessibility</Link></div>
-      <div><h3>Legal</h3><Link className="footer-link" href="/privacy">Privacy</Link><Link className="footer-link" href="/terms">Terms</Link><Link className="footer-link" href="/refunds">Refund Policy</Link><Link className="footer-link" href="/cookies">Cookie Information</Link><Link className="footer-link" href="/privacy#rights">Your Privacy Choices</Link><button className="footer-link" onClick={()=>setFooterInfo("credits")}>Photo Credits</button></div>
+      <div><h3>Legal</h3><Link className="footer-link" href="/privacy">Privacy</Link><Link className="footer-link" href="/terms">Terms</Link><Link className="footer-link" href="/refunds">Refund Policy</Link><Link className="footer-link" href="/cookies">Cookie Information</Link><Link className="footer-link" href="/privacy#rights">Your Privacy Choices</Link></div>
         <div className="footer-bottom"><button className="text-button" onClick={()=>setInvitation("manual")}>View Invitation</button><div><a href="https://www.instagram.com/wynnessentials/" target="_blank" rel="noreferrer">Instagram</a><a href="https://www.tiktok.com/@wynnessentials" target="_blank" rel="noreferrer">TikTok</a><a href="mailto:wynnessentialsllc@gmail.com">Email</a><a href="tel:+12132670825">Call</a></div><span>© {new Date().getFullYear()} Wynn Essentials. All rights reserved.</span></div>
     </footer>
     {cartOpen&&<Cart items={cart} setItems={setCart} add={add} suggest={recommendFor(cart)} onClose={()=>setCartOpen(false)}/>}
