@@ -164,3 +164,21 @@ export const events = pgTable("events", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 export type Event = typeof events.$inferSelect;
+
+// Shop by CrownPrint™ Wynn-side session store. After Wynn exchanges Hair Wellness
+// Lab's ONE-TIME connect code (a single server-to-server call), the code is dead;
+// we keep only the resulting consumer-safe WynnMatchContext here, keyed by an
+// opaque id held in a signed httpOnly cookie. This is a Wynn-local mechanism,
+// entirely separate from the HWL code, and it never lets Wynn re-exchange it. The
+// JSON is consumer-safe only (product keys, match classes, consumer-safe "why",
+// priority label, guidance, safe links, ruleVersion, generatedAt) — never raw
+// CrownPrint answers, CrownState/CrownHistory detail, report content, user id,
+// scores, weights, thresholds, or reason codes. Locked to server-side access
+// (0015_crownprint_sessions.sql), same RLS posture as the PII tables.
+export const crownprintSessions = pgTable("crownprint_sessions", {
+  id: text("id").primaryKey(),
+  context: jsonb("context").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type CrownprintSession = typeof crownprintSessions.$inferSelect;

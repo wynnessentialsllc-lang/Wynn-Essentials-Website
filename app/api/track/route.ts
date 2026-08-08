@@ -3,7 +3,15 @@ import { NextResponse } from "next/server";
 // First-party visitor event ingest for the traffic dashboard. No PII: only a
 // random visitor id the browser generates. Always answers 204 and never throws
 // to the client, so analytics can never break the storefront.
-const TYPES = new Set(["pageview", "product_view", "add_to_cart", "begin_checkout"]);
+const TYPES = new Set([
+  "pageview", "product_view", "add_to_cart", "begin_checkout",
+  // Shop by CrownPrint™ funnel events. No PII, no CrownPrint answers — only the
+  // event name and (optionally) a product slug, exactly like the events above.
+  "shop_by_crownprint_viewed", "create_crownprint_clicked", "crownprint_connected",
+  "crownstate_update_clicked", "strong_match_viewed", "good_match_viewed",
+  "conditional_match_viewed", "no_strong_match_viewed", "matched_product_clicked",
+  "matched_product_added_to_cart", "matched_product_purchased",
+]);
 const attempts = new Map<string, { count: number; reset: number }>();
 
 export async function POST(request: Request) {

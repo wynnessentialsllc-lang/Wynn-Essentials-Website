@@ -45,4 +45,25 @@ export function trackViewContent({ value, currency, contentId }: { value: number
   try { window.ttq?.track("ViewContent", { value, currency, ...(contentId ? { content_id: contentId } : {}) }); } catch {}
 }
 
+// Shop by CrownPrint™ funnel events. These are the named events the CrownPrint
+// experience emits (shop_by_crownprint_viewed, create_crownprint_clicked,
+// crownprint_connected, crownstate_update_clicked, strong/good/conditional/
+// no_strong_match_viewed, matched_product_clicked/added_to_cart/purchased).
+// Only a product identifier is ever attached — NEVER CrownPrint answers, scores,
+// or any personalized signal. Fired as custom events across whichever pixels are
+// configured, plus a first-party POST to /api/track for the traffic dashboard.
+export function trackCrownPrintEvent(event: string, params?: { contentId?: string }) {
+  if (typeof window === "undefined") return;
+  const meta = params?.contentId ? { content_id: params.contentId } : {};
+  try { window.fbq?.("trackCustom", event, meta); } catch {}
+  try { window.gtag?.("event", event, params?.contentId ? { content_id: params.contentId } : {}); } catch {}
+  try { window.ttq?.track(event, meta); } catch {}
+  // First-party, no-PII capture for the admin traffic dashboard. Fire-and-forget.
+  try {
+    let vid = localStorage.getItem("wynnVid");
+    if (!vid) { vid = crypto.randomUUID(); localStorage.setItem("wynnVid", vid); }
+    fetch("/api/track", { method: "POST", headers: { "Content-Type": "application/json" }, keepalive: true, body: JSON.stringify({ visitorId: vid, type: event, path: location.pathname, productSlug: params?.contentId }) }).catch(() => {});
+  } catch {}
+}
+
 export {};
