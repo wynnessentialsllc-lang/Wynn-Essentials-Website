@@ -354,3 +354,16 @@
 .cp-toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(120%);z-index:200;background:var(--black);color:#fff;padding:14px 22px;font-size:13px;font-weight:700;letter-spacing:.02em;opacity:0;transition:transform .35s ease,opacity .35s ease;pointer-events:none;max-width:calc(100vw - 32px)}
 .cp-toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 .cp-unavailable .actions{margin-top:22px}
+
+/* Desktop primary-nav dropdowns (Shop ▾ / Discover ▾). Grouping the links into a
+   couple of dropdowns keeps the header bar from crowding and wrapping. Hidden
+   below 1050px, where the ☰ mobile menu takes over. */
+.nav-dd{position:relative}
+.nav-dd-trigger{display:inline-flex;align-items:center;gap:6px;font-size:12px;border:0;background:none;padding:10px 0;cursor:pointer;color:inherit}
+.nav-dd-caret{font-size:9px;line-height:1;transition:transform .2s ease}
+.nav-dd.open .nav-dd-caret{transform:rotate(180deg)}
+.nav-dd-panel{position:absolute;top:100%;left:0;min-width:220px;background:#fff;border:1px solid var(--line);box-shadow:0 18px 44px rgba(60,48,30,.14);padding:8px 0;display:none;flex-direction:column;z-index:60}
+.nav-dd.open .nav-dd-panel{display:flex}
+.nav-dd-panel a{display:block;font-size:13px;padding:11px 22px;white-space:nowrap;text-decoration:none;color:var(--black)}
+.nav-dd-panel a:hover{background:var(--soft)}
+.nav-dd-panel a:focus-visible{background:var(--soft);outline-offset:-3px}

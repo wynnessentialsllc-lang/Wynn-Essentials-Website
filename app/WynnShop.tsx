@@ -442,14 +442,54 @@ function FirstOrderOffer({ onClose, onContinue }: { onClose: () => void; onConti
   </ModalShell>;
 }
 
+// A single hover/click/keyboard-accessible dropdown for the desktop primary nav.
+// Grouping the links into a couple of these keeps the bar uncluttered. It opens on
+// hover, on click, and on keyboard focus, and closes on Escape, blur, or a link
+// tap. Desktop only — below 1050px the nav is hidden and the ☰ menu takes over.
+function NavDropdown({ label, children }: { label: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: globalThis.KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+  return (
+    <div
+      className={`nav-dd${open ? " open" : ""}`}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onFocus={() => setOpen(true)}
+      onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setOpen(false); }}
+    >
+      <button type="button" className="nav-dd-trigger" aria-haspopup="true" aria-expanded={open} onClick={() => setOpen(o => !o)}>
+        {label}<span className="nav-dd-caret" aria-hidden="true">▾</span>
+      </button>
+      <div className="nav-dd-panel" role="menu" onClick={() => setOpen(false)}>{children}</div>
+    </div>
+  );
+}
+
 function Header({ count, wishCount, openCart, openSearch, openWishlist, viewInvite }: { count: number; wishCount: number; openCart: () => void; openSearch: () => void; openWishlist: () => void; viewInvite: () => void }) {
   const [menu, setMenu] = useState(false);
-  const nav = ["Shop", "Best Sellers", "Shop by Concern", "The Wynn Method", "Our Story"];
   return <>
     <div className="announcement"><div className="announcement-track" aria-hidden="true">{[0,1].map(g=>(<div className="announcement-group" key={g}>{Array.from({length:10}).map((_,i)=>(<span className="announcement-item" key={i}>{brandConfig.announcement}</span>))}</div>))}</div><span className="sr-only">{brandConfig.announcement}</span></div>
     <header className="site-header">
       <button className="icon-button menu-trigger" aria-label="Open menu" onClick={() => setMenu(true)}>☰</button>
-      <nav aria-label="Primary">{nav.map(x => <a key={x} href={`#${x.toLowerCase().replaceAll(" ", "-")}`}>{x}</a>)}<Link href="/shop-by-crownprint">Shop by CrownPrint</Link><Link href="/blog">Insights</Link></nav>
+      <nav aria-label="Primary">
+        <NavDropdown label="Shop">
+          <a href="#shop">All Products</a>
+          <a href="#best-sellers">Best Sellers</a>
+          <a href="#shop-by-concern">Shop by Concern</a>
+          <a href="#shop-by-style">Shop by Style</a>
+          <Link href="/shop-by-crownprint">Shop by CrownPrint</Link>
+        </NavDropdown>
+        <NavDropdown label="Discover">
+          <a href="#the-wynn-method">The Wynn Method</a>
+          <a href="#our-story">Our Story</a>
+          <Link href="/blog">Insights</Link>
+        </NavDropdown>
+      </nav>
       <a href="/" className="logo" aria-label="Wynn Essentials home"><BrandLogo compact /></a>
       <div className="header-actions"><button onClick={openSearch}>Search</button><button onClick={openWishlist} aria-label={`Saved items, ${wishCount}`}>Saved{wishCount > 0 ? ` (${wishCount})` : ""}</button><button className="bag-button" onClick={openCart} aria-label={`Shopping cart, ${count} items`}><span className="bag-icon-wrap"><img src="/wynn-cart-icon.png" alt="" className="bag-icon" width="331" height="280"/>{count > 0 && <span className="bag-count">{count}</span>}</span></button></div>
     </header>
