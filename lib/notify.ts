@@ -137,6 +137,64 @@ export async function notifyNewReview(review: ReviewInfo): Promise<boolean> {
   return sendOwnerEmail({ subject: `New ${review.rating}★ review — ${review.productName}`, html });
 }
 
+type SubscriberInfo = {
+  email: string;
+  source?: string | null;
+};
+
+// Human-readable label for the whitelisted signup sources the subscribe route
+// records. A restock waitlist source looks like "waitlist:<product-slug>".
+function subscriberSourceLabel(source: string | null | undefined): string {
+  if (!source) return "Newsletter";
+  if (source.startsWith("waitlist:")) return `Restock waitlist — ${source.slice("waitlist:".length)}`;
+  switch (source) {
+    case "the-wynn-edit": return "Newsletter (The Wynn Edit)";
+    case "first-order-popup": return "First-order popup";
+    default: return source;
+  }
+}
+
+/** Formats and sends the "new newsletter subscriber" alert to the owner. */
+export async function notifyNewSubscriber(subscriber: SubscriberInfo): Promise<boolean> {
+  const sourceLabel = subscriberSourceLabel(subscriber.source);
+  const html = shell("New subscriber", [
+    row("Email", esc(subscriber.email)),
+    row("Source", esc(sourceLabel)),
+    row("Manage", `<a href="https://wynnessentialsllc.us/admin/subscribers" style="color:#b39067">View all subscribers in /admin/subscribers</a>`),
+  ].join(""));
+  return sendOwnerEmail({ subject: `New subscriber — ${subscriber.email}`, html });
+}
+
+type SupportInfo = {
+  name: string;
+  email: string;
+  topic: string;
+  message: string;
+  orderNumber?: string | null;
+};
+
+/**
+ * Formats and sends the "new support / issue report" alert to the owner. This
+ * covers order issues, website issues, and any other message from the storefront
+ * contact form. Reply-To is set to the customer so the owner can respond directly.
+ */
+export async function notifyNewSupportMessage(msg: SupportInfo): Promise<boolean> {
+  const html = shell(`New ${esc(msg.topic).toLowerCase()} message`, [
+    row("Topic", esc(msg.topic)),
+    row("From", esc(msg.name)),
+    row("Email", esc(msg.email)),
+    row("Order #", esc(msg.orderNumber || "—")),
+    row("Message", esc(msg.message).replace(/\n/g, "<br>")),
+    row("Manage", `<a href="https://wynnessentialsllc.us/admin/support" style="color:#b39067">View in /admin/support</a>`),
+  ].join(""));
+  return sendEmail({
+    to: process.env.NOTIFY_TO || DEFAULT_TO,
+    subject: `New ${msg.topic} message — ${msg.name}`,
+    html,
+    replyTo: msg.email,
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Customer-facing emails. These go to the buyer's address, so they only deliver
 // once the sending domain is verified in Resend and NOTIFY_FROM points at it.

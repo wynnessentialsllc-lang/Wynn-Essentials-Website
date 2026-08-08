@@ -4,7 +4,7 @@ import { getDb } from "../../../db";
 import { subscribers } from "../../../db/schema";
 import { brandConfig, products } from "../../data";
 import { commerceConfig } from "../../../lib/commerce-config";
-import { notifySubscriberWelcome } from "../../../lib/notify";
+import { notifySubscriberWelcome, notifyNewSubscriber } from "../../../lib/notify";
 
 // Basic shape check only. Deliverability is confirmed by the email provider that
 // eventually consumes this table, not here.
@@ -82,6 +82,12 @@ export async function POST(request: Request) {
         promoCode: source === "first-order-popup" ? brandConfig.firstOrder.code : null,
         promoLabel: source === "first-order-popup" ? brandConfig.firstOrder.discountLabel : null,
       }).catch(() => {});
+    }
+
+    // Best-effort owner alert on a genuinely new subscriber. A repeat signup that
+    // only refreshes an existing row doesn't re-notify. Never blocks the response.
+    if (isNew) {
+      await notifyNewSubscriber({ email, source }).catch(() => {});
     }
 
     return NextResponse.json({ ok: true });
