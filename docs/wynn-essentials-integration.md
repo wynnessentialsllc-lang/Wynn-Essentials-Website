@@ -515,6 +515,57 @@ pull in a styling cream.
 "when to use it" to HWL's matches, because those are facts about Wynn's catalog
 rather than anything HWL should carry across the boundary.
 
+### Match Intelligence — what the three classes mean to a shopper
+
+`lib/crownprint-match-intelligence.ts` owns every customer-facing word about
+`strong` / `good` / `conditional`, and both surfaces render it through
+`app/MatchIntelligence.tsx`. Nothing about the classes is worded anywhere else.
+
+**The legend** ("How Your CrownPrint Matches Work") runs *above* the results on
+`/crownprint` and `/shop-by-crownprint`. It defines all three classes, states
+explicitly that they describe the **degree and context of fit rather than product
+quality** — a Good or Conditional Match is not a bad product — and explains that
+the CrownPrint Core is the stable foundation while dynamic factors (CrownState,
+style and protective stage, scalp condition, environment, hair history, heat and
+chemical exposure) decide which products deserve priority right now.
+
+At rest the legend is **three rows** — the badge exactly as it appears on the
+cards below, plus a one-line meaning — and it reads in a couple of seconds on a
+phone. The full definitions and the education sit behind a "How matches work"
+control, so a shopper returning to matches they have already seen isn't made to
+scroll an explanation they have already read. That control is a native
+`<details>` rather than React state: collapsed is not absent, so the copy stays
+in the document for search and for assistive tech even when shut. The provenance
+line stays outside the collapse — how much context produced a result is never
+something a shopper should have to open a panel to discover.
+
+**Every card** carries a classification-specific explanation, headed `WHY THIS IS
+A STRONG MATCH FOR YOU`, `WHY THIS IS A GOOD MATCH FOR YOU`, or `WHY THIS MATCH
+IS CONDITIONAL`. It names the shopper's own signals, connects them to the product
+*function* being recommended, and — on a Conditional Match — states the condition
+that makes the product relevant, when to consider it, and when it may not be
+necessary at all.
+
+The evidence is discovered, never hand-annotated. On the Core path,
+`contributingSignals()` finds which of the shopper's signals actually carried a
+rule by substitution: drop one signal and see whether the rule stops firing
+(necessary), or keep only that signal and see whether it still fires
+(sufficient). On the trusted path, the evidence is what HWL already resolved —
+the ranked priorities and the CrownState summary — and HWL's own `why` is carried
+through verbatim.
+
+Provenance travels with the claim. Every rationale and the legend itself carry a
+context note derived from the guidance source, so the Core fallback states that
+it is working with less context and is **not a 360-level verdict**, and a
+Wynn-filled match says in as many words that Wynn never promotes a product to
+Strong that HWL did not support — selling it is not evidence that it fits.
+
+Nothing internal is ever rendered: no scores, no weights, no thresholds, no rule
+identifiers, and no invented match percentages. `FitMatch.score` exists purely
+for ordering and is never passed to a client component.
+`tests/crownprint-match-intelligence.test.mjs` pins all of the above, including
+against the rendered HTML.
+
 ### Fallback — `/crownprint`
 
 The Core-based engine serves three cases and no others: **manual code entry**, a
