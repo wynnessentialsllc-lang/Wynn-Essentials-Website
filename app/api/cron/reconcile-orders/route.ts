@@ -3,6 +3,7 @@ import { getDb } from "../../../../db";
 import { orders } from "../../../../db/schema";
 import { getStripe } from "../../../../lib/stripe";
 import { orderRowFromSession } from "../../../../lib/record-order";
+import { notifyNewOrder, notifyCustomerOrderConfirmation } from "../../../../lib/notify";
 
 // Safety net for the Stripe webhook. If a checkout.session.completed delivery is
 // ever missed or fails, the paid order would never reach the database and would
@@ -10,10 +11,13 @@ import { orderRowFromSession } from "../../../../lib/record-order";
 // Sessions and records any paid one that isn't already an order, so a dropped
 // webhook self-heals instead of silently losing the sale.
 //
-// Recording only: it does not send customer emails or adjust stock (those are
-// the webhook's once-only side effects). Scheduled by Vercel Cron (see
-// vercel.json) and also triggerable by hand with ?token=CRON_SECRET. Requires
-// CRON_SECRET so it isn't publicly triggerable.
+// For each order it recovers it also sends the two emails the missed webhook
+// never got to send: the owner "new order" alert and the customer's order
+// confirmation. Both are best-effort (never throw) and fire only for a genuinely
+// new insert, so a recovered order is emailed exactly once and never re-emailed
+// on later runs. Stock is intentionally left alone. Scheduled by Vercel Cron
+// (see vercel.json) and also triggerable by hand with ?token=CRON_SECRET.
+// Requires CRON_SECRET so it isn't publicly triggerable.
 export const dynamic = "force-dynamic";
 
 // How many of the most recent Checkout Sessions to scan per run. Comfortably
@@ -56,10 +60,15 @@ export async function GET(request: Request) {
         .values(row)
         .onConflictDoNothing({ target: orders.sessionId })
         .returning({ id: orders.sessionId });
-      if (inserted.length) {
-        recovered++;
-        recoveredRefs.push(row.orderReference ?? session.id);
-      }
+      if (!inserted.length) continue;
+      recovered++;
+      recoveredRefs.push(row.orderReference ?? session.id);
+
+      // Send the emails the missed webhook never sent: owner alert + customer
+      // confirmation. Best-effort; a send failure must not fail the reconcile.
+      // Only ever runs for a fresh insert, so each order is emailed exactly once.
+      await notifyNewOrder(row).catch(() => {});
+      await notifyCustomerOrderConfirmation(row).catch(() => {});
     }
 
     if (recovered > 0) console.warn("Order reconcile recovered missed orders", { recovered, recoveredRefs });
