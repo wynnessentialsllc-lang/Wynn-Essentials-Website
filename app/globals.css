@@ -331,6 +331,13 @@
 .cp-auth{border-left:4px solid var(--kraft)}
 .cp-stale-panel{border-left:4px solid var(--kraft)}
 .cp-temp,.cp-unavailable{border-left:4px solid var(--taupe)}
+/* The handoff broke — recovery, never the create-and-pay intro. */
+.cp-reconnect{border-left:4px solid var(--kraft-dark)}
+.cp-functions-inline{margin:0 0 32px;padding:18px 20px;border:1px solid var(--line);background:#fff}
+.cp-functions-inline ul{margin:10px 0 0;padding-left:18px;columns:2;column-gap:30px}
+.cp-functions-inline li{font-size:13px;line-height:1.6;margin-bottom:5px;break-inside:avoid}
+@media(max-width:640px){.cp-functions-inline ul{columns:1}}
+.cp-section-heading{font-family:var(--font-display);font-size:clamp(22px,3vw,30px);font-weight:400;margin:0 0 20px}
 
 .cp-group{margin:0 0 40px}
 .cp-group-heading{font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:800;padding-bottom:10px;border-bottom:1px solid var(--line);margin:0 0 20px}
@@ -387,6 +394,115 @@
 .cp-toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(120%);z-index:200;background:var(--black);color:#fff;padding:14px 22px;font-size:13px;font-weight:700;letter-spacing:.02em;opacity:0;transition:transform .35s ease,opacity .35s ease;pointer-events:none;max-width:calc(100vw - 32px)}
 .cp-toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 .cp-unavailable .actions{margin-top:22px}
+
+/* ---------------------------------------------------------------------------
+   Shop by your CrownPrint™ code (/crownprint). The shopper types the code from
+   their CrownPrint Intelligence Report, answers their CrownState, and gets
+   matched against the catalog — no round trip, nothing to verify. Reuses the
+   match cards above; everything here is the entry form, the readout, and the
+   axis reference table.
+   --------------------------------------------------------------------------- */
+.cp-unreadable{border-left:4px solid var(--kraft-dark)}
+.cp-finder{background:#fff}
+
+/* The five axes we read back, so the shopper can confirm we got their code right. */
+.cp-readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px 24px;margin:0 0 30px;padding:20px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.cp-readout b{display:block;font-size:13px;letter-spacing:.02em}
+.cp-readout span{display:block;font-size:12px;line-height:1.55;color:var(--muted);margin-top:3px}
+
+.cp-statesummary{display:flex;flex-wrap:wrap;gap:8px 20px;margin:26px 0 -10px;font-size:12px;color:var(--muted)}
+.cp-statesummary b{color:var(--black);font-weight:800}
+
+/* Entry form */
+.cp-entry{margin-top:6px}
+.cp-entry-code label{display:block;margin-bottom:10px}
+.cp-entry-code label b{display:block;font-size:13px;letter-spacing:.02em}
+.cp-entry-code label span{display:block;font-size:12px;color:var(--muted);margin-top:3px;max-width:640px}
+.cp-entry-code code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;background:var(--soft);border:1px solid var(--line);padding:1px 5px}
+.cp-entry input[type=text]{width:100%;max-width:420px;padding:14px 16px;border:1px solid var(--line);background:#fff;font-size:19px;letter-spacing:.14em;text-transform:uppercase;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.cp-entry input[type=text]:focus-visible{outline:2px solid var(--black);outline-offset:2px}
+.cp-entry-warn{font-size:13px;font-weight:700;border-left:3px solid var(--kraft-dark);padding:8px 0 8px 12px;margin:14px 0 0;max-width:640px}
+.cp-entry-toggle{display:inline-block;margin-top:14px;padding:0;border:0;background:none;font-size:12px;color:var(--black);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+
+/* CrownPrint Core pickers — collapsed unless the shopper asks for them. */
+.cp-axes{margin:28px 0 0;padding-top:22px;border-top:1px solid var(--line)}
+.cp-axes-hidden{display:none}
+.cp-axis{border:0;padding:0;margin:0 0 18px}
+.cp-axis legend{font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:0;margin-bottom:8px}
+.cp-axis>div{display:flex;flex-wrap:wrap;gap:8px}
+.cp-axis label{display:inline-flex;align-items:center;gap:0;border:1px solid var(--line);background:#fff;padding:9px 13px;font-size:13px;cursor:pointer;transition:border-color .18s ease,background .18s ease}
+.cp-axis label:hover{border-color:var(--kraft-dark)}
+.cp-axis label.active{border-color:var(--black);background:var(--soft)}
+.cp-axis input{position:absolute;opacity:0;width:0;height:0}
+.cp-axis label span b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;margin-right:7px}
+.cp-axis input:focus-visible+span{outline:2px solid var(--black);outline-offset:4px}
+.cp-entry-built{font-size:13px;margin:4px 0 0}
+.cp-entry-built b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em}
+
+/* CrownState — asked every visit, because it is meant to change. */
+.cp-state{margin:28px 0 0;padding-top:22px;border-top:1px solid var(--line)}
+.cp-state-lead{font-size:13px;color:var(--muted);max-width:660px;margin:6px 0 18px}
+.cp-state-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px}
+.cp-state-field span{display:block;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}
+.cp-state-field select{width:100%;padding:11px 12px;border:1px solid var(--line);background:#fff;font-size:14px;font-family:inherit}
+.cp-entry .actions{margin-top:30px}
+
+/* Priorities / routine functions / catalog gaps — the labelled lists that sit
+   between the CrownPrint readout and the matches. */
+.cp-points{list-style:none;margin:22px 0 0;padding:0;display:grid;gap:16px}
+.cp-points li{border-top:1px solid var(--line);padding-top:14px}
+.cp-points b{display:block;font-size:15px;letter-spacing:.01em}
+.cp-points span{display:block;font-size:13px;line-height:1.65;color:var(--muted);margin-top:4px;max-width:760px}
+.cp-points-index{display:inline-block;font-family:var(--font-display);font-size:15px;color:var(--kraft-dark);margin-bottom:2px}
+.cp-priorities h2{color:var(--kraft-text)}
+.cp-functions{background:#fff}
+.cp-gaps{border-left:4px solid var(--taupe)}
+
+/* Provenance. Says which authority produced what is on screen, and how much
+   context it had. The fallback never dresses itself up as the full Blueprint. */
+.cp-provenance{margin:0 0 30px;padding:16px 18px;border:1px solid var(--line);background:var(--soft);font-size:13px;line-height:1.6}
+.cp-provenance p{margin:0 0 8px;max-width:760px}
+.cp-provenance p:last-child{margin-bottom:0}
+.cp-provenance-label{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+.cp-provenance-full{border-left:4px solid #1f6b46}
+.cp-provenance-full .cp-provenance-label{color:#1f6b46}
+.cp-provenance-reduced{border-left:4px solid var(--kraft-dark)}
+.cp-provenance-reduced .cp-provenance-label{color:var(--kraft-text)}
+.cp-provenance-limited{border-left:4px solid var(--taupe)}
+.cp-provenance-limited .cp-provenance-label{color:var(--muted)}
+.cp-provenance-missing{border-top:1px dashed var(--line);padding-top:8px}
+.cp-provenance-cta a{text-decoration:underline;text-underline-offset:3px;font-weight:700}
+.cp-connected{border-left:4px solid #1f6b46}
+.cp-code-display{font-family:ui-monospace,SFMono-Regular,Menlo,monospace!important;font-size:clamp(24px,3.4vw,38px)!important;letter-spacing:.08em}
+.cp-gaps-inline{border-left:4px solid var(--taupe)}
+.cp-state-more{margin-top:18px;font-size:13px}
+.cp-state-more summary{cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.cp-state-more .cp-state-grid{margin-top:14px}
+.cp-card-limited{font-size:12px;line-height:1.55;margin:0 0 10px;color:var(--muted);border-left:3px solid var(--taupe);padding-left:10px}
+.cp-card-limited b{font-weight:800;color:var(--black)}
+
+.cp-card-need{font-size:13px;line-height:1.55;margin:0 0 10px}
+.cp-card-need b{font-weight:800}
+.cp-card-ingredients{font-size:12px;line-height:1.55;color:var(--muted);margin:0 0 10px}
+.cp-card-ingredients b{font-weight:800;color:var(--black)}
+.cp-card-caution{font-size:12px;line-height:1.55;margin:0 0 10px;border-left:3px solid var(--kraft);padding-left:10px}
+.cp-card-caution b{font-weight:800}
+.cp-linklike{padding:0;border:0;background:none;font-size:13px;color:inherit;text-decoration:underline;text-underline-offset:3px;cursor:pointer;font-family:inherit}
+
+/* The code reference table — the indexable half of this page. */
+.cp-axis-table{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;margin:26px 0 0}
+.cp-axis-table article{border-top:2px solid var(--kraft);padding-top:12px}
+.cp-axis-table h3{font-family:var(--font-display);font-size:22px;font-weight:400;margin:0 0 10px}
+.cp-axis-table h3 span{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;border:1px solid var(--line);padding:2px 7px;margin-right:8px;vertical-align:middle}
+.cp-axis-table ul{margin:0;padding-left:18px}
+.cp-axis-table li{font-size:13px;line-height:1.6;margin-bottom:6px}
+.cp-axis-table li b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;margin-right:4px}
+
+/* The "have your code?" shortcut shown on every non-result CrownPrint state. */
+.cp-shortcut{margin:26px 0 0;padding:16px 18px;border:1px dashed var(--kraft-dark);background:#fff;font-size:13px;line-height:1.6}
+.cp-shortcut b{font-weight:800}
+.cp-shortcut code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;background:var(--soft);border:1px solid var(--line);padding:1px 5px}
+.cp-shortcut a{text-decoration:underline;text-underline-offset:3px;font-weight:700}
 
 /* Desktop primary-nav dropdowns (Shop ▾ / Discover ▾). Each opens an editorial
    mega panel that drops the full width of the header: labelled columns of

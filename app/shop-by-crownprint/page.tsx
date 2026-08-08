@@ -7,11 +7,12 @@ import {
   crownprintIntegrationReady,
   hasStrongMatch,
   hwlUrl,
+  isRecoveryMarker,
   parseReturnState,
   readMatchSession,
   resolveExperienceState,
-  type MatchClass,
 } from "../../lib/crownprint";
+import { selectGuidance } from "../../lib/crownprint-guidance";
 import CrownPrintExperience, { type CardProduct } from "./CrownPrintExperience";
 
 // Reads the (httpOnly) Wynn session cookie to personalize, so per-request.
@@ -60,8 +61,6 @@ function landingSchema() {
   };
 }
 
-const CLASS_ORDER: Record<MatchClass, number> = { strong: 0, good: 1, conditional: 2 };
-
 export default async function ShopByCrownPrintPage({
   searchParams,
 }: {
@@ -80,10 +79,23 @@ export default async function ShopByCrownPrintPage({
   const requested = parseReturnState(sp.state ?? sp.status);
   const { state, showResults, note } = resolveExperienceState({ integrationReady, context, requested });
 
+  // HAIR WELLNESS LAB IS THE INTELLIGENCE AUTHORITY.
+  //
+  // For a connected shopper, everything about WHAT their hair needs — the code,
+  // the ranked priorities, the product functions their routine has to perform,
+  // CrownState freshness, the matches themselves, and the needs HWL already
+  // determined we don't carry — arrives resolved in the safe context. Wynn
+  // consumes it. It never re-derives any of it from P/D/T/S/E, and the local
+  // Core-based engine behind /crownprint is not consulted here at all.
+  //
+  // Wynn answers only the question it owns: which products in ITS catalog serve
+  // those resolved functions, and which resolved functions it cannot serve.
+  const guidance = selectGuidance({ context, catalog: products });
+
   // Join safe product keys with the real catalog so cards use actual Wynn
   // Essentials data (image, name, price, URL). Product claims are never changed
   // by CrownPrint — only the fit explanation ("why") is personalized.
-  const cards: CardProduct[] = (context?.matches ?? [])
+  const cards: CardProduct[] = guidance.matches
     .map((m): CardProduct | null => {
       const p = products.find((x) => x.slug === m.productKey);
       if (!p) return null; // ignore anything not in the live catalog
@@ -98,10 +110,11 @@ export default async function ShopByCrownPrintPage({
         simple,
         matchClass: m.matchClass,
         why: m.why,
+        need: m.need,
+        whenToUse: m.whenToUse,
       };
     })
-    .filter((c): c is CardProduct => c !== null)
-    .sort((a, b) => CLASS_ORDER[a.matchClass] - CLASS_ORDER[b.matchClass]);
+    .filter((c): c is CardProduct => c !== null);
 
   const urls = {
     connect: `${CANONICAL}/connect?start=connect`,
@@ -144,6 +157,13 @@ export default async function ShopByCrownPrintPage({
           state={state}
           showResults={showResults}
           note={note}
+          recovery={isRecoveryMarker(requested)}
+          sourceLabel={guidance.label}
+          crownPrintCode={guidance.code}
+          priorities={guidance.priorities}
+          functions={guidance.functions}
+          gaps={guidance.gaps}
+          contextNotes={guidance.notes}
           crownStateMessage={context?.crownState.message}
           currentPriorityLabel={context?.currentPriorityLabel}
           noStrongMatch={context?.noStrongMatch ?? false}
@@ -169,7 +189,7 @@ export default async function ShopByCrownPrintPage({
       </main>
 
       <footer className="pdp-footer">
-        <p><Link href="/#shop">Browse all products</Link> · <Link href="/#shop-by-concern">Shop by Concern</Link> · <Link href="/privacy">Privacy</Link> · <Link href="/">Back to home</Link></p>
+        <p><Link href="/#shop">Browse all products</Link> · <Link href="/crownprint">Shop by CrownPrint code</Link> · <Link href="/#shop-by-concern">Shop by Concern</Link> · <Link href="/privacy">Privacy</Link> · <Link href="/">Back to home</Link></p>
         <small>© {new Date().getFullYear()} Wynn Essentials. All rights reserved. CrownPrint™ assessment and intelligence provided in partnership with Hair Wellness Lab.</small>
       </footer>
     </div>

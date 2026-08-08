@@ -76,6 +76,7 @@ export async function GET(request: Request) {
       return landing("CANCELLED");
     }
     await consumePending(); // one outbound hop, one return; clear the CSRF marker
+    console.info(`[crownprint] HWL resolved this shopper as ${status}.`);
     // The shopper is not match-ready, so any session from an earlier visit must
     // go: an entitlement can be refunded or revoked, and a signed-out or
     // CrownPrint-less shopper must never keep seeing old matches.
@@ -89,8 +90,20 @@ export async function GET(request: Request) {
     return landing(status);
   }
 
-  // CSRF: this browser must have initiated the connect within the window.
-  if (!(await consumePending())) return landing("ERROR");
+  // CSRF: this browser must have initiated the connect within the window. The
+  // check is absolute — a code that arrives without a valid pending marker is
+  // NEVER exchanged — but the two ways it can fail need different recovery copy,
+  // and both need to be visible in the logs. Neither outcome asks the shopper to
+  // pay again or to retake the assessment.
+  const pending = await consumePending();
+  if (pending !== "ok") {
+    console.error(
+      pending === "missing"
+        ? `[crownprint] Connect code arrived with NO pending cookie. Refusing the exchange. Common causes: the return URL landed on a different host than the outbound hop (bare vs www, or a preview domain), third-party cookie blocking, or the HWL flow was finished in another browser. Return host: ${url.host}.`
+        : "[crownprint] Connect code arrived with an invalid or expired pending cookie. Refusing the exchange. The 15-minute window elapsed, or WYNN_SESSION_SECRET changed between the two hops.",
+    );
+    return landing(pending === "missing" ? "SESSION_LOST" : "EXPIRED");
+  }
 
   // Exchange the code EXACTLY ONCE. HWL atomically redeems it; after this the
   // code is dead and we never touch it again.
@@ -106,6 +119,7 @@ export async function GET(request: Request) {
   // context whose entitlement is inactive or whose assessment is incomplete.
   // Entitlement is the gate, so that resolves to NO_CROWNPRINT, not to matches.
   const resolved = deriveContextStatus(result.context);
+  console.info(`[crownprint] Exchange succeeded; context resolved as ${resolved} with ${result.context.matches.length} match(es).`);
   if (resolved === "NO_CROWNPRINT") {
     await clearMatchSession();
     return landing("NO_CROWNPRINT");

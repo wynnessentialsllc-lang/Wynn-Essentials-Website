@@ -57,7 +57,9 @@ import { cookies, headers } from "next/headers";
 import { eq } from "drizzle-orm";
 import { commerceConfig } from "./commerce-config";
 import {
+  crownStateAction as crownStateActionJs,
   deriveContextStatus as deriveContextStatusJs,
+  isRecoveryMarker as isRecoveryMarkerJs,
   hasStrongMatch as hasStrongMatchJs,
   normalizeMatchContext as normalizeMatchContextJs,
   parseConnectStatus as parseConnectStatusJs,
@@ -80,7 +82,7 @@ export type ConnectStatus =
   | "TEMPORARILY_UNAVAILABLE";
 
 /** Wynn-local markers our own callback adds; never a claim about CrownPrint. */
-export type LocalReturnState = "EXPIRED" | "CANCELLED" | "DISCONNECTED" | "ERROR";
+export type LocalReturnState = "EXPIRED" | "CANCELLED" | "DISCONNECTED" | "ERROR" | "SESSION_LOST";
 
 /** Everything the landing page knows how to render. */
 export type ExperienceState = Exclude<ConnectStatus, never> | "CONNECT";
@@ -124,10 +126,17 @@ export type WhatToLookFor = {
 // Safe, allow-listed HWL links (e.g. the Product Hub). URLs only, no data.
 export type SafeLinks = { productHub?: string; assessment?: string; crownstateUpdate?: string };
 
+/** A resolved, consumer-safe point HWL sends: a priority, a function, a gap. */
+export type SafePoint = { label: string; detail?: string };
+
 export type WynnMatchContext = {
   crownPrintPresent: boolean;                 // CrownPrint exists / missing
-  crownState: { present: boolean; fresh: boolean; message?: string }; // fresh / stale / message
+  crownState: { present: boolean; fresh: boolean; message?: string; summary?: string };
+  crownPrintCode?: string;                    // the shopper's own printed code
   currentPriorityLabel?: string;              // consumer-safe priority label
+  currentPriorities?: SafePoint[];            // HWL's ranked priorities
+  productFunctionsNeeded?: SafePoint[];       // what the routine must do — Wynn matches on these
+  notCarried?: SafePoint[];                   // needs HWL resolved that Wynn doesn't carry
   matches: SafeMatchProduct[];                // product keys + class + why
   noStrongMatch: boolean;                     // intentional no-strong-match outcome
   whatToLookFor?: WhatToLookFor;              // guidance for the no-match outcome
@@ -320,7 +329,10 @@ export async function exchangeConnectCode(code: string, returnUrl: string): Prom
   }
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 4000);
+    // 8s, not 4s: this runs during a top-level redirect while the shopper waits,
+    // and a cold HWL instance answering in 5s must not be reported to a
+    // legitimately match-ready shopper as "temporarily unavailable".
+    const timer = setTimeout(() => controller.abort(), 8000);
     const res = await fetch(`${crownprintConfig.apiBaseUrl}${MATCH_PATH}`, {
       method: "POST",
       headers: {
@@ -336,12 +348,27 @@ export async function exchangeConnectCode(code: string, returnUrl: string): Prom
 
     if (res.status === 200) return { ok: true, context: normalizeMatchContext(await res.json()) };
     // 404/409/410 → code unknown / already redeemed (replay) / expired.
-    if (res.status === 404 || res.status === 409 || res.status === 410) return { ok: false, reason: "expired" };
+    if (res.status === 404 || res.status === 409 || res.status === 410) {
+      console.error(`[crownprint] HWL rejected the connect code (${res.status}): unknown, already redeemed, or expired.`);
+      return { ok: false, reason: "expired" };
+    }
+    // 401/403 → HWL did not accept our signature. In practice this is almost
+    // always WYNN_INTEGRATION_HMAC_SECRET differing from the value HWL holds, or
+    // a clock skew large enough to fail their timestamp window. Logged loudly
+    // because it is invisible to the shopper and fatal to every connect attempt.
+    if (res.status === 401 || res.status === 403) {
+      console.error(
+        `[crownprint] HWL rejected the exchange signature (${res.status}). Verify WYNN_INTEGRATION_HMAC_SECRET matches the secret configured at Hair Wellness Lab, and that this deployment's clock is accurate.`,
+      );
+      return { ok: false, reason: "error" };
+    }
     // 503 → HWL temporarily unavailable (distinct from "no CrownPrint").
     if (res.status === 503) return { ok: false, reason: "unavailable" };
+    console.error(`[crownprint] Unexpected ${res.status} from the HWL match endpoint.`);
     return { ok: false, reason: "error" };
-  } catch {
+  } catch (err) {
     // Network error / timeout → temporarily unavailable, never fabricated.
+    console.error("[crownprint] The HWL match exchange failed to complete:", err instanceof Error ? err.message : err);
     return { ok: false, reason: "unavailable" };
   }
 }
@@ -373,6 +400,21 @@ export const hasStrongMatch = (c: WynnMatchContext) => hasStrongMatchJs(c) as bo
  */
 export const deriveContextStatus = (c: WynnMatchContext | null): ConnectStatus =>
   deriveContextStatusJs(c) as ConnectStatus;
+
+/**
+ * What Wynn should do about CrownState: "none" when HWL already holds a fresh
+ * one (never re-ask), "refresh" when HWL flagged it stale (HWL's free update
+ * flow), "ask" only when there is no trusted context at all.
+ */
+export const crownStateAction = (context: WynnMatchContext | null): "none" | "refresh" | "ask" =>
+  crownStateActionJs(context) as "none" | "refresh" | "ask";
+
+/**
+ * True when the marker on the URL means the handoff broke, not that the shopper
+ * lacks a CrownPrint. Drives the reconnect panel (no price, no retake).
+ */
+export const isRecoveryMarker = (requested: ConnectStatus | LocalReturnState | null): boolean =>
+  isRecoveryMarkerJs(requested) as boolean;
 
 /** Decide what /shop-by-crownprint renders for this request. */
 export const resolveExperienceState = (input: {
@@ -478,11 +520,24 @@ export async function issuePending(): Promise<void> {
     maxAge: PENDING_TTL_SECONDS,
   });
 }
-export async function consumePending(): Promise<boolean> {
+/**
+ * Consume the CSRF marker. The check itself is unchanged — a return hop without
+ * a valid pending cookie never reaches the exchange — but the OUTCOME is now
+ * distinguishable, because "the cookie never came back" and "the cookie was
+ * tampered with or timed out" are different problems with different fixes:
+ *
+ *   missing  → the browser didn't send it. Usually the return landed on a
+ *              different host than the one that set it (bare vs www, a preview
+ *              domain), or the shopper finished the HWL flow in another browser.
+ *   invalid  → present but unsigned/expired: past the 15-minute window, or a
+ *              WYNN_SESSION_SECRET that changed between the two hops.
+ */
+export async function consumePending(): Promise<"ok" | "missing" | "invalid"> {
   const jar = await cookies();
   const raw = jar.get(PENDING_COOKIE)?.value;
   jar.delete(PENDING_COOKIE);
-  return (await readSigned(raw)) !== null;
+  if (!raw) return "missing";
+  return (await readSigned(raw)) !== null ? "ok" : "invalid";
 }
 
 // ---------------------------------------------------------------------------

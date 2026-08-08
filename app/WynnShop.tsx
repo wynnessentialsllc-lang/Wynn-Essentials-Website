@@ -519,6 +519,7 @@ function Header({ count, wishCount, openCart, openSearch, openWishlist, viewInvi
                 <a href="#shop-by-concern">Shop by Concern</a>
                 <a href="#shop-by-style">Shop by Style</a>
                 <Link href="/shop-by-crownprint">Shop by CrownPrint</Link>
+                <Link href="/crownprint">Shop by CrownPrint Code</Link>
                 <a href="#hair-accessories">Hair &amp; Accessories</a>
               </div>
             </div>
@@ -1038,7 +1039,7 @@ export default function WynnShop() {
     </main>
     <footer id="footer">
       <div className="footer-brand"><span className="logo"><BrandLogo /></span><p>Healthy hair is a practice.</p><small>{brandConfig.founder.ownership}<br/>{brandConfig.founder.established}<br/>{brandConfig.founder.location}</small></div>
-      <div><h3>Shop</h3><a href="#shop">All Products</a><a href="#best-sellers">Best Sellers</a><a href="#bundle">Hair Wellness Bundle</a><a href="#shop-by-concern">Shop by Concern</a><a href="#shop-by-style">Shop by Style</a><Link href="/shop-by-crownprint">Shop by CrownPrint</Link><a href="#boho-hair">Boho Hair</a></div>
+      <div><h3>Shop</h3><a href="#shop">All Products</a><a href="#best-sellers">Best Sellers</a><a href="#bundle">Hair Wellness Bundle</a><a href="#shop-by-concern">Shop by Concern</a><a href="#shop-by-style">Shop by Style</a><Link href="/shop-by-crownprint">Shop by CrownPrint</Link><Link href="/crownprint">Shop by CrownPrint Code</Link><a href="#boho-hair">Boho Hair</a></div>
       <div><h3>Discover</h3><Link href="/blog">Wynn Essentials Insights</Link><Link href="/about">About Us</Link><a href="#the-wynn-method">The Wynn Method</a><a href="#routine-finder">Routine Finder</a><a href="#ingredients">Ingredient Library</a><a href="#essential-oils-care">Essential Oils Care</a></div>
       <div><h3>Help</h3><button className="footer-link" onClick={()=>setFooterInfo("contact")}>Contact</button><Link className="footer-link" href="/shipping">Shipping</Link><Link className="footer-link" href="/returns">Returns</Link><Link className="footer-link" href="/refunds">Refunds</Link><button className="footer-link" onClick={()=>setFooterInfo("faq")}>FAQ</button><button className="footer-link" onClick={()=>setFooterInfo("track")}>Track Order</button><Link className="footer-link" href="/accessibility">Accessibility</Link></div>
       <div><h3>Legal</h3><Link className="footer-link" href="/privacy">Privacy</Link><Link className="footer-link" href="/terms">Terms</Link><Link className="footer-link" href="/refunds">Refund Policy</Link><Link className="footer-link" href="/cookies">Cookie Information</Link><Link className="footer-link" href="/privacy#rights">Your Privacy Choices</Link></div>
