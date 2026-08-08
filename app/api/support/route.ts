@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "../../../db";
 import { supportMessages } from "../../../db/schema";
 import { commerceConfig } from "../../../lib/commerce-config";
+import { notifyNewSupportMessage } from "../../../lib/notify";
 
 // Basic shape check only; the inbox that reads these confirms deliverability.
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -41,6 +42,17 @@ export async function POST(request: Request) {
       topic,
       message,
     });
+
+    // Best-effort owner alert so order/website issues surface by email, not just
+    // in the admin inbox. Never blocks the response: a notify failure is swallowed
+    // so the sender still gets a success confirmation.
+    await notifyNewSupportMessage({
+      name,
+      email,
+      orderNumber: orderNumber || null,
+      topic,
+      message,
+    }).catch(() => {});
 
     return NextResponse.json({ ok: true });
   } catch (error) {
