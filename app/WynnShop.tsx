@@ -63,15 +63,19 @@ const shoppableCare: { name: string; detail: string; image: string; alt: string;
   { name: "Soft Life Bonnet", detail: "Overnight Protection", image: "/shoppable/bonnet-bedroom.png", alt: "Woman adjusting a Soft Life Bonnet in her bedroom", slug: "soft-life-bonnet" },
   { name: "Uplyft", detail: "Moisture Rich Conditioner", image: "/shoppable/uplyft-peach-honey.webp", alt: "Hand holding a gold plate of peach cake and honey topped with a jar of Uplyft Moisture Rich Conditioner", slug: "uplyft-conditioner" },
 ];
-// Ingredient photography is hotlinked from Wikimedia Commons and credited in
-// the Photo Credits panel. Every entry should be a studio shot of the
+// Ingredient photography. Every entry should be a studio shot of the
 // ingredient alone on a white ground so the tiles read as a consistent set —
-// outdoor/in-situ shots break the look of the grid. Most of these come from
-// standardised herbal-drug series that are photographed on white by
-// convention. If a file is ever renamed or deleted upstream the <img> hides
-// itself rather than showing a broken icon (see the onError below).
-const ingredientImages: Record<string, { src: string; alt: string; source: string }> = {
-  Aloe: { src: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Aloe_vera_by_Danny_S.JPG?width=1000", alt: "Cut aloe vera leaf on a white background", source: "https://commons.wikimedia.org/wiki/File:Aloe_vera_by_Danny_S.JPG" },
+// outdoor/in-situ shots break the look of the grid.
+//
+// Images under /ingredients are ours, served from public/ and normalised to a
+// 1000x1000 white canvas. The rest are still hotlinked from Wikimedia Commons
+// and carry a `source` so the Photo Credits panel can attribute them; entries
+// without one are simply left out of that list. A file that fails to load
+// hides itself rather than showing a broken icon (see the onError below),
+// which matters most for the hotlinked ones — they can be renamed or deleted
+// upstream at any time.
+const ingredientImages: Record<string, { src: string; alt: string; source?: string }> = {
+  Aloe: { src: "/ingredients/aloe.webp", alt: "Cut aloe vera leaf and fresh aloe slices on a white background" },
   Rosemary: { src: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Romarin_2.jpg?width=1000", alt: "Fresh rosemary sprig on a white background", source: "https://commons.wikimedia.org/wiki/File:Romarin_2.jpg" },
   Nettle: { src: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Urticae_folium_by_Danny_S._-_001.jpg?width=1000", alt: "Nettle leaf on a white background", source: "https://commons.wikimedia.org/wiki/File:Urticae_folium_by_Danny_S._-_001.jpg" },
   "Jojoba Oil": { src: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Jojoba.seed.jpg?width=1000", alt: "Jojoba seed on a white background", source: "https://commons.wikimedia.org/wiki/File:Jojoba.seed.jpg" },
@@ -316,7 +320,7 @@ function FooterInfo({ page, onClose }: { page: FooterInfoKey; onClose: () => voi
     terms: { title: "Website Terms", body: <><p>Product availability, pricing, promotions, and shipping terms may change. An order is accepted when it is confirmed for fulfillment; we may cancel or refund an order affected by inventory, pricing, fraud, or address issues.</p><p>Hair-care information on this website is educational and is not medical advice. Stop use if irritation occurs and consult a qualified professional when appropriate.</p><p>Site copy, branding, photography, and designs belong to Wynn Essentials or their respective owners and may not be reused without permission.</p></> },
     refunds: { title: "Refund Policy", body: <><p>Approved refunds are returned to the original payment method. Bank processing time may vary after Wynn Essentials issues the refund.</p><p>Opened or used hair-care products and bulk human hair may be ineligible for refund for hygiene reasons. Report damage, defects, or incorrect items within 5 calendar days of delivery. Contact us before returning anything; unauthorized returns may not be accepted.</p><p>Email <a href="mailto:wynnessentialsllc@gmail.com">wynnessentialsllc@gmail.com</a> with your order number and photos when applicable.</p></> },
     cookies: { title: "Cookies & Local Storage", body: <><p>This site uses essential browser storage to remember your shopping bag and whether you have viewed the welcome invitation. Checkout and security providers may also use cookies needed to prevent fraud and complete payment.</p><p>You can clear or block cookies and local storage in your browser settings. Blocking essential storage may prevent the bag, checkout, or other site features from working correctly.</p></> },
-    credits: { title: "Photo Credits", body: <><p>Ingredient photography is used under Wikimedia Commons licensing, with thanks to the photographers and contributors.</p><ul>{Object.entries(ingredientImages).map(([name, img]) => <li key={name}>{name} — <a href={img.source} target="_blank" rel="noopener noreferrer">Wikimedia Commons</a></li>)}</ul></> },
+    credits: { title: "Photo Credits", body: <><p>Some ingredient photography is used under Wikimedia Commons licensing, with thanks to the photographers and contributors. Photography not listed below is our own.</p><ul>{Object.entries(ingredientImages).filter(([, img]) => img.source).map(([name, img]) => <li key={name}>{name} — <a href={img.source} target="_blank" rel="noopener noreferrer">Wikimedia Commons</a></li>)}</ul></> },
   };
   const item = content[page];
   return <ModalShell label={item.title} onClose={onClose} className="footer-info-shell"><article className="footer-info-modal"><header><p className="eyebrow">WYNN ESSENTIALS</p><button onClick={onClose} aria-label="Close information">Close</button></header><h2>{item.title}</h2><div className="footer-info-body">{item.body}</div></article></ModalShell>;
