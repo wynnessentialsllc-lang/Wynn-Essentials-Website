@@ -145,8 +145,18 @@ export type ExchangeResult =
 // Configuration (all server-only). NO Bearer token. NO HWL connect-code secret.
 // ---------------------------------------------------------------------------
 
+// The ONE valid Hair Wellness Lab production origin: hair + wellness + s + lab,
+// i.e. three consecutive "s" where "wellness" meets "slab". A two-"s" near-miss
+// host is a different domain that Wynn must never talk to — see hwlUrl() below,
+// which is what actually enforces this at every HWL URL sink.
+export const HWL_CANONICAL_ORIGIN = "https://hairwellnessslab.com";
+
+// Origins are stored bare: the flow URLs below concatenate fixed contract paths,
+// so a trailing slash would compose into "https://host//crownprint".
+const trimTrailingSlash = (u: string) => u.replace(/\/+$/, "");
+
 export const crownprintConfig = {
-  apiBaseUrl: process.env.HWL_API_BASE_URL || null,                 // server-to-server base
+  apiBaseUrl: process.env.HWL_API_BASE_URL ? trimTrailingSlash(process.env.HWL_API_BASE_URL) : null,
   hmacSecret: process.env.WYNN_INTEGRATION_HMAC_SECRET || null,     // signs the exchange
   assessmentUrl: process.env.HWL_ASSESSMENT_URL || null,           // create CrownPrint
   crownstateUpdateUrl: process.env.HWL_CROWNSTATE_UPDATE_URL || null, // refresh CrownState
@@ -155,6 +165,61 @@ export const crownprintConfig = {
   // never the HWL connect-code secret and is never shared with HWL.
   sessionSecret: process.env.WYNN_SESSION_SECRET || process.env.ADMIN_ORDERS_TOKEN || null,
 };
+
+// The origin every HWL URL must sit on. HWL_API_BASE_URL defines it so a local
+// or staging HWL can still be pointed at during development; in production it
+// must be HWL_CANONICAL_ORIGIN, which productionOriginOk() reports on.
+export function hwlOrigin(): string | null {
+  if (!crownprintConfig.apiBaseUrl) return null;
+  try {
+    return new URL(crownprintConfig.apiBaseUrl).origin;
+  } catch {
+    console.error("[crownprint] HWL_API_BASE_URL is not a valid absolute URL.");
+    return null;
+  }
+}
+
+// False when a production deployment is pointed at something other than the
+// canonical origin — the exact misspelling/typo case this guard exists for.
+export function productionOriginOk(): boolean {
+  const origin = hwlOrigin();
+  if (!origin) return false;
+  if (process.env.NODE_ENV !== "production") return true;
+  return origin === HWL_CANONICAL_ORIGIN;
+}
+
+/**
+ * Validate ONE HWL URL against the trusted HWL origin, returning null if it
+ * does not belong there.
+ *
+ * Every HWL-bound URL in this file passes through here, whether it came from an
+ * HWL_* env override or from the `safeLinks` block of an HWL match response.
+ * Without this, an override or a response field could send a shopper to a
+ * near-miss host, an unrelated origin, or a `javascript:` URL — the last of
+ * which is rendered straight into an href on the Shop by CrownPrint page.
+ * Rejecting is always safe: each caller falls back to a contract path on the
+ * base URL, or omits the CTA entirely.
+ */
+export function hwlUrl(value: string | null | undefined, label = "HWL url"): string | null {
+  if (!value) return null;
+  const origin = hwlOrigin();
+  if (!origin) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    console.error(`[crownprint] ${label} is not a valid absolute URL; ignoring it.`);
+    return null;
+  }
+  // Covers foreign hosts, the two-"s" near-miss domain, and non-http schemes
+  // (javascript:/data: parse fine but have an opaque origin that never matches).
+  if (parsed.origin !== origin) {
+    console.error(`[crownprint] ${label} points at ${parsed.origin}, not the trusted HWL origin ${origin}; ignoring it.`);
+    return null;
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
+  return parsed.toString();
+}
 
 // Fixed contract endpoints implemented by Hair Wellness Lab.
 const MATCH_PATH = "/api/integrations/wynn-essentials/match";
@@ -182,9 +247,17 @@ export function crownprintApiConfigured() {
  */
 function hwlFlowUrl(flow: "connect" | "create" | "refresh"): string | null {
   const base = crownprintConfig.apiBaseUrl;
+  // Connect is always contract-derived — there is no env override for it.
   if (flow === "connect") return base ? `${base}${CONNECT_PATH}` : null;
-  if (flow === "create") return crownprintConfig.assessmentUrl || (base ? `${base}${CREATE_PATH}` : null);
-  return crownprintConfig.crownstateUpdateUrl || (base ? `${base}${CROWNSTATE_PATH}` : null);
+  // An override is honoured only when it sits on the trusted HWL origin. A
+  // foreign or misspelled host is dropped in favour of the contract path, so a
+  // bad override degrades to the correct URL instead of redirecting shoppers
+  // off-origin.
+  const [override, path, name] =
+    flow === "create"
+      ? [crownprintConfig.assessmentUrl, CREATE_PATH, "HWL_ASSESSMENT_URL"]
+      : [crownprintConfig.crownstateUpdateUrl, CROWNSTATE_PATH, "HWL_CROWNSTATE_UPDATE_URL"];
+  return hwlUrl(override, name) || (base ? `${base}${path}` : null);
 }
 
 // True when the whole round-trip can work (send to HWL, exchange, store a Wynn
@@ -283,7 +356,12 @@ export async function exchangeConnectCode(code: string, returnUrl: string): Prom
 // ---------------------------------------------------------------------------
 
 export function normalizeMatchContext(input: unknown): WynnMatchContext {
-  return normalizeMatchContextJs(input) as WynnMatchContext;
+  // safeLinks arrive in the HWL response BODY and are rendered directly into
+  // hrefs, so the shared normalizer validates each one against the trusted HWL
+  // origin. Passing hwlOrigin() in keeps crownprint-state.mjs dependency-free
+  // (no env, no next/*) while preserving the origin check; with no origin the
+  // normalizer fails closed and drops every link.
+  return normalizeMatchContextJs(input, { hwlOrigin: hwlOrigin() }) as WynnMatchContext;
 }
 
 export const hasStrongMatch = (c: WynnMatchContext) => hasStrongMatchJs(c) as boolean;
