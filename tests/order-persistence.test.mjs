@@ -90,8 +90,11 @@ test("checkout honors the advertised free-shipping threshold", async () => {
   ]);
 
   // The subtotal that selects the shipping rate must come from the server
-  // catalog, never from the client payload.
-  assert.match(checkout, /subtotalCents \+= Math\.round\(\(product\.price/);
+  // catalog, never from the client payload. The unit price is resolved from the
+  // catalog (a variant's price or the product's), and the subtotal is built from
+  // it — the client-supplied quantity only multiplies a server-derived price.
+  assert.match(checkout, /const unitPrice = variant \? variant\.price : \(product\.price/);
+  assert.match(checkout, /subtotalCents \+= Math\.round\(unitPrice \* 100\) \* Number\(item\.quantity\)/);
   assert.match(checkout, /qualifiesForFreeShipping/);
 
   const advertised = data.match(/shippingThreshold:\s*(\d+)/)?.[1];
