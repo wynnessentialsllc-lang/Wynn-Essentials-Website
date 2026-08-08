@@ -103,6 +103,12 @@ export const MATCH_LEGEND = {
   title: "How Your CrownPrint Matches Work",
   intro:
     "Every product below is labelled Strong, Good, or Conditional. Here is exactly what each label means, so you can read your results the way they are meant to be read.",
+  // The legend sits between a returning shopper and their matches, so the
+  // definitions collapse behind this control rather than being re-read on every
+  // visit. The three one-line headlines stay on screen; the detail is one tap
+  // away and still in the page for anyone reading it with assistive tech.
+  expandLabel: "How matches work",
+  expandHint: "Full definitions, and why a match can change over time.",
   qualityHeading: "Fit is not the same as quality",
   quality:
     "These classifications describe the degree and context of fit — how closely a product lines up with what your CrownPrint needs right now. They are not a rating of product quality. A Good Match or a Conditional Match is not a bad product: it is a product whose usefulness to you depends on how central that need is, or on context that can change. Every Wynn Essentials product is made to the same standard. What changes is whether it is the right thing for you, this week.",

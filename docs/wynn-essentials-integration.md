@@ -495,6 +495,16 @@ the CrownPrint Core is the stable foundation while dynamic factors (CrownState,
 style and protective stage, scalp condition, environment, hair history, heat and
 chemical exposure) decide which products deserve priority right now.
 
+At rest the legend is **three rows** — the badge exactly as it appears on the
+cards below, plus a one-line meaning — and it reads in a couple of seconds on a
+phone. The full definitions and the education sit behind a "How matches work"
+control, so a shopper returning to matches they have already seen isn't made to
+scroll an explanation they have already read. That control is a native
+`<details>` rather than React state: collapsed is not absent, so the copy stays
+in the document for search and for assistive tech even when shut. The provenance
+line stays outside the collapse — how much context produced a result is never
+something a shopper should have to open a panel to discover.
+
 **Every card** carries a classification-specific explanation, headed `WHY THIS IS
 A STRONG MATCH FOR YOU`, `WHY THIS IS A GOOD MATCH FOR YOU`, or `WHY THIS MATCH
 IS CONDITIONAL`. It names the shopper's own signals, connects them to the product

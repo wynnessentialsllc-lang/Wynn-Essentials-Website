@@ -496,6 +496,34 @@ test("8. the rendered page carries the legend and one explanation per card", asy
   }
   assert.ok(html.includes("not a rating of product quality"), "fit must be separated from quality on the page");
 
+  // ...but it is COMPACT at rest. The resting legend is three rows and a
+  // control; the definitions and the education sit behind "How matches work",
+  // so a shopper revisiting their matches doesn't scroll past a wall of text to
+  // reach the products.
+  const rowsAt = html.indexOf("cp-legend-rows");
+  const moreAt = html.indexOf("cp-legend-more");
+  const sourceAt = html.indexOf("cp-legend-source");
+  assert.ok(rowsAt > -1 && moreAt > rowsAt && sourceAt > moreAt, "the legend must render rows, then the control, then provenance");
+  assert.match(html.slice(moreAt - 400, moreAt), /<details/, '"How matches work" must be a real disclosure control');
+  assert.ok(html.includes(MATCH_LEGEND.expandLabel), "the expand control must be labelled");
+
+  const resting = html.slice(rowsAt, moreAt);
+  const behindControl = html.slice(moreAt, sourceAt);
+  for (const cls of MATCH_CLASS_ORDER) {
+    const { title, headline, definition } = MATCH_CLASS_DEFINITIONS[cls];
+    assert.ok(resting.includes(title), `${cls}'s badge must be visible without expanding anything`);
+    assert.ok(resting.includes(headline), `${cls}'s one-line meaning must be visible without expanding anything`);
+    assert.equal(resting.includes(definition.slice(0, 60)), false, `${cls}'s full definition must not sit in the resting legend`);
+    assert.ok(behindControl.includes(definition.slice(0, 60)), `${cls}'s full definition must be behind the control`);
+  }
+  assert.ok(behindControl.includes("not a rating of product quality"), "the quality note belongs with the definitions");
+  // Collapsed is not absent: everything above is still in the document, so it is
+  // still crawlable and still in a screen reader's reading order.
+  assert.doesNotMatch(behindControl, /hidden|aria-hidden="true"|display:\s*none/i);
+  // Provenance is never behind a tap — how much context produced these results
+  // is the one thing a shopper must not have to go looking for.
+  assert.ok(html.slice(sourceAt, sourceAt + 600).includes("CrownPrint 360"));
+
   // One reasoning block per card, and the conditional lines where they belong.
   const cards = (html.match(/cp-card-need/g) || []).length;
   const reasons = (html.match(/cp-why-heading/g) || []).length;
@@ -509,4 +537,137 @@ test("8. the rendered page carries the legend and one explanation per card", asy
   // And the page still shows no numbers a shopper could mistake for a rating.
   assert.doesNotMatch(html, /\d\s*%\s*match/i);
   assert.doesNotMatch(html, /match\s*(score|strength)\s*[:=]/i);
+});
+
+// ---------------------------------------------------------------------------
+// 9. A change of classification rewrites the card completely.
+//
+// The same product can move between classes as context changes — a new
+// CrownState, a re-resolved 360, a different CrownPrint. When it does, the
+// heading and the reasoning must move with it and must keep NOTHING from the
+// class it used to be in. This is the test that catches a stale explanation
+// surviving in a cache, a memo, or a field that was set once and never
+// recomputed.
+// ---------------------------------------------------------------------------
+
+/** Sentences that only ever appear in one class's reasoning. */
+const CLASS_FINGERPRINTS = {
+  strong: [/makes this a Strong Match for you/i, /higher-priority job/i],
+  good: [/sits at Good rather than Strong/i],
+  conditional: [/what Conditional means here/i, /relevance turns on when and how you use it/i],
+};
+
+/** Assert a rationale reads as its own class, and as no other. */
+function assertClassPure(rationale, cls, where) {
+  assert.equal(rationale.matchClass, cls, `${where}: the rationale must carry the class it is shown as`);
+  assert.equal(rationale.heading, MATCH_CLASS_DEFINITIONS[cls].cardHeading, `${where}: wrong heading for ${cls}`);
+
+  const text = rationaleStrings(rationale).join("   ");
+  for (const pattern of CLASS_FINGERPRINTS[cls]) {
+    assert.match(rationale.explanation, pattern, `${where}: ${cls} reasoning is missing its own wording`);
+  }
+  for (const other of MATCH_CLASS_ORDER.filter((c) => c !== cls)) {
+    for (const pattern of CLASS_FINGERPRINTS[other]) {
+      assert.doesNotMatch(text, pattern, `${where}: this ${cls} card still carries ${other} wording`);
+    }
+    assert.equal(
+      text.includes(MATCH_CLASS_DEFINITIONS[other].cardHeading),
+      false,
+      `${where}: this ${cls} card still carries the ${other} heading`,
+    );
+  }
+
+  // The three conditional lines exist exactly when the class is conditional.
+  const conditionalFields = [rationale.condition, rationale.whenItApplies, rationale.whenItMayNotBeNeeded, rationale.conditionSignal];
+  if (cls === "conditional") {
+    for (const field of conditionalFields) assert.ok(field, `${where}: a conditional card must carry all of its condition lines`);
+  } else {
+    for (const field of conditionalFields) {
+      assert.equal(field, undefined, `${where}: a ${cls} card must not keep conditional framing`);
+    }
+  }
+}
+
+test("9. the same product re-classified drops every trace of its previous class", () => {
+  const contextFor = (matchClass) =>
+    resolved360({
+      matches: [{
+        productKey: "relief-oil",
+        productName: "Relief",
+        matchClass,
+        why: `The Lab resolved Relief as ${matchClass} for the context you are in right now.`,
+      }],
+    });
+  const rationaleFor = (matchClass) =>
+    selectGuidance({ context: contextFor(matchClass), catalog })
+      .matches.find((m) => m.productKey === "relief-oil").rationale;
+
+  // Strong, then Good, then Conditional — one process, one code path.
+  const strong = rationaleFor("strong");
+  const good = rationaleFor("good");
+  const conditional = rationaleFor("conditional");
+
+  assertClassPure(strong, "strong", "360 strong");
+  assertClassPure(good, "good", "360 good");
+  assertClassPure(conditional, "conditional", "360 conditional");
+
+  // Three genuinely different explanations, not one string with a label swapped.
+  const explanations = [strong.explanation, good.explanation, conditional.explanation];
+  assert.equal(new Set(explanations).size, 3, "each classification must produce its own explanation");
+  assert.equal(new Set([strong.heading, good.heading, conditional.heading]).size, 3);
+
+  // Nothing is memoized across the transitions: returning to a class reproduces
+  // that class's result exactly, and the states in between left no residue.
+  assert.deepEqual(rationaleFor("strong"), strong, "re-resolving the same class must be deterministic");
+  assert.deepEqual(rationaleFor("conditional"), conditional);
+
+  // The order the classes are resolved in cannot change any of them.
+  assert.deepEqual(
+    ["conditional", "good", "strong"].map(rationaleFor),
+    [conditional, good, strong],
+    "results must not depend on evaluation order",
+  );
+
+  // The same product moved between classes by CHANGED CONTEXT rather than by a
+  // different verdict: a stale CrownState and a re-resolved one must not leave
+  // each other's wording behind either.
+  const [stale, refreshed] = [
+    resolved360({
+      crownState: { present: true, fresh: false, summary: "braids, mid-wear, comfortable scalp", message: "Your hair needs may have changed." },
+      matches: [{ productKey: "relief-oil", productName: "Relief", matchClass: "conditional", why: "Situational while your scalp is comfortable." }],
+    }),
+    resolved360({
+      crownState: { present: true, fresh: true, summary: "just took braids down, tender scalp" },
+      matches: [{ productKey: "relief-oil", productName: "Relief", matchClass: "strong", why: "Your scalp is now the first thing to solve." }],
+    }),
+  ].map((context) => selectGuidance({ context, catalog }).matches.find((m) => m.productKey === "relief-oil").rationale);
+
+  assertClassPure(stale, "conditional", "stale CrownState");
+  assertClassPure(refreshed, "strong", "refreshed CrownState");
+  assert.ok(
+    refreshed.explanation.includes("tender scalp"),
+    "the refreshed card must reason from the CrownState it was actually given",
+  );
+  assert.equal(
+    refreshed.explanation.includes("comfortable scalp"),
+    false,
+    "the refreshed card must not carry the previous CrownState's wording",
+  );
+
+  // And the same guarantee on the local Core path, where the class moves because
+  // the CrownPrint itself changed rather than because the Lab said so.
+  const localCases = [
+    ["strong", profile("P3-D2-T2-S2-E1", { concern: "breakage", goal: "repair" })],
+    ["good", profile("P3-E1", { concern: "breakage", goal: "repair" })],
+    ["conditional", profile("P2-D2-T1-S2-E2", {})],
+  ];
+  const localSeen = [];
+  for (const [expected, p] of localCases) {
+    const match = localGuidance(p).matches.find((m) => m.productKey === "revaivl-protein-conditioner");
+    assert.ok(match, `the fixture for a ${expected} local match must actually produce one`);
+    assert.equal(match.matchClass, expected, "fixture drift: this profile no longer produces that class");
+    assertClassPure(match.rationale, expected, `local ${expected}`);
+    localSeen.push(match.rationale.explanation);
+  }
+  assert.equal(new Set(localSeen).size, 3, "the same product must explain each class differently on the local path");
 });
