@@ -129,7 +129,8 @@ test("the fulfillment view keeps customer data server-side and gated", async () 
   assert.doesNotMatch(page, /^\s*"use client"/m, "the order page must stay a server component");
   assert.match(page, /dynamic\s*=\s*"force-dynamic"/);
   assert.match(page, /robots:\s*\{[^}]*index:\s*false/);
-  assert.match(robots, /disallow:\s*"\/admin"/);
+  // /admin must stay disallowed whether `disallow` is a single string or a list.
+  assert.match(robots, /disallow:\s*(?:"\/admin"|\[[^\]]*"\/admin"[^\]]*\])/);
 
   // Only the sign-in form crosses to the client, and it receives no order data.
   assert.match(form, /^\s*"use client"/m);

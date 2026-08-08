@@ -1,0 +1,179 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { products } from "../data";
+import { SITE_URL, ldJson } from "../seo";
+import {
+  crownprintConfig,
+  getSafeMatch,
+  hasHandoff,
+  hasStrongMatch,
+  type MatchClass,
+} from "../../lib/crownprint";
+import CrownPrintExperience, { type CardProduct } from "./CrownPrintExperience";
+
+// The page reads the (httpOnly) handoff cookie to personalize, so it must be
+// rendered per-request.
+export const dynamic = "force-dynamic";
+
+const CANONICAL = "/shop-by-crownprint";
+
+// Personalized results are NOT indexable. Crawlers never carry the handoff
+// cookie, so they always see the public educational landing (indexable). When a
+// real shopper is connected, we additionally mark the page noindex — there is a
+// single URL, so this never creates thousands of CrownPrint-result URLs.
+export async function generateMetadata(): Promise<Metadata> {
+  const connected = await hasHandoff();
+  const title = "Shop by CrownPrint™ | Wynn Essentials";
+  const description =
+    "Your hair needs more than a porosity label. CrownPrint considers multiple hair characteristics and your current hair state to help identify which Wynn Essentials products may fit what your hair needs right now.";
+  return {
+    title,
+    description,
+    alternates: { canonical: CANONICAL },
+    robots: connected ? { index: false, follow: true } : undefined,
+    openGraph: {
+      title,
+      description,
+      url: CANONICAL,
+      siteName: "Wynn Essentials",
+      type: "website",
+      images: [{ url: "/og-basket-espresso.jpg", width: 1200, height: 630, alt: "Wynn Essentials" }],
+    },
+    twitter: { card: "summary_large_image", title, description, images: ["/og-basket-espresso.jpg"] },
+  };
+}
+
+// Public, indexable structured data for the educational landing — describes what
+// Shop by CrownPrint is, without any personalized content.
+function landingSchema() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: "Shop by CrownPrint™ | Wynn Essentials",
+    url: `${SITE_URL}${CANONICAL}`,
+    description:
+      "Shop Wynn Essentials by CrownPrint — an alternative to shopping by porosity that considers multiple hair characteristics and your current hair state to help identify product fit.",
+    isPartOf: { "@type": "WebSite", name: "Wynn Essentials", url: SITE_URL },
+    breadcrumb: {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+        { "@type": "ListItem", position: 2, name: "Shop by CrownPrint", item: `${SITE_URL}${CANONICAL}` },
+      ],
+    },
+  };
+}
+
+// Join the safe match's product identifiers with the real catalog so cards use
+// actual Wynn Essentials product data (image, name, price, URL). Product claims
+// are never altered by CrownPrint — only the fit explanation is personalized.
+const CLASS_ORDER: Record<MatchClass, number> = { strong: 0, good: 1, conditional: 2 };
+
+export default async function ShopByCrownPrintPage() {
+  const match = await getSafeMatch();
+  const connected = await hasHandoff();
+
+  const cards: CardProduct[] = match.matches
+    .map((m): CardProduct | null => {
+      const p = products.find((x) => x.slug === m.slug);
+      if (!p) return null; // ignore anything not in the live catalog
+      const simple = !(p.colors?.length) && !((p.variants?.length ?? 0) > 1);
+      return {
+        slug: p.slug,
+        name: p.name,
+        subtitle: p.subtitle,
+        price: p.price,
+        image: p.images?.[0] ? { src: p.images[0].src, alt: p.images[0].alt } : null,
+        url: `/products/${p.slug}`,
+        simple,
+        matchClass: m.matchClass,
+        explanation: m.explanation,
+        ...(m.usage ? { usage: m.usage } : {}),
+      };
+    })
+    .filter((c): c is CardProduct => c !== null)
+    .sort((a, b) => CLASS_ORDER[a.matchClass] - CLASS_ORDER[b.matchClass]);
+
+  const urls = {
+    create: `${CANONICAL}/connect?start=create`,
+    update: `${CANONICAL}/connect?start=update`,
+    disconnect: `${CANONICAL}/connect?disconnect=1`,
+    productHub: crownprintConfig.productHubUrl,
+  };
+
+  return (
+    <div className="legal-page cp-page">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(landingSchema()) }} />
+
+      <header className="pdp-bar">
+        <Link className="pdp-logo" href="/">WYNN ESSENTIALS<span>Healthy Hair Is a Practice</span></Link>
+        <Link className="pdp-bar-shop" href="/#shop">Shop all products</Link>
+      </header>
+      <nav className="pdp-crumbs" aria-label="Breadcrumb">
+        <Link href="/">Home</Link> <span aria-hidden="true">/</span> <span aria-current="page">Shop by CrownPrint™</span>
+      </nav>
+
+      <main className="cp-main">
+        {/* Indexable educational hero — no personalized content. */}
+        <section className="cp-hero">
+          <p className="eyebrow">SHOP BY CROWNPRINT™</p>
+          <h1>Your hair needs more than a porosity label.</h1>
+          <p className="cp-lead">
+            CrownPrint considers multiple characteristics and your current hair state to help identify
+            which Wynn Essentials products may fit what your hair needs right now. It&rsquo;s an
+            alternative to shopping by porosity alone.
+          </p>
+          <p className="cp-disclaimer">
+            This is product-fit guidance, not medical advice, clinical validation, or a diagnosis. Everyone&rsquo;s hair is different — patch test and read each product&rsquo;s ingredient list.
+          </p>
+        </section>
+
+        {/* Personalized, interactive panel (client). Falls back to the "create
+            your CrownPrint" state for anyone who isn't connected. */}
+        <CrownPrintExperience
+          available={match.available}
+          fresh={match.fresh}
+          refreshRequired={Boolean(match.refreshRequired)}
+          currentPriority={match.currentPriority}
+          noStrongMatch={match.noStrongMatch}
+          hasStrong={hasStrongMatch(match)}
+          connected={connected}
+          products={cards}
+          urls={urls}
+        />
+
+        {/* Indexable education — explains why recommendations can change. */}
+        <section className="cp-education" aria-labelledby="cp-edu-heading">
+          <p className="eyebrow">HOW CROWNPRINT WORKS</p>
+          <h2 id="cp-edu-heading">Why your recommendations can change</h2>
+          <div className="cp-edu-grid">
+            <article>
+              <h3>CrownPrint Core</h3>
+              <p>Your foundational hair characteristics — the things that stay relatively consistent over time.</p>
+            </article>
+            <article>
+              <h3>CrownState</h3>
+              <p>What appears to be happening with your hair right now, which can shift with styling, seasons, and care.</p>
+            </article>
+            <article>
+              <h3>CrownHistory</h3>
+              <p>Relevant recent context — the styles, services, and changes your hair has been through lately.</p>
+            </article>
+            <article>
+              <h3>Wynn Essentials Match™</h3>
+              <p>Uses these signals to identify current product fit, so guidance reflects what your hair needs now — not a single fixed label.</p>
+            </article>
+          </div>
+          <p className="cp-edu-note">
+            CrownPrint, CrownState, CrownHistory, and the CrownPrint assessment live in the Hair Wellness Lab. Wynn Essentials uses your safe match result only to help you shop.
+          </p>
+        </section>
+      </main>
+
+      <footer className="pdp-footer">
+        <p><Link href="/#shop">Browse all products</Link> · <Link href="/#shop-by-concern">Shop by Concern</Link> · <Link href="/privacy">Privacy</Link> · <Link href="/">Back to home</Link></p>
+        <small>© {new Date().getFullYear()} Wynn Essentials. All rights reserved. CrownPrint™ assessment and intelligence provided in partnership with Hair Wellness Lab.</small>
+      </footer>
+    </div>
+  );
+}

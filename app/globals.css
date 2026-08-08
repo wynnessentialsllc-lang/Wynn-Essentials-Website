@@ -269,3 +269,87 @@
 .hero.hero-holding{overflow:hidden}
 .hero-copy{transition:opacity .9s ease .2s}
 .hero.hero-holding .hero-copy{opacity:0;transition:none}
+
+/* ===========================================================================
+   Shop by CrownPrint™ (/shop-by-crownprint). Reuses the standalone-page chrome
+   (.legal-page/.pdp-bar/.pdp-footer) and brand tokens; everything below styles
+   the CrownPrint hero, the personalized status panel and match cards, the
+   no-strong-match guidance, the education grid, and the toast.
+   =========================================================================== */
+.cp-main{max-width:1120px;margin:0 auto;width:100%;padding:24px clamp(18px,4vw,48px) 80px;flex:1}
+.cp-hero{max-width:820px;margin:18px 0 8px}
+.cp-hero h1{font-family:var(--font-display);font-weight:400;font-size:clamp(34px,6vw,60px);line-height:1.02;letter-spacing:-.03em;margin:8px 0 14px}
+.cp-lead{font-size:clamp(17px,2vw,20px);line-height:1.6;max-width:720px}
+.cp-disclaimer{font-size:12px;color:var(--muted);margin-top:14px;max-width:720px}
+
+.cp-panel{margin:36px 0;padding:clamp(24px,4vw,44px);border:1px solid var(--line);background:var(--soft)}
+.cp-panel h2{font-family:var(--font-display);font-size:clamp(30px,4.5vw,52px);line-height:1;margin:6px 0 16px}
+.cp-fine{font-size:12px;color:var(--muted);margin-top:18px}
+
+/* State 1 — create */
+.cp-create-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin:26px 0 30px}
+.cp-create-steps>div{border-top:2px solid var(--kraft);padding-top:12px}
+.cp-create-steps span{font-family:var(--font-display);font-size:34px;color:var(--kraft-dark);display:block}
+.cp-create-steps p{font-size:13px;margin:6px 0 0}
+@media(max-width:720px){.cp-create-steps{grid-template-columns:1fr}}
+
+/* State 2 — results */
+.cp-priority{margin-bottom:26px}
+.cp-priority h2{margin:6px 0 0;color:var(--kraft-text)}
+.cp-stale{background:#fff;border:1px solid var(--kraft);padding:22px 24px;margin:0 0 32px}
+.cp-stale p:not(.eyebrow){font-size:14px;line-height:1.65;margin:8px 0 18px;max-width:720px}
+
+.cp-group{margin:0 0 40px}
+.cp-group-heading{font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:800;padding-bottom:10px;border-bottom:1px solid var(--line);margin:0 0 20px}
+.cp-group-strong{color:#1f6b46}
+.cp-group-good{color:var(--kraft-text)}
+.cp-group-conditional{color:var(--muted)}
+
+.cp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+@media(max-width:900px){.cp-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.cp-grid{grid-template-columns:1fr}}
+.cp-card{display:flex;flex-direction:column;background:#fff;border:1px solid var(--line)}
+.cp-card-art{position:relative;display:block;height:230px;background:#fff;overflow:hidden}
+.cp-card-art img{width:100%;height:100%;object-fit:contain;padding:6%;display:block}
+.cp-card-art-fallback{display:flex;height:100%;align-items:center;justify-content:center;font-family:var(--font-display);font-size:22px;color:var(--muted)}
+.cp-badge{position:absolute;top:10px;left:10px;font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:6px 9px;color:#fff}
+.cp-badge-strong{background:#1f6b46}
+.cp-badge-good{background:var(--kraft-dark)}
+.cp-badge-conditional{background:var(--taupe)}
+.cp-card-body{display:flex;flex-direction:column;padding:18px 18px 20px;flex:1}
+.cp-card-body h4{font-family:var(--font-display);font-size:26px;font-weight:400;margin:2px 0 4px}
+.cp-card-price{font-size:13px;margin:2px 0 12px}
+.cp-card-why,.cp-card-usage{font-size:13px;line-height:1.55;margin:0 0 10px}
+.cp-card-why b,.cp-card-usage b{font-weight:800}
+.cp-card-actions{display:flex;flex-direction:column;gap:10px;margin-top:auto;padding-top:8px}
+
+/* No strong match */
+.cp-nomatch{background:var(--black);color:#fff;padding:clamp(26px,4vw,44px);margin:8px 0 32px}
+.cp-nomatch h3{font-family:var(--font-display);font-weight:400;font-size:clamp(24px,3vw,36px);line-height:1.12;margin:8px 0 12px;max-width:780px}
+.cp-nomatch-lead{font-size:15px;color:#e6ddd0;max-width:680px}
+.cp-nomatch .eyebrow{color:var(--kraft)}
+.cp-nomatch-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:22px 30px;margin:26px 0 30px}
+@media(max-width:720px){.cp-nomatch-grid{grid-template-columns:1fr}}
+.cp-nomatch-grid h4{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--kraft);margin:0 0 8px}
+.cp-nomatch-grid p{font-size:14px;line-height:1.6;margin:0}
+.cp-nomatch-grid ul{margin:0;padding-left:18px}
+.cp-nomatch-grid li{font-size:14px;line-height:1.6}
+
+.cp-utility{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:8px;font-size:13px}
+.cp-utility a{text-decoration:underline;text-underline-offset:3px}
+.cp-utility span{color:var(--muted)}
+
+/* Education */
+.cp-education{margin:24px 0 0;padding-top:36px;border-top:1px solid var(--line)}
+.cp-education h2{font-family:var(--font-display);font-size:clamp(28px,4vw,46px);margin:6px 0 26px}
+.cp-edu-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+@media(max-width:900px){.cp-edu-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.cp-edu-grid{grid-template-columns:1fr}}
+.cp-edu-grid article{border-top:2px solid var(--kraft);padding-top:12px}
+.cp-edu-grid h3{font-family:var(--font-display);font-size:22px;font-weight:400;margin:0 0 8px}
+.cp-edu-grid p{font-size:13px;line-height:1.6;margin:0}
+.cp-edu-note{font-size:12px;color:var(--muted);margin-top:24px;max-width:760px}
+
+/* Toast (mirrors the storefront's) */
+.cp-toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(120%);z-index:200;background:var(--black);color:#fff;padding:14px 22px;font-size:13px;font-weight:700;letter-spacing:.02em;opacity:0;transition:transform .35s ease,opacity .35s ease;pointer-events:none;max-width:calc(100vw - 32px)}
+.cp-toast.show{transform:translateX(-50%) translateY(0);opacity:1}
