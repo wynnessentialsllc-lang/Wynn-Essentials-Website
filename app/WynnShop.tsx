@@ -155,6 +155,48 @@ function RoutineProduct({ onOpen }: { onOpen: () => void }) {
   );
 }
 
+// Tilts an ingredient photo in 3D toward the cursor so it reads as a physical
+// object sitting on the page rather than a picture printed on it. Same idea as
+// RoutineProduct above, pared down: no ambient motion, and the tile isn't a
+// link — the card's own button handles that. Mouse only; a tilt keyed to
+// pointer position has nothing to track on touch, and it sits out entirely
+// under prefers-reduced-motion.
+function IngredientArt({ photo }: { photo: { src: string; alt: string } }) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [hover, setHover] = useState(false);
+  const [press, setPress] = useState(false);
+  const [rot, setRot] = useState({ x: 0, y: 0 });
+  const reduced = useRef(false);
+  useEffect(() => { reduced.current = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); }, []);
+  const onMove = (e: React.PointerEvent) => {
+    if (reduced.current || e.pointerType !== "mouse") return;
+    const el = wrapRef.current; if (!el) return;
+    const b = el.getBoundingClientRect();
+    const px = (e.clientX - b.left) / b.width - 0.5;    // -0.5 .. 0.5
+    const py = (e.clientY - b.top) / b.height - 0.5;
+    setRot({ x: -py * 13, y: px * 17 });                // rotateX / rotateY (deg)
+    if (!hover) setHover(true);
+  };
+  const reset = () => { setHover(false); setPress(false); setRot({ x: 0, y: 0 }); };
+  // Pressing pushes the photo away from the viewer, so grabbing it feels like
+  // picking something up rather than clicking a picture.
+  const lift = press ? 0.98 : hover ? 1.03 : 1;
+  return (
+    <div
+      ref={wrapRef}
+      className="ingredient-image"
+      onPointerMove={onMove}
+      onPointerLeave={reset}
+      onPointerDown={() => setPress(true)}
+      onPointerUp={() => setPress(false)}
+    >
+      <span className="ingredient-tilt" style={{ transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg) scale(${lift})` }}>
+        <img src={photo.src} alt={photo.alt} width="1000" height="1000" loading="lazy" draggable={false} onError={e => e.currentTarget.classList.add("is-missing")} />
+      </span>
+    </div>
+  );
+}
+
 function ModalShell({ label, onClose, children, className = "" }: { label: string; onClose: () => void; children: React.ReactNode; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
@@ -981,7 +1023,7 @@ export default function WynnShop() {
         {bohoHair.map(item=>{const product=products.find(p=>p.slug===item.slug)!;return <article className={`boho-card${soldOut(product)?" is-sold-out":""}`} key={item.slug}><button className="art-button" onClick={()=>openProduct(product)} aria-label={`View ${item.name} details`}><div><img src={item.image} alt={item.alt} width="820" height="812" loading="lazy"/></div>{soldOut(product) && <span className="sold-out-badge">Sold Out</span>}</button><p className="eyebrow">BOHO BRAID HAIR</p><h3>{item.name}</h3><CardRating summary={ratingFor(product.slug)} onClick={()=>openProduct(product)}/><p>Premium human hair bulk with soft movement, natural blending, and braid-ready texture.</p><strong>{money(product.price)}</strong>{soldOut(product) ? <button className="outline-button full sold-out-cta" onClick={()=>openProduct(product)}>Sold Out · Join the Waitlist</button> : <button className="outline-button full" onClick={()=>add(product)}>Add to Cart</button>}</article>;})}
       </div></section>
       <section className="philosophy section"><div><p className="eyebrow">OUR FORMULATION PHILOSOPHY</p><h2>Traditional Ingredients.<br /><em>Modern Hair Wellness.</em></h2><p>Wynn Essentials combines familiar botanicals, purposeful oils, and thoughtfully designed formulas to support moisture, strength, manageability, and consistent care.</p><a href="#ingredients" className="button">Learn About Our Formulas</a></div><ol>{["Moisture Support","Strength-Focused Care","Scalp-Conscious Ingredients","Protective-Style Maintenance"].map((x,i)=><li key={x}><span>0{i+1}</span>{x}</li>)}</ol></section>
-      <section id="ingredients" className="ingredients section" aria-labelledby="ingredients-heading"><div className="section-heading ingredients-heading"><p className="eyebrow">FORMULA LIBRARY</p><h2 id="ingredients-heading">Ingredients With Purpose</h2></div><div className="ingredient-grid">{Object.entries(ingredientDescriptions).map(([name,description])=>{const photo=ingredientImages[name];return <article className="ingredient-card" key={name}><h3>{name}</h3><div className="ingredient-image"><span className="ingredient-float"><img src={photo.src} alt={photo.alt} width="1000" height="750" loading="lazy" onError={e=>e.currentTarget.classList.add("is-missing")}/></span></div><p>{description}</p><button className="ingredient-shop-link" onClick={()=>{setIngredientFilter(name);setFilter("All");scroll("shop");}}>View applicable products</button></article>})}</div></section>
+      <section id="ingredients" className="ingredients section" aria-labelledby="ingredients-heading"><div className="section-heading ingredients-heading"><p className="eyebrow">FORMULA LIBRARY</p><h2 id="ingredients-heading">Ingredients With Purpose</h2></div><div className="ingredient-grid">{Object.entries(ingredientDescriptions).map(([name,description])=>{const photo=ingredientImages[name];return <article className="ingredient-card" key={name}><h3>{name}</h3><IngredientArt photo={photo}/><p>{description}</p><button className="ingredient-shop-link" onClick={()=>{setIngredientFilter(name);setFilter("All");scroll("shop");}}>View applicable products</button></article>})}</div></section>
       <section id="bundle" className="bundle section"><div className="section-heading"><p className="eyebrow">THE FOUR-STEP SYSTEM</p><h2>Hair Wellness Bundle</h2><p>Your complete system for cleansing, conditioning, daily hydration, and moisture-sealing care.</p></div><div className="bundle-gallery">
         <img src="/collections/hair-wellness-bundle-official-1.webp" alt="Hair Wellness Bundle with Lathyr, Uplyft, Nourish, and Hydrate" width="1946" height="1946" loading="lazy"/>
         <img src="/collections/hair-wellness-bundle-official-3.webp" alt="Lathyr, Uplyft, Nourish, and Hydrate Hair Wellness Bundle lineup" width="1646" height="1646" loading="lazy"/>
