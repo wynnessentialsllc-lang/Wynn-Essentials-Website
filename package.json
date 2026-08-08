@@ -17,6 +17,7 @@
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/migrate.mjs",
+    "db:migrate:deploy": "node scripts/migrate.mjs --skip-if-unconfigured",
     "stripe:setup": "node scripts/setup-stripe.mjs",
     "stripe:check": "node scripts/check-launch.mjs"
   },

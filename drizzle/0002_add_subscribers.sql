@@ -1,4 +1,4 @@
-CREATE TABLE "subscribers" (
+CREATE TABLE IF NOT EXISTS "subscribers" (
 	"email" text PRIMARY KEY NOT NULL,
 	"phone" text,
 	"marketing_consent" boolean DEFAULT false NOT NULL,
