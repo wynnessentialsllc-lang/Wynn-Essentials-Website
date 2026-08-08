@@ -76,8 +76,8 @@ const shoppableCare: { name: string; detail: string; image: string; alt: string;
 // upstream at any time.
 const ingredientImages: Record<string, { src: string; alt: string; source?: string }> = {
   Aloe: { src: "/ingredients/aloe.webp", alt: "Cut aloe vera leaf and fresh aloe slices on a white background" },
-  Rosemary: { src: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Romarin_2.jpg?width=1000", alt: "Fresh rosemary sprig on a white background", source: "https://commons.wikimedia.org/wiki/File:Romarin_2.jpg" },
-  Nettle: { src: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Urticae_folium_by_Danny_S._-_001.jpg?width=1000", alt: "Nettle leaf on a white background", source: "https://commons.wikimedia.org/wiki/File:Urticae_folium_by_Danny_S._-_001.jpg" },
+  Rosemary: { src: "/ingredients/rosemary.webp", alt: "Tied bundle of fresh rosemary sprigs on a white background" },
+  Nettle: { src: "/ingredients/nettle.webp", alt: "Fresh nettle leaves on the stem, on a white background" },
   "Jojoba Oil": { src: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Jojoba.seed.jpg?width=1000", alt: "Jojoba seed on a white background", source: "https://commons.wikimedia.org/wiki/File:Jojoba.seed.jpg" },
   "Sunflower Oil": { src: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Sonnenblumenkerne_sunflower_seeds.jpg?width=1000", alt: "Sunflower seeds on a white background", source: "https://commons.wikimedia.org/wiki/File:Sonnenblumenkerne_sunflower_seeds.jpg" },
   Chamomile: { src: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Matricariae_flos_322172.jpg?width=1000", alt: "Chamomile flowers on a white background", source: "https://commons.wikimedia.org/wiki/File:Matricariae_flos_322172.jpg" },
