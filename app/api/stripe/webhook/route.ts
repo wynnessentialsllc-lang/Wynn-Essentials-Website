@@ -5,6 +5,7 @@ import { getStripe } from "../../../../lib/stripe";
 import { getDb } from "../../../../db";
 import { orders, stripeEvents, productInventory, abandonedCarts } from "../../../../db/schema";
 import { products } from "../../../data";
+import { orderRowFromSession } from "../../../../lib/record-order";
 import { notifyNewOrder, notifyCustomerOrderConfirmation } from "../../../../lib/notify";
 
 type Db = ReturnType<typeof getDb>;
@@ -55,47 +56,19 @@ async function claimEvent(db: Db, event: Stripe.Event, sessionId: string) {
 
 async function recordOrder(event: Stripe.Event, sessionId: string, status: "paid" | "failed") {
   const db = getDb();
-  if (!(await claimEvent(db, event, sessionId))) {
-    console.info("Stripe event already processed", { eventId: event.id, sessionId });
-    return;
-  }
 
   const session = await getStripe().checkout.sessions.retrieve(sessionId, {
     expand: ["line_items.data.price.product"],
   });
+  const row = orderRowFromSession(session, event.id, status);
 
-  const items = session.line_items?.data.map(item => ({
-    priceId: item.price?.id,
-    productId: typeof item.price?.product === "string" ? item.price.product : item.price?.product?.id,
-    name: item.description,
-    quantity: item.quantity,
-    unitAmount: item.price?.unit_amount,
-    totalAmount: item.amount_total,
-  })) ?? [];
-
-  const row = {
-    sessionId: session.id,
-    orderReference: session.metadata?.internalOrderReference ?? null,
-    eventId: event.id,
-    paymentIntentId: typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id ?? null,
-    status,
-    paymentStatus: session.payment_status ?? null,
-    currency: session.currency ?? null,
-    subtotalAmount: session.amount_subtotal ?? null,
-    discountAmount: session.total_details?.amount_discount ?? null,
-    shippingAmount: session.total_details?.amount_shipping ?? null,
-    taxAmount: session.total_details?.amount_tax ?? null,
-    totalAmount: session.amount_total ?? null,
-    customerEmail: session.customer_details?.email ?? null,
-    customerName: session.customer_details?.name ?? null,
-    // jsonb columns take structured values directly; stringifying would store
-    // the JSON as an opaque quoted string and break querying.
-    shippingAddress: session.collected_information?.shipping_details ?? null,
-    items,
-  };
-
-  // A session can arrive as completed and later as async_payment_failed, so the
-  // session id is the primary key and the latest verified status wins.
+  // Write the order first and unconditionally. It is keyed by the checkout
+  // session id, so this is idempotent: a Stripe redelivery (or the reconcile
+  // backfill) updates the same row instead of creating a second order, and a
+  // session that arrives completed and later async_payment_failed simply lets
+  // the latest verified status win. Doing this before the event claim is what
+  // guarantees a paid order is never stranded — if anything below fails, the
+  // order is already recorded and the retry re-runs this same safe upsert.
   await db
     .insert(orders)
     .values(row)
@@ -104,12 +77,14 @@ async function recordOrder(event: Stripe.Event, sessionId: string, status: "paid
       set: { status: row.status, paymentStatus: row.paymentStatus, updatedAt: new Date() },
     });
 
-  // Only a paid order consumes stock. Runs once per event thanks to claimEvent.
-  if (status === "paid") {
+  // The once-only side effects (stock, emails) are gated behind claiming the
+  // event id, so a Stripe redelivery re-records the order harmlessly but never
+  // decrements stock twice or emails the customer twice. claimEvent returns
+  // true only the first time this event id is seen.
+  if (status === "paid" && (await claimEvent(db, event, sessionId))) {
     await decrementStock(db, session);
-    // Best-effort emails, guaranteed once per order by claimEvent above. Each is
-    // wrapped so a notify failure never turns into a 500 (which Stripe retries):
-    // the owner alert, and the customer's order confirmation.
+    // Best-effort emails. Each is wrapped so a notify failure never turns into a
+    // 500 (which Stripe retries): the owner alert, and the customer confirmation.
     await notifyNewOrder(row).catch(() => {});
     await notifyCustomerOrderConfirmation(row).catch(() => {});
     // Close out any abandoned-cart snapshot for this buyer so no reminder is

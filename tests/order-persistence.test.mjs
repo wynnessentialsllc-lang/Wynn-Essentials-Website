@@ -70,14 +70,22 @@ test("the database connection string is never exposed to the browser", async () 
 test("webhook records orders idempotently", async () => {
   const src = await readFile(url("../app/api/stripe/webhook/route.ts"), "utf8");
 
-  // The event id must be claimed before the order is written, or a Stripe
-  // redelivery would create a duplicate order.
-  const claim = src.indexOf("claimEvent(db, event, sessionId)");
-  const insert = src.indexOf("insert(orders)");
-  assert.ok(claim > -1, "expected an event-claim step");
-  assert.ok(insert > -1, "expected orders to be inserted");
-  assert.ok(claim < insert, "the event id must be claimed before the order is written");
+  // The order is keyed by the checkout session id and written with an upsert, so
+  // a Stripe redelivery updates the same row instead of creating a second order.
+  // The write itself is idempotent and must not depend on the event claim.
+  assert.match(src, /insert\(orders\)[\s\S]*?onConflictDoUpdate\(\{[\s\S]*?target:\s*orders\.sessionId/,
+    "the order must be upserted on the session id so redelivery cannot duplicate it");
 
+  // The order must be written BEFORE (and independently of) claiming the event.
+  // Claiming first and failing before the write would let a retry skip the write
+  // and strand a paid order — the bug this ordering exists to prevent.
+  const insert = src.indexOf("insert(orders)");
+  const claim = src.indexOf("claimEvent(db, event, sessionId)");
+  assert.ok(insert > -1, "expected orders to be inserted");
+  assert.ok(claim > -1, "expected an event-claim step");
+  assert.ok(insert < claim, "the order must be written before the event id is claimed");
+
+  // The claim gates the once-only side effects and relies on a unique constraint.
   assert.match(src, /onConflictDoNothing\(\)/, "the event claim must rely on a unique constraint");
   assert.match(src, /status:\s*500/, "a failed write must return 500 so Stripe retries");
 });
