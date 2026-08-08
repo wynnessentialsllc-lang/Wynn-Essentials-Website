@@ -3,7 +3,6 @@ import {
   buildHwlRedirect,
   clearHandoff,
   consumeState,
-  crownprintConfig,
   setHandoff,
   siteOrigin,
 } from "../../../lib/crownprint";
@@ -37,16 +36,7 @@ export async function GET(request: Request) {
   const start = url.searchParams.get("start");
   if (start) {
     const flow = start === "update" ? "update" : "create";
-
-    // Dev/preview: with no HWL configured but demo enabled, seed a canned match
-    // so the full experience is viewable. `scenario` selects strong/nomatch/stale.
-    const target = flow === "update" ? crownprintConfig.crownstateUpdateUrl : crownprintConfig.assessmentUrl;
-    if (!target && crownprintConfig.demo) {
-      const scenario = url.searchParams.get("scenario") || "strong";
-      await setHandoff(`demo:${scenario}`);
-      return landing("?status=connected");
-    }
-
+    // No HWL flow configured → explicit "unavailable" state (never fake data).
     const redirect = await buildHwlRedirect(flow);
     if (!redirect) return landing("?status=unavailable");
     return NextResponse.redirect(redirect, { status: 303 });

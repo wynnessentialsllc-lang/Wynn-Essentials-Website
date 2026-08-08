@@ -4,6 +4,7 @@ import { products } from "../data";
 import { SITE_URL, ldJson } from "../seo";
 import {
   crownprintConfig,
+  crownprintIntegrationReady,
   getSafeMatch,
   hasHandoff,
   hasStrongMatch,
@@ -72,6 +73,10 @@ const CLASS_ORDER: Record<MatchClass, number> = { strong: 0, good: 1, conditiona
 export default async function ShopByCrownPrintPage() {
   const match = await getSafeMatch();
   const connected = await hasHandoff();
+  // Whether a shopper can actually create a CrownPrint and have us retrieve it.
+  // When false, the experience shows an explicit integration-unavailable state
+  // (never fabricated results, never a dead "create" button).
+  const integrationReady = crownprintIntegrationReady();
 
   const cards: CardProduct[] = match.matches
     .map((m): CardProduct | null => {
@@ -131,6 +136,7 @@ export default async function ShopByCrownPrintPage() {
         {/* Personalized, interactive panel (client). Falls back to the "create
             your CrownPrint" state for anyone who isn't connected. */}
         <CrownPrintExperience
+          integrationReady={integrationReady}
           available={match.available}
           fresh={match.fresh}
           refreshRequired={Boolean(match.refreshRequired)}

@@ -353,3 +353,4 @@
 /* Toast (mirrors the storefront's) */
 .cp-toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(120%);z-index:200;background:var(--black);color:#fff;padding:14px 22px;font-size:13px;font-weight:700;letter-spacing:.02em;opacity:0;transition:transform .35s ease,opacity .35s ease;pointer-events:none;max-width:calc(100vw - 32px)}
 .cp-toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.cp-unavailable .actions{margin-top:22px}

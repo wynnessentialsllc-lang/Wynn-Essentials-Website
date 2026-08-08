@@ -141,6 +141,7 @@ function NoStrongMatch({ guidance, productHub }: { guidance?: NoMatchGuidance; p
 }
 
 export default function CrownPrintExperience({
+  integrationReady,
   available,
   fresh,
   refreshRequired,
@@ -151,6 +152,7 @@ export default function CrownPrintExperience({
   products,
   urls,
 }: {
+  integrationReady: boolean;
   available: boolean;
   fresh: boolean;
   refreshRequired: boolean;
@@ -216,8 +218,27 @@ export default function CrownPrintExperience({
     <>
       <div className={`cp-toast${toast ? " show" : ""}`} role="status" aria-live="polite">{toast}</div>
 
-      {!showResults ? (
-        // USER STATE 1 — no CrownPrint (or not connected on this device).
+      {!showResults && !integrationReady ? (
+        // INTEGRATION UNAVAILABLE — HWL isn't configured yet. We show this
+        // explicitly instead of inventing matches or offering a create button
+        // that can't complete the round-trip.
+        <section className="cp-panel cp-unavailable" aria-labelledby="cp-unavailable-heading">
+          <p className="eyebrow">CONNECTING SOON</p>
+          <h2 id="cp-unavailable-heading">CrownPrint matching isn&rsquo;t available just yet.</h2>
+          <p>
+            Shop by CrownPrint pairs your Hair Wellness Lab CrownPrint with Wynn Essentials products.
+            The secure connection to the Hair Wellness Lab isn&rsquo;t live on this site yet — so rather
+            than show you guesses, we&rsquo;ll wait until it can give you a real, personalized match.
+          </p>
+          <p>In the meantime, you can still shop the full collection and build a routine.</p>
+          <div className="actions">
+            <Link className="button" href="/#shop">Shop the Essentials</Link>
+            <Link className="outline-button" href="/#routine-finder">Try the Routine Finder</Link>
+          </div>
+          <p className="cp-fine">No fake results, ever. Your CrownPrint stays at the Hair Wellness Lab.</p>
+        </section>
+      ) : !showResults ? (
+        // USER STATE 1 — integration is live, but this device has no CrownPrint yet.
         <section className="cp-panel cp-create" aria-labelledby="cp-create-heading">
           <p className="eyebrow">GET STARTED</p>
           <h2 id="cp-create-heading">Create your CrownPrint™</h2>

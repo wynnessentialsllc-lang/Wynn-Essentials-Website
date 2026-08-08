@@ -16,14 +16,19 @@
 //   decision trees, reason codes, and evidence weighting are NEVER accepted into
 //   the app. `normalizeSafeMatch` whitelists fields at the boundary, so even if a
 //   future HWL response includes those, they are dropped before anything renders.
-// - The shopper is identified by a short-lived, HMAC-signed, httpOnly cookie
-//   carrying an opaque handoff token from HWL — never CrownPrint answers, and
-//   never anything in a query parameter. This mirrors lib/admin-auth.ts.
+// - The shopper is identified by a short-lived, single-purpose, HMAC-signed,
+//   httpOnly cookie carrying an OPAQUE handoff token from HWL — never CrownPrint
+//   answers, CrownState/CrownHistory/report content, scoring weights, raw scores,
+//   or (unless HWL absolutely requires it) an email. HWL exchanges the token
+//   server-side; its only use here is to retrieve the safe match. Nothing is ever
+//   placed in a query parameter. This mirrors lib/admin-auth.ts.
 //
-// GRACEFUL DEGRADATION
-// When HWL is not configured, getSafeMatch() returns an "unavailable" result and
-// the storefront simply shows the "create your CrownPrint" state — the same
-// fail-open posture Stripe, Resend, and the database use elsewhere in the app.
+// NO FABRICATION
+// This adapter NEVER invents match data. When HWL is not configured or a call
+// fails, getSafeMatch() returns an "unavailable" result and the storefront shows
+// an explicit integration-unavailable / connect-CrownPrint state — never fake
+// matches. The seam is built so the live HWL integration becomes active the
+// moment credentials + endpoint are supplied, with no UI rebuild.
 
 import { cookies, headers } from "next/headers";
 import { commerceConfig } from "./commerce-config";
@@ -88,24 +93,33 @@ export const crownprintConfig = {
   // admin token so links keep working if a dedicated secret isn't set, but a
   // dedicated value is recommended.
   handoffSecret: process.env.CROWNPRINT_HANDOFF_SECRET || process.env.ADMIN_ORDERS_TOKEN || null,
-  // Dev/preview only: when "1", the connect flow can seed a canned safe match so
-  // the full experience is viewable before HWL is wired up. Never enable in prod.
-  demo: process.env.CROWNPRINT_DEMO === "1",
 };
 
+// True when the safe-match API is wired up (base URL + service token).
 export function crownprintApiConfigured() {
   return Boolean(crownprintConfig.apiBaseUrl && crownprintConfig.serviceToken);
 }
 
+// True when the whole round-trip can work: a shopper can be sent to HWL to
+// create/refresh a CrownPrint AND we can retrieve their safe match afterward. If
+// this is false, the experience shows an explicit integration-unavailable state
+// instead of a create CTA that would go nowhere — and never fabricated results.
+export function crownprintIntegrationReady() {
+  return crownprintApiConfigured() && Boolean(crownprintConfig.assessmentUrl) && Boolean(crownprintConfig.handoffSecret);
+}
+
 // ---------------------------------------------------------------------------
-// Handoff cookie: an HMAC-signed, httpOnly cookie holding an OPAQUE value only.
-// The value is either the HWL handoff token or a "demo:<scenario>" marker. It is
-// never CrownPrint answers and is never exposed to client JavaScript.
+// Handoff cookie: an HMAC-signed, httpOnly cookie holding an OPAQUE value only —
+// the HWL handoff token, which HWL exchanges server-side. It is never CrownPrint
+// answers/state/history/report/scores and is never exposed to client JavaScript.
 // ---------------------------------------------------------------------------
 
 const COOKIE = "we_crownprint";
 const STATE_COOKIE = "we_crownprint_state";
-const MAX_AGE_SECONDS = 24 * 60 * 60; // one day; a fresh handoff re-issues it
+// Short-lived pointer only. The authoritative token TTL / one-time-use and
+// revocation are enforced by HWL server-side; this cookie is a brief, single-
+// purpose handle that is re-exchanged on each view. A fresh handoff re-issues it.
+const MAX_AGE_SECONDS = 60 * 60; // one hour
 const encoder = new TextEncoder();
 
 function b64url(bytes: Uint8Array) {
@@ -229,7 +243,8 @@ export async function siteOrigin(): Promise<string> {
 // destination and a CSRF state. `flow` selects create vs. update.
 export async function buildHwlRedirect(flow: "create" | "update"): Promise<string | null> {
   const base = flow === "create" ? crownprintConfig.assessmentUrl : crownprintConfig.crownstateUpdateUrl;
-  if (!base) return null;
+  // No target flow or no signing secret → treat as unavailable rather than error.
+  if (!base || !crownprintConfig.handoffSecret) return null;
   const state = await issueState();
   const returnTo = `${await siteOrigin()}/shop-by-crownprint/connect`;
   const url = new URL(base);
@@ -315,11 +330,8 @@ export async function getSafeMatch(): Promise<SafeMatch> {
   const handoff = await readHandoff();
   if (!handoff) return UNAVAILABLE;
 
-  // Dev/preview canned scenarios so the full experience is viewable pre-HWL.
-  if (handoff.startsWith("demo:")) {
-    return crownprintConfig.demo ? demoMatch(handoff.slice("demo:".length)) : UNAVAILABLE;
-  }
-
+  // No fabrication: without a configured API we cannot retrieve a real match, so
+  // we report unavailable rather than inventing one.
   if (!crownprintApiConfigured()) return UNAVAILABLE;
   try {
     const controller = new AbortController();
@@ -345,52 +357,3 @@ export async function getSafeMatch(): Promise<SafeMatch> {
 // Convenience selectors used by the page.
 export const strongMatches = (m: SafeMatch) => m.matches.filter((x) => x.matchClass === "strong");
 export const hasStrongMatch = (m: SafeMatch) => m.matches.some((x) => x.matchClass === "strong");
-
-// ---------------------------------------------------------------------------
-// Demo payloads (dev/preview only). Built from real catalog slugs so the cards
-// render with real product data. Never used unless CROWNPRINT_DEMO=1.
-// ---------------------------------------------------------------------------
-function demoMatch(scenario: string): SafeMatch {
-  if (scenario === "nomatch") {
-    return {
-      available: true,
-      fresh: true,
-      currentPriority: "Rebuilding elasticity after repeated coloring",
-      matches: [
-        { slug: "revaivl-protein-conditioner", matchClass: "conditional", explanation: "May help if your strands feel mushy or over-conditioned, but your current need points more to a targeted bonding treatment than a rinse-out protein conditioner.", usage: "Use no more than once every two weeks and always follow with a moisturizing step." },
-      ],
-      noStrongMatch: {
-        hairNeed: "Focused strength rebuilding and bond support for chemically stressed strands.",
-        productType: "A leave-in or in-shower bond-building treatment (not a standard conditioner or oil).",
-        formulationCharacteristics: ["Concentrated actives, used sparingly", "Balanced with moisture so hair doesn't turn brittle", "Lightweight enough to layer under your normal routine"],
-        ingredientFunctions: ["Bond-supporting actives", "Strengthening amino acids / hydrolyzed proteins", "Humectants to keep protein from over-drying"],
-        whatMayNotFit: ["Heavy sealing oils on their own", "Moisture-only routines without any strength support"],
-        whyThisMatters: "Your CrownPrint shows a current strength priority. Reaching for moisture alone right now may feel good short-term but won't address what your strands are asking for.",
-      },
-    };
-  }
-  if (scenario === "stale") {
-    return {
-      available: true,
-      fresh: false,
-      refreshRequired: true,
-      currentPriority: "Moisture retention through a protective style",
-      matches: [
-        { slug: "hydrate-herbal-hair-mist", matchClass: "strong", explanation: "Fits your priority of keeping braids and the hair underneath hydrated between wash days.", usage: "Lightly mist daily on the hair beneath your style, then seal." },
-        { slug: "nourish-oil", matchClass: "good", explanation: "A light sealing step to help lock in the moisture your current style tends to wick away.", usage: "Apply a few drops to ends and any dry areas 2–4 times a week." },
-      ],
-    };
-  }
-  // default: a fresh, strong-match scenario
-  return {
-    available: true,
-    fresh: true,
-    currentPriority: "Daily moisture + scalp comfort",
-    matches: [
-      { slug: "hydrate-herbal-hair-mist", matchClass: "strong", explanation: "Directly fits your current need for lightweight daily moisture without buildup.", usage: "Mist daily on dry or damp hair, focusing on drier areas." },
-      { slug: "nourish-oil", matchClass: "strong", explanation: "Pairs with your moisture step to help your hair hold onto hydration longer.", usage: "Seal in moisture 2–4 times a week on lengths and ends." },
-      { slug: "relief-oil", matchClass: "good", explanation: "A good fit for the scalp comfort your current state is flagging.", usage: "Massage into dry or itchy areas 1–3 times a week." },
-      { slug: "uplyft-conditioner", matchClass: "conditional", explanation: "Worth considering on wash day if your hair also feels dry after cleansing.", usage: "Deep condition on wash day; leave on ~20 minutes and rinse." },
-    ],
-  };
-}
