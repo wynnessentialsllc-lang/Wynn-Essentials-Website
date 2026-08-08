@@ -237,6 +237,16 @@
 
 /* Standalone info/legal/About pages */
 .legal-page{min-height:100vh;display:flex;flex-direction:column}
+/* .pdp-bar/.pdp-crumbs/.pdp-footer carry vertical padding only — on product
+   pages the .pdp wrapper supplies the horizontal gutter. .legal-page is a bare
+   flex column with no gutter of its own, so those children would otherwise sit
+   flush against the viewport edge. Give them the same container treatment using
+   the shared width + clamp-gutter tokens, so the brand bar, breadcrumb and
+   footer line up with the page's content column. Scoped to .legal-page, so
+   .pdp product pages are untouched. */
+.legal-page>.pdp-bar,
+.legal-page>.pdp-crumbs,
+.legal-page>.pdp-footer{width:100%;max-width:1240px;margin-left:auto;margin-right:auto;padding-left:clamp(18px,4vw,48px);padding-right:clamp(18px,4vw,48px)}
 .legal-main{max-width:760px;margin:0 auto;width:100%;padding:34px clamp(18px,4vw,48px) 70px;flex:1}
 .legal-main>.eyebrow{color:var(--kraft-text)}
 .legal-main h1{font-family:var(--font-display);font-weight:400;font-size:clamp(32px,6vw,46px);margin:8px 0 6px;line-height:1.05}
@@ -277,6 +287,12 @@
    no-strong-match guidance, the education grid, and the toast.
    =========================================================================== */
 .cp-main{max-width:1120px;margin:0 auto;width:100%;padding:24px clamp(18px,4vw,48px) 80px;flex:1}
+/* Match the chrome to THIS page's content column (1120px) rather than the
+   default 1240px, so the wordmark and "Shop all products" line up with the
+   hero and match grid. Gutters stay on the shared responsive clamp token. */
+.cp-page>.pdp-bar,
+.cp-page>.pdp-crumbs,
+.cp-page>.pdp-footer{max-width:1120px}
 .cp-hero{max-width:820px;margin:18px 0 8px}
 .cp-hero h1{font-family:var(--font-display);font-weight:400;font-size:clamp(34px,6vw,60px);line-height:1.02;letter-spacing:-.03em;margin:8px 0 14px}
 .cp-lead{font-size:clamp(17px,2vw,20px);line-height:1.6;max-width:720px}

@@ -99,8 +99,12 @@ test("create and refresh flows each obtain a fresh code", async () => {
   assert.match(page, /start=create/);
   assert.match(page, /start=refresh/);
   assert.match(route, /buildOutboundRedirect\(flow\)/);
-  assert.match(lib, /flow === "create" \? crownprintConfig\.assessmentUrl/);
+  // Each flow resolves its own HWL destination (via hwlFlowUrl), and every
+  // outbound redirect mints a fresh pending/CSRF marker before leaving.
+  assert.match(lib, /if \(flow === "create"\) return crownprintConfig\.assessmentUrl/);
   assert.match(lib, /crownprintConfig\.crownstateUpdateUrl/);
+  assert.match(lib, /const base = hwlFlowUrl\(flow\)/);
+  assert.match(lib, /await issuePending\(\)/);
   // There is no stored code to reuse — the only persisted artifact is the context.
   assert.doesNotMatch(lib, /reuse|reusable credential.*code/i);
 });
@@ -151,4 +155,78 @@ test("unconfigured integration renders the explicit unavailable state, not fake 
   assert.match(html, /isn.t available just yet/i);
   assert.doesNotMatch(html, /Strong Wynn Essentials Match/);
   assert.doesNotMatch(html, /CURRENT HAIR PRIORITY/);
+});
+
+// ---------------------------------------------------------------------------
+// Connect vs. Create: two DISTINCT destinations.
+//
+// Regression guard for the reported loop, where "I already have my CrownPrint"
+// bounced the shopper straight back to /shop-by-crownprint. Root cause was
+// buildOutboundRedirect() returning null (an optional HWL_* env var was unset),
+// which the connect route turns into `landing("?status=unavailable")`.
+// ---------------------------------------------------------------------------
+
+test("create and connect CTAs point at different flows, never the same URL", async () => {
+  const { page, client } = await files();
+  // The page mints separate start= URLs...
+  assert.match(page, /connect:\s*`\$\{CANONICAL\}\/connect\?start=connect`/);
+  assert.match(page, /create:\s*`\$\{CANONICAL\}\/connect\?start=create`/);
+  // ...and the two CTAs consume the two different ones.
+  assert.match(client, /href=\{urls\.create\}[\s\S]{0,160}Create My CrownPrint/);
+  assert.match(client, /href=\{urls\.connect\}[\s\S]{0,160}Connect My CrownPrint/);
+  // The connect CTA must never be wired to the landing page or the create flow.
+  assert.doesNotMatch(client, /href="\/shop-by-crownprint"/);
+});
+
+test("every outbound flow resolves from HWL_API_BASE_URL, so one unset optional env can't dead-end a CTA", async () => {
+  const { lib } = await files();
+  // Fixed contract paths exist for all three flows.
+  assert.match(lib, /const CONNECT_PATH = "\/crownprint\/connect"/);
+  assert.match(lib, /const CREATE_PATH = "\/crownprint"/);
+  assert.match(lib, /const CROWNSTATE_PATH = "\/crownstate"/);
+  // Optional env overrides fall back to the base URL rather than yielding null.
+  assert.match(lib, /crownprintConfig\.assessmentUrl \|\| \(base \? `\$\{base\}\$\{CREATE_PATH\}`/);
+  assert.match(lib, /crownprintConfig\.crownstateUpdateUrl \|\| \(base \? `\$\{base\}\$\{CROWNSTATE_PATH\}`/);
+  // A genuinely missing prerequisite is logged, not silently swallowed.
+  assert.match(lib, /HWL_API_BASE_URL is not set/);
+  assert.match(lib, /WYNN_SESSION_SECRET is not set/);
+});
+
+test("create flow targets the paid CrownPrint landing, not the gated assessment route", async () => {
+  const { lib } = await files();
+  // CrownPrint is a paid HWL product: send shoppers to the purchase/landing
+  // page. /crownprint-quiz is entitlement-gated at HWL and must not be the
+  // default create destination.
+  assert.match(lib, /CREATE_PATH = "\/crownprint"/);
+  assert.doesNotMatch(lib, /CREATE_PATH = "\/crownprint-quiz"/);
+});
+
+test("outbound redirect carries only the validated return URL — no CrownPrint data", async () => {
+  const { lib } = await files();
+  const fn = lib.slice(lib.indexOf("export async function buildOutboundRedirect"));
+  const body = fn.slice(0, fn.indexOf("\n}"));
+  const params = body.match(/searchParams\.set\("([^"]+)"/g) || [];
+  assert.deepEqual(
+    params.map((p) => p.match(/"([^"]+)"/)[1]).sort(),
+    ["return", "source"],
+    "only `return` and `source` may cross to HWL",
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Page shell: the brand bar must share the content column's gutters.
+// ---------------------------------------------------------------------------
+
+test("legal-page chrome gets the shared container gutters instead of sitting at the viewport edge", async () => {
+  const css = await read("../app/globals.css");
+  // .legal-page is a bare flex column, so its chrome children need the gutter.
+  assert.match(
+    css,
+    /\.legal-page>\.pdp-bar,\s*\.legal-page>\.pdp-crumbs,\s*\.legal-page>\.pdp-footer\{[^}]*padding-left:clamp\(18px,4vw,48px\)/,
+    "header/breadcrumb/footer need the shared responsive gutter on .legal-page",
+  );
+  // Shop by CrownPrint aligns its chrome to its own 1120px content column.
+  assert.match(css, /\.cp-page>\.pdp-bar,[\s\S]{0,120}max-width:1120px/);
+  // The product-page container is untouched (no regression on /products/*).
+  assert.match(css, /\.pdp\{max-width:1240px;margin:0 auto;padding:0 clamp\(18px,4vw,48px\) 60px/);
 });

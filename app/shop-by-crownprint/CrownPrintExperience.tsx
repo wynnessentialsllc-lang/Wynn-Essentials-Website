@@ -130,21 +130,25 @@ function ConnectPanel({ urls, note }: { urls: Urls; note?: string }) {
       <h2 id="cp-create-heading">Create your CrownPrint™</h2>
       {note && <p className="cp-note" role="status">{note}</p>}
       <p>
-        CrownPrint looks at more than one trait. In a few minutes at the Hair Wellness Lab, you&rsquo;ll
-        create a CrownPrint that reflects your hair&rsquo;s characteristics and current state — then come
-        back here to see which Wynn Essentials products may fit what your hair needs right now.
+        CrownPrint looks at more than one trait. At the Hair Wellness Lab you&rsquo;ll create a CrownPrint
+        that reflects your hair&rsquo;s characteristics and current state — then come back here to see which
+        Wynn Essentials products may fit what your hair needs right now. CrownPrint is a one-time $9.99
+        Hair Wellness Lab purchase — no subscription.
       </p>
       <div className="cp-create-steps">
         <div><span>01</span><p>Create your CrownPrint at the Hair Wellness Lab.</p></div>
         <div><span>02</span><p>We securely bring back a safe match — never your answers.</p></div>
         <div><span>03</span><p>Shop Wynn Essentials products matched to your current need.</p></div>
       </div>
+      {/* Two DISTINCT destinations: `create` starts the paid HWL CrownPrint
+          flow; `connect` re-verifies an existing CrownPrint and mints a fresh
+          one-time code. They must never point at the same URL. */}
       <div className="actions">
         <a className="button" href={urls.create} onClick={() => trackCrownPrintEvent("create_crownprint_clicked")}>
-          Create My CrownPrint™
+          Create My CrownPrint™ — $9.99
         </a>
-        <a className="outline-button" href={urls.connect} onClick={() => trackCrownPrintEvent("create_crownprint_clicked")}>
-          I already have a CrownPrint
+        <a className="outline-button" href={urls.connect} onClick={() => trackCrownPrintEvent("connect_crownprint_clicked")}>
+          Connect My CrownPrint™
         </a>
       </div>
       <p className="cp-fine">Your CrownPrint answers stay at the Hair Wellness Lab. We never place them in the address bar.</p>
