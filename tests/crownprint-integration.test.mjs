@@ -101,7 +101,7 @@ test("create and refresh flows each obtain a fresh code", async () => {
   assert.match(route, /buildOutboundRedirect\(flow\)/);
   // Each flow resolves its own HWL destination (via hwlFlowUrl), and every
   // outbound redirect mints a fresh pending/CSRF marker before leaving.
-  assert.match(lib, /if \(flow === "create"\) return crownprintConfig\.assessmentUrl/);
+  assert.match(lib, /flow === "create"\s*\?\s*\[crownprintConfig\.assessmentUrl, CREATE_PATH/);
   assert.match(lib, /crownprintConfig\.crownstateUpdateUrl/);
   assert.match(lib, /const base = hwlFlowUrl\(flow\)/);
   assert.match(lib, /await issuePending\(\)/);
@@ -185,8 +185,11 @@ test("every outbound flow resolves from HWL_API_BASE_URL, so one unset optional 
   assert.match(lib, /const CREATE_PATH = "\/crownprint"/);
   assert.match(lib, /const CROWNSTATE_PATH = "\/crownstate"/);
   // Optional env overrides fall back to the base URL rather than yielding null.
-  assert.match(lib, /crownprintConfig\.assessmentUrl \|\| \(base \? `\$\{base\}\$\{CREATE_PATH\}`/);
-  assert.match(lib, /crownprintConfig\.crownstateUpdateUrl \|\| \(base \? `\$\{base\}\$\{CROWNSTATE_PATH\}`/);
+  // (The override is origin-checked first — see domain-canonical.test.mjs — but
+  // a rejected override must still degrade to the contract path, never to null.)
+  assert.match(lib, /\[crownprintConfig\.assessmentUrl, CREATE_PATH/);
+  assert.match(lib, /\[crownprintConfig\.crownstateUpdateUrl, CROWNSTATE_PATH/);
+  assert.match(lib, /return hwlUrl\(override, name\) \|\| \(base \? `\$\{base\}\$\{path\}` : null\)/);
   // A genuinely missing prerequisite is logged, not silently swallowed.
   assert.match(lib, /HWL_API_BASE_URL is not set/);
   assert.match(lib, /WYNN_SESSION_SECRET is not set/);
