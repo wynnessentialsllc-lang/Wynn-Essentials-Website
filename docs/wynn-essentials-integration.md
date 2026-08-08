@@ -192,8 +192,8 @@ production correctness is asserted by `tests/domain-canonical.test.mjs`.
 ```
 POST {HWL_API_BASE_URL}/api/integrations/wynn-essentials/match
 Content-Type: application/json
-X-Wynn-Timestamp: <unix-ms timestamp>
-X-Wynn-Signature: hex( HMAC_SHA256( WYNN_INTEGRATION_HMAC_SECRET, "<timestamp>.<rawBody>" ) )
+X-Wynn-Timestamp: <unix SECONDS>
+X-Wynn-Signature: base64url( HMAC_SHA256( WYNN_INTEGRATION_HMAC_SECRET, "<timestamp>.<rawBody>" ) )
 
 <rawBody>   // the exact bytes signed and sent, e.g.:
 {"code":"<opaque one-time code>","return":"https://<wynn-domain>/shop-by-crownprint/connect"}
@@ -202,6 +202,40 @@ X-Wynn-Signature: hex( HMAC_SHA256( WYNN_INTEGRATION_HMAC_SECRET, "<timestamp>.<
 The signature is computed over the concatenation `timestamp + "." + rawBody`, and
 `rawBody` is the verbatim serialized body (`lib/crownprint.ts` builds it once and
 both signs and sends the same string, so bytes cannot drift). No Bearer header.
+
+**HWL's verifier is the authority on both encodings** (`lib/wynnMatch/integrationAuth.ts`
+in the Hair Wellness Lab repo):
+
+| Term | Value | Why it matters |
+| --- | --- | --- |
+| Timestamp unit | **unix seconds** | Freshness is `abs(nowSeconds - timestamp) > 300`. A millisecond timestamp reads as ~56,000 years in the future and is rejected as `stale_timestamp` **before the signature is computed** — a correct secret still yields 401 |
+| Signature encoding | **base64url** | Compared with a length check then a constant-time compare. A hex signature is 64 chars against an expected 43 and fails as `signature_length_mismatch` |
+
+Both of these were wrong on the Wynn side until the production 401s were traced;
+`tests/crownprint-diagnostics.test.mjs` pins them, and the Hair Wellness Lab
+suite pins the verifier's half.
+
+### Diagnosing a 401 without exposing the secret
+
+Neither site can see the other's secret, and a wrong secret and a wrong signing
+convention produce the identical 401. Both sides therefore log a truncated,
+one-way fingerprint — `SHA256(secret).hex().slice(0, 12)` — plus `SHA-256` of the
+exact bytes signed:
+
+```
+Wynn:  [crownprint] HMAC secret fingerprint: abc123def456 · timestamp: … (unix seconds) · rawBody SHA-256: …
+HWL:   [crownprint] Wynn exchange rejected: <reason> · Wynn HMAC secret fingerprint: abc123def456 · …
+```
+
+Fingerprints **differ** → configuration mismatch; fix the env var, change no
+code. Fingerprints **match** → the signing contract differs; compare timestamp
+unit, encoding, and the two body hashes.
+
+The fingerprint is server-log only: never in a response, a URL, the database, or
+the browser. HWL's granular rejection reasons (`missing_signature`,
+`missing_timestamp`, `invalid_timestamp`, `stale_timestamp`,
+`signature_length_mismatch`, `signature_mismatch`) are likewise log-only — the
+HTTP response is a generic 401 that reveals nothing about which check tripped.
 
 Responses:
 
