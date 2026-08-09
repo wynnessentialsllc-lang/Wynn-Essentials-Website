@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { blogPosts, type BlogPost } from "../../../db/schema";
-import { SITE_URL, ldJson } from "../../seo";
+import { SITE_URL, abs, ldJson } from "../../seo";
 import { renderMarkdown } from "../../../lib/markdown";
 
 export const dynamic = "force-dynamic";
@@ -24,8 +24,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const post = await getPost(slug);
   if (!post) return { title: "Article not found | Wynn Essentials", robots: { index: false, follow: false } };
   const description = clip(post.excerpt || post.body.replace(/[#>*`_\-]/g, ""));
+  // Short brand suffix on purpose: Google truncates a title around 60
+  // characters, and "Insights" was spending nine of them on a section name no
+  // one searches for. The post title gets the room instead.
   return {
-    title: `${post.title} | Wynn Essentials Insights`,
+    title: `${post.title} | Wynn Essentials`,
     description,
     alternates: { canonical: `/blog/${slug}` },
     openGraph: { title: post.title, description, url: `/blog/${slug}`, siteName: "Wynn Essentials", type: "article", ...(post.coverImage ? { images: [{ url: post.coverImage }] } : {}) },
@@ -40,22 +43,47 @@ export default async function BlogArticle({ params }: { params: Promise<{ slug: 
   const post = await getPost(slug);
   if (!post) notFound();
 
+  const url = `${SITE_URL}/blog/${post.slug}`;
+
   const articleSchema = {
     "@context": "https://schema.org",
     "@type": "BlogPosting",
     headline: post.title,
     ...(post.excerpt ? { description: post.excerpt } : {}),
-    ...(post.coverImage ? { image: post.coverImage } : {}),
+    // Absolute, or crawlers silently drop it — the same rule the product and
+    // organization schemas follow via abs().
+    ...(post.coverImage ? { image: [abs(post.coverImage)] } : {}),
     author: { "@type": "Organization", name: post.author },
-    publisher: { "@type": "Organization", name: "Wynn Essentials", url: SITE_URL },
+    publisher: {
+      "@type": "Organization",
+      name: "Wynn Essentials",
+      url: SITE_URL,
+      logo: { "@type": "ImageObject", url: abs("/wynn-essentials-logo.jpeg") },
+    },
     ...(post.publishedAt ? { datePublished: new Date(post.publishedAt).toISOString() } : {}),
     ...(post.updatedAt ? { dateModified: new Date(post.updatedAt).toISOString() } : {}),
-    mainEntityOfPage: `${SITE_URL}/blog/${post.slug}`,
+    inLanguage: "en-US",
+    wordCount: post.body.split(/\s+/).filter(Boolean).length,
+    isPartOf: { "@type": "Blog", name: "Wynn Essentials Insights", url: `${SITE_URL}/blog` },
+    mainEntityOfPage: { "@type": "WebPage", "@id": url },
+  };
+
+  // The page already renders this trail visually; emitting it as data is what
+  // puts "Home › Insights › Title" in the search result instead of a raw URL.
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+      { "@type": "ListItem", position: 2, name: "Insights", item: `${SITE_URL}/blog` },
+      { "@type": "ListItem", position: 3, name: post.title, item: url },
+    ],
   };
 
   return (
     <div className="collection">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(articleSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(breadcrumbSchema) }} />
 
       <header className="collection-bar">
         <Link className="pdp-logo" href="/">WYNN ESSENTIALS<span>Healthy Hair Is a Practice</span></Link>
