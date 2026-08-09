@@ -750,9 +750,10 @@
 
 /* A small golden plane and curling vapor trail complete the skywriting story. */
 .boho-sky-plane{width:min(330px,58vw);margin:4px auto -18px;pointer-events:none;filter:drop-shadow(0 5px 8px rgba(28,75,112,.25))}
+.boho-sky-plane{position:relative}
 .boho-sky-plane svg{display:block;width:100%;height:auto;overflow:visible}
+.boho-sky-plane>img{position:absolute;z-index:1;right:-4%;top:-27%;width:52%;height:auto;object-fit:contain;transform:rotate(-7deg);filter:drop-shadow(0 7px 7px rgba(20,55,84,.32))}
 .boho-vapor-trail{fill:none;stroke:#fff;stroke-width:5;stroke-linecap:round;opacity:.94;filter:drop-shadow(0 0 5px #fff)}
-.boho-plane{fill:#c98732;stroke:#8b541d;stroke-width:1.5;stroke-linejoin:round}
 @media(max-width:760px){.boho-sky-plane{width:min(250px,72vw);margin:2px auto -10px}}
 
 /* Bold pink edging keeps the white skywriting legible across the moving sky. */
