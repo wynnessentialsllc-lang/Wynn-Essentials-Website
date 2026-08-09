@@ -642,3 +642,11 @@
 /* Dreamy cloud field for the Boho editorial portrait; the original photography remains untouched. */
 .boho-portrait{background:radial-gradient(ellipse 28% 16% at 8% 18%,rgba(255,255,255,.94) 0 48%,transparent 51%),radial-gradient(ellipse 34% 19% at 23% 10%,rgba(255,255,255,.88) 0 46%,transparent 49%),radial-gradient(ellipse 30% 17% at 42% 17%,rgba(255,255,255,.82) 0 44%,transparent 48%),radial-gradient(ellipse 32% 18% at 92% 26%,rgba(255,255,255,.9) 0 46%,transparent 50%),radial-gradient(ellipse 38% 20% at 79% 12%,rgba(255,255,255,.78) 0 45%,transparent 49%),radial-gradient(ellipse 34% 18% at 4% 79%,rgba(255,255,255,.88) 0 46%,transparent 50%),radial-gradient(ellipse 30% 17% at 23% 90%,rgba(255,255,255,.72) 0 45%,transparent 49%),radial-gradient(ellipse 36% 19% at 96% 82%,rgba(255,255,255,.84) 0 45%,transparent 50%),linear-gradient(145deg,#50aee7 0%,#84cef1 52%,#b9e2f5 100%)}
 .boho-intro{background:radial-gradient(ellipse 38% 18% at 4% 16%,rgba(255,255,255,.82) 0 46%,transparent 50%),radial-gradient(ellipse 34% 16% at 24% 8%,rgba(255,255,255,.7) 0 44%,transparent 49%),radial-gradient(ellipse 42% 19% at 98% 18%,rgba(255,255,255,.84) 0 45%,transparent 50%),radial-gradient(ellipse 36% 17% at 82% 84%,rgba(255,255,255,.7) 0 44%,transparent 49%),linear-gradient(150deg,#91d2f3 0%,#bce5f7 54%,#d9f0fa 100%)}
+
+/* One photographic sky spans the full Boho story so the clouds have natural depth. */
+.boho-editorial{background-color:#7bc8ef;background-image:url("/collections/boho-cloud-sky-v2.png");background-repeat:no-repeat;background-position:50% 48%;background-size:112% auto;animation:boho-cloud-drift 24s ease-in-out infinite alternate}
+.boho-portrait,.boho-intro{background:transparent}
+.boho-intro h2,.boho-intro .boho-lede,.boho-intro .boho-collection-link{text-shadow:0 1px 1px rgba(255,255,255,.5)}
+@keyframes boho-cloud-drift{from{background-position:47% 49%}to{background-position:53% 46%}}
+@media(max-width:760px){.boho-editorial{background-size:auto 108%;animation-duration:30s}}
+@media(prefers-reduced-motion:reduce){.boho-editorial{animation:none}}
