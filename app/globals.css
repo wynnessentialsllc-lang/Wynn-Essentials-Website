@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=Dancing+Script:wght@500;600;700&display=swap");
 @import "tailwindcss";
 
 :root{--white:#fff;--soft:#fcfbf8;--black:#111;--kraft:#c8aa82;--kraft-dark:#b39067;--kraft-text:#846743;--sand:#ddc9aa;--linen:#ece6dd;--taupe:#a98f72;--muted:#5c564d;--line:#ded8ce;--font-display:Georgia,"Times New Roman",serif;--font-sans:Arial,Helvetica,sans-serif}
@@ -773,3 +774,11 @@
 .boho-product-heading>p:last-child{font-size:clamp(24px,2.6vw,39px);font-weight:700;line-height:1.5;-webkit-text-stroke:0 transparent}
 .boho-product-heading>p span{color:#fff;font-weight:700;-webkit-text-stroke:0 transparent;text-shadow:inherit}
 @media(max-width:760px){.boho-intro>.eyebrow,.boho-intro .boho-lede,.boho-intro .boho-collection-link,.boho-product-heading>p:last-child,.boho-product-heading>p span{-webkit-text-stroke:0 transparent}.boho-intro .boho-lede{font-size:22px;line-height:1.5}.boho-intro .boho-collection-link{font-size:20px}.boho-product-heading>p:last-child{font-size:22px;line-height:1.5}}
+
+/* Mimic the reference's loose, vapor-written script with a consistent webfont. */
+.boho-intro .boho-lede,.boho-intro .boho-collection-link,.boho-product-heading>p:last-child{font-family:"Dancing Script","Segoe Script",cursive;font-style:normal;font-weight:600;letter-spacing:.01em;-webkit-text-stroke:.2px rgba(255,255,255,.9);text-shadow:0 1px 1px rgba(29,84,130,.72),0 0 2px #fff,0 0 5px rgba(255,255,255,.96),0 0 10px rgba(255,255,255,.7),0 0 18px rgba(255,255,255,.38)}
+.boho-intro .boho-lede{font-size:clamp(27px,2.7vw,42px);line-height:1.38}
+.boho-intro .boho-collection-link{font-size:clamp(25px,2.4vw,37px);line-height:1.3}
+.boho-product-heading>p:last-child{font-size:clamp(29px,3vw,46px);line-height:1.42}
+.boho-product-heading>p span{font-family:inherit;font-weight:600;-webkit-text-stroke:.2px rgba(255,255,255,.9)}
+@media(max-width:760px){.boho-intro .boho-lede{font-size:26px;line-height:1.4}.boho-intro .boho-collection-link{font-size:24px}.boho-product-heading>p:last-child{font-size:26px;line-height:1.42}}
