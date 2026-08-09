@@ -693,3 +693,11 @@
 .boho-product-heading>p:last-child{padding:18px 32px;animation-duration:7.4s;animation-delay:-3.2s}
 @keyframes boho-copy-float{0%,100%{transform:translate3d(0,0,0) rotate(-.25deg)}50%{transform:translate3d(7px,-12px,0) rotate(.35deg)}}
 @media(prefers-reduced-motion:reduce){.boho-intro>.eyebrow,.boho-intro .boho-lede,.boho-intro .boho-collection-link,.boho-product-heading>p:last-child{animation:none}}
+
+/* The texture selector gets a fuller, unmistakable floating-cloud silhouette. */
+.boho-product-heading>p:last-child{max-width:min(820px,84vw);padding:25px 48px;border-radius:999px;box-shadow:0 18px 34px rgba(25,64,91,.28);animation-name:boho-texture-cloud-float;animation-duration:5.8s}
+.boho-product-heading>p:last-child:before{width:31%;height:125%;left:10%;top:-58%;box-shadow:180px 14px 0 -2px #fff}
+.boho-product-heading>p:last-child:after{width:27%;height:108%;right:9%;top:-47%;box-shadow:-150px 7px 0 5px #fff}
+@keyframes boho-texture-cloud-float{0%,100%{transform:translate3d(-5px,2px,0) rotate(-.3deg);filter:drop-shadow(0 3px 2px rgba(255,255,255,.2))}50%{transform:translate3d(8px,-17px,0) rotate(.35deg);filter:drop-shadow(0 10px 8px rgba(29,71,99,.16))}}
+@media(max-width:760px){.boho-product-heading>p:last-child{max-width:88vw;padding:22px 30px}.boho-product-heading>p:last-child:before{box-shadow:90px 10px 0 -2px #fff}.boho-product-heading>p:last-child:after{box-shadow:-80px 6px 0 3px #fff}}
+@media(prefers-reduced-motion:reduce){.boho-product-heading>p:last-child{animation:none;filter:none}}
