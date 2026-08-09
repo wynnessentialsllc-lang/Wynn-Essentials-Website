@@ -793,3 +793,6 @@
 
 /* Echo the luminous skywriting glow around the white portrait frame. */
 .boho-portrait figure{box-shadow:0 0 5px rgba(255,255,255,.98),0 0 14px rgba(255,255,255,.86),0 0 28px rgba(255,255,255,.58),0 24px 60px rgba(24,69,106,.36)}
+
+/* Shift the portrait's aura from white to the campaign's blush pink. */
+.boho-portrait figure{box-shadow:0 0 5px rgba(255,205,224,.98),0 0 15px rgba(244,154,190,.88),0 0 32px rgba(231,116,165,.62),0 24px 60px rgba(24,69,106,.36)}
