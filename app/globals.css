@@ -782,3 +782,7 @@
 .boho-product-heading>p:last-child{font-size:clamp(29px,3vw,46px);line-height:1.42}
 .boho-product-heading>p span{font-family:inherit;font-weight:600;-webkit-text-stroke:.2px rgba(255,255,255,.9)}
 @media(max-width:760px){.boho-intro .boho-lede{font-size:26px;line-height:1.4}.boho-intro .boho-collection-link{font-size:24px}.boho-product-heading>p:last-child{font-size:26px;line-height:1.42}}
+
+/* Keep all four texture names together as one uninterrupted skywritten line. */
+.boho-product-heading>p:last-child{width:100%;max-width:none;font-size:clamp(19px,2.15vw,36px);line-height:1.2;white-space:nowrap}
+@media(max-width:760px){.boho-product-heading>p:last-child{width:calc(100vw - 24px);font-size:clamp(13px,3.35vw,20px);white-space:nowrap}}
