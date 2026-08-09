@@ -3,6 +3,7 @@ import Link from "next/link";
 import { desc, eq } from "drizzle-orm";
 import { getDb } from "../../db";
 import { blogPosts } from "../../db/schema";
+import { SITE_URL, abs, ldJson } from "../seo";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -10,7 +11,8 @@ export const metadata: Metadata = {
   title: "Wynn Essentials Insights — Textured-Hair Education",
   description: "Routine guides, ingredient education, and protective-style care for textured hair — from Wynn Essentials, in partnership with Hair Wellness Lab.",
   alternates: { canonical: "/blog" },
-  openGraph: { title: "Wynn Essentials Insights — Textured-Hair Education", description: "Routine guides, ingredient education, and protective-style care for textured hair.", url: "/blog", siteName: "Wynn Essentials", type: "website" },
+  openGraph: { title: "Wynn Essentials Insights — Textured-Hair Education", description: "Routine guides, ingredient education, and protective-style care for textured hair.", url: "/blog", siteName: "Wynn Essentials", type: "website", images: [{ url: "/og-basket-espresso.jpg", width: 1200, height: 630, alt: "Wynn Essentials textured-hair essentials" }] },
+  twitter: { card: "summary_large_image", title: "Wynn Essentials Insights — Textured-Hair Education", description: "Routine guides, ingredient education, and protective-style care for textured hair.", images: ["/og-basket-espresso.jpg"] },
 };
 
 const when = (d: Date | null) => (d ? new Intl.DateTimeFormat("en-US", { dateStyle: "long" }).format(d) : "");
@@ -21,8 +23,42 @@ export default async function BlogIndex() {
     posts = await getDb().select().from(blogPosts).where(eq(blogPosts.status, "published")).orderBy(desc(blogPosts.publishedAt)).limit(60);
   } catch { posts = []; }
 
+  // Names the hub as a Blog and lists what is on it, so a crawler sees an
+  // article index rather than an anonymous grid of links. Built from the same
+  // rows the page renders, so it can never claim a post that is not published.
+  const blogSchema = {
+    "@context": "https://schema.org",
+    "@type": "Blog",
+    name: "Wynn Essentials Insights",
+    description: "Routine guides, ingredient education, and protective-style care for textured hair — from Wynn Essentials, in partnership with Hair Wellness Lab.",
+    url: `${SITE_URL}/blog`,
+    inLanguage: "en-US",
+    publisher: { "@type": "Organization", name: "Wynn Essentials", url: SITE_URL },
+    blogPost: posts.map(p => ({
+      "@type": "BlogPosting",
+      headline: p.title,
+      url: `${SITE_URL}/blog/${p.slug}`,
+      ...(p.excerpt ? { description: p.excerpt } : {}),
+      ...(p.coverImage ? { image: [abs(p.coverImage)] } : {}),
+      author: { "@type": "Organization", name: p.author },
+      ...(p.publishedAt ? { datePublished: new Date(p.publishedAt).toISOString() } : {}),
+    })),
+  };
+
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+      { "@type": "ListItem", position: 2, name: "Insights", item: `${SITE_URL}/blog` },
+    ],
+  };
+
   return (
     <div className="collection">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(blogSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(breadcrumbSchema) }} />
+
       <header className="collection-bar">
         <Link className="pdp-logo" href="/">WYNN ESSENTIALS<span>Healthy Hair Is a Practice</span></Link>
         <Link className="pdp-bar-shop" href="/#shop">Shop all products</Link>

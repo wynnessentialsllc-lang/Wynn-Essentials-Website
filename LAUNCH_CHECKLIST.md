@@ -35,6 +35,8 @@ Run `npm run db:migrate` (after `npx vercel env pull .env.local`), **or** paste 
 - `0012_review_requests.sql` — post-purchase review-request emails
 - `0013_import_square_subscribers.sql` — one-time Square contact import
 - `0014_add_unsubscribe.sql` — `unsubscribed_at` column (email unsubscribe / CAN-SPAM)
+- `0015_crownprint_sessions.sql` — Wynn-side Shop by CrownPrint™ session store
+- `0016_seed_crownprint_insight.sql` — the published CrownPrint / Hair Wellness Lab Insights article
 
 > The `/admin/subscribers` view and the email-unsubscribe flow both read/write
 > `unsubscribed_at`. If the Subscribers page reports `column "unsubscribed_at"
