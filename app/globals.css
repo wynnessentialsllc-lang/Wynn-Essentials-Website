@@ -764,3 +764,12 @@
 /* Keep the small premium label crisp rather than rendering it as cursive skywriting. */
 .boho-intro>.eyebrow{font-family:var(--font-sans),Arial,sans-serif;font-style:normal;font-weight:900;letter-spacing:.22em;line-height:1.2;text-transform:uppercase;-webkit-text-stroke:.8px #d96f9b;text-shadow:0 0 3px #fff,0 0 9px rgba(255,255,255,.95),1px 2px 0 rgba(177,74,120,.72),0 5px 14px rgba(39,79,119,.34)}
 @media(max-width:760px){.boho-intro>.eyebrow{font-size:17px!important;letter-spacing:.16em;-webkit-text-stroke:.65px #d96f9b}}
+
+/* Cleaner skywriting: crisp white script, restrained vapor glow, and navy depth. */
+.boho-intro>.eyebrow,.boho-intro .boho-lede,.boho-intro .boho-collection-link,.boho-product-heading>p:last-child{color:#fff;font-family:"Apple Chancery","Segoe Script","Bradley Hand",cursive;font-style:normal;font-weight:700;letter-spacing:.015em;-webkit-text-stroke:0 transparent;text-shadow:0 1px 1px rgba(20,65,108,.9),0 2px 3px rgba(20,65,108,.72),0 0 5px rgba(255,255,255,.82),0 0 10px rgba(255,255,255,.5)}
+.boho-intro>.eyebrow{font-family:var(--font-sans),Arial,sans-serif;font-style:normal;font-weight:900;letter-spacing:.2em;-webkit-text-stroke:0 transparent;text-shadow:0 1px 1px rgba(20,65,108,.95),0 2px 4px rgba(20,65,108,.72),0 0 6px rgba(255,255,255,.72)}
+.boho-intro .boho-lede{max-width:820px;font-size:clamp(22px,2.25vw,34px);font-weight:700;line-height:1.5}
+.boho-intro .boho-collection-link{font-size:clamp(20px,2vw,30px);font-weight:700;line-height:1.35;text-decoration-thickness:2px}
+.boho-product-heading>p:last-child{font-size:clamp(24px,2.6vw,39px);font-weight:700;line-height:1.5;-webkit-text-stroke:0 transparent}
+.boho-product-heading>p span{color:#fff;font-weight:700;-webkit-text-stroke:0 transparent;text-shadow:inherit}
+@media(max-width:760px){.boho-intro>.eyebrow,.boho-intro .boho-lede,.boho-intro .boho-collection-link,.boho-product-heading>p:last-child,.boho-product-heading>p span{-webkit-text-stroke:0 transparent}.boho-intro .boho-lede{font-size:22px;line-height:1.5}.boho-intro .boho-collection-link{font-size:20px}.boho-product-heading>p:last-child{font-size:22px;line-height:1.5}}
