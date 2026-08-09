@@ -701,3 +701,14 @@
 @keyframes boho-texture-cloud-float{0%,100%{transform:translate3d(-5px,2px,0) rotate(-.3deg);filter:drop-shadow(0 3px 2px rgba(255,255,255,.2))}50%{transform:translate3d(8px,-17px,0) rotate(.35deg);filter:drop-shadow(0 10px 8px rgba(29,71,99,.16))}}
 @media(max-width:760px){.boho-product-heading>p:last-child{max-width:88vw;padding:22px 30px}.boho-product-heading>p:last-child:before{box-shadow:90px 10px 0 -2px #fff}.boho-product-heading>p:last-child:after{box-shadow:-80px 6px 0 3px #fff}}
 @media(prefers-reduced-motion:reduce){.boho-product-heading>p:last-child{animation:none;filter:none}}
+
+/* Photographic cloud cutouts replace the drawn lobes and reserve a safe center for copy. */
+.boho-intro>.eyebrow,.boho-intro .boho-lede,.boho-intro .boho-collection-link,.boho-product-heading>p:last-child{background-color:transparent;background-image:url("/collections/boho-copy-cloud-v1.png");background-repeat:no-repeat;background-position:center;background-size:100% 100%;border-radius:0;box-shadow:none;animation-name:boho-real-cloud-float;filter:drop-shadow(0 14px 13px rgba(22,58,84,.22))}
+.boho-intro>.eyebrow:before,.boho-intro .boho-lede:before,.boho-intro .boho-collection-link:before,.boho-product-heading>p:last-child:before,.boho-intro>.eyebrow:after,.boho-intro .boho-lede:after,.boho-intro .boho-collection-link:after,.boho-product-heading>p:last-child:after{display:none}
+.boho-intro>.eyebrow{padding:24px 38px}
+.boho-intro .boho-lede{max-width:650px;margin-top:48px;padding:54px 72px}
+.boho-intro .boho-collection-link{padding:28px 44px}
+.boho-product-heading>p:last-child{max-width:min(860px,88vw);margin-top:50px;padding:45px 76px;line-height:1.5}
+@keyframes boho-real-cloud-float{0%,100%{transform:translate3d(-3px,1px,0)}50%{transform:translate3d(6px,-8px,0)}}
+@media(max-width:760px){.boho-intro>.eyebrow{padding:20px 30px}.boho-intro .boho-lede{margin-top:38px;padding:46px 42px}.boho-intro .boho-collection-link{padding:25px 34px}.boho-product-heading>p:last-child{margin-top:42px;padding:42px 38px;font-size:16px}}
+@media(prefers-reduced-motion:reduce){.boho-intro>.eyebrow,.boho-intro .boho-lede,.boho-intro .boho-collection-link,.boho-product-heading>p:last-child{animation:none;filter:drop-shadow(0 10px 10px rgba(22,58,84,.18))}}
