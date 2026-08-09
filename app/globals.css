@@ -651,3 +651,11 @@
 @media(max-width:760px){.boho-editorial{background-size:auto 118%;animation-duration:15s}}
 @media(prefers-reduced-motion:reduce){.boho-editorial{animation:none}}
 @media(max-width:760px){.boho-intro{order:-1}}
+
+/* High-contrast editorial type over the moving photographic sky. */
+.boho-intro h2 span{font-size:clamp(54px,5.6vw,88px);font-weight:700;line-height:.92;text-shadow:0 2px 0 rgba(255,255,255,.95),0 5px 20px rgba(31,66,91,.28)}
+.boho-intro h2 em{font-size:clamp(34px,3.5vw,50px);font-weight:700;text-shadow:0 2px 0 rgba(255,255,255,.9),0 4px 14px rgba(90,55,77,.2)}
+.boho-intro h2 strong{color:#f3a0bd;background:radial-gradient(circle at 18% 28%,#ffd7e5 0 13%,transparent 14%),radial-gradient(circle at 43% 64%,#ef91b3 0 18%,transparent 19%),radial-gradient(circle at 72% 30%,#ffdce8 0 14%,transparent 15%),linear-gradient(180deg,#ffd1df 0%,#ec8eb1 72%,#dc7fa7 100%);background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;-webkit-text-stroke:2px #fff;font-size:clamp(68px,8vw,122px);font-weight:900;letter-spacing:.01em;text-shadow:0 -8px 18px rgba(255,190,216,.72),10px -2px 18px rgba(255,190,216,.58),-10px 2px 18px rgba(255,190,216,.58),0 10px 0 rgba(185,157,210,.52),0 16px 28px rgba(77,45,72,.26)}
+.boho-intro .boho-lede{max-width:560px;padding:12px 18px;background:rgba(255,255,255,.78);border:1px solid rgba(255,255,255,.9);border-radius:3px;box-shadow:0 8px 24px rgba(36,79,109,.12);color:#352923;font-size:clamp(16px,1.25vw,19px);font-weight:650;line-height:1.65;text-shadow:none}
+.boho-intro .boho-collection-link{padding:5px 2px;color:#241b17;font-size:13px;font-weight:900;text-shadow:0 1px 0 rgba(255,255,255,.9)}
+@media(max-width:760px){.boho-intro h2 span{font-size:clamp(50px,14vw,72px)}.boho-intro h2 strong{font-size:clamp(64px,20vw,96px);-webkit-text-stroke:1.5px #fff}.boho-intro .boho-lede{font-size:16px}}
