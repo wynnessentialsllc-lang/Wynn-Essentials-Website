@@ -668,3 +668,8 @@
 .boho-product-heading>p span{color:#297fac;font-weight:900}
 @media(max-width:760px){.boho-product-heading{margin:0 -6vw 30px;padding:58px 7vw 46px;background-size:auto 125%;animation-duration:15s}.boho-product-heading h3{font-size:clamp(46px,14vw,66px)}.boho-product-heading>p:last-child{font-size:17px}}
 @media(prefers-reduced-motion:reduce){.boho-product-heading{animation:none}}
+
+/* Solid contrast surfaces keep small copy readable over both blue sky and white clouds. */
+.boho-intro>.eyebrow{display:inline-block;padding:8px 12px;background:#fff;border:1px solid rgba(52,40,33,.14);border-radius:3px;box-shadow:0 6px 18px rgba(25,64,91,.16);color:#352923;font-weight:900;text-shadow:none}
+.boho-intro .boho-lede{background:#fff;border-color:#fff;box-shadow:0 9px 26px rgba(25,64,91,.18)}
+.boho-intro .boho-collection-link{display:inline-block;padding:10px 14px;background:#fff;border:1px solid rgba(52,40,33,.14);border-radius:3px;box-shadow:0 7px 20px rgba(25,64,91,.16);color:#201915;font-weight:900;text-shadow:none}
