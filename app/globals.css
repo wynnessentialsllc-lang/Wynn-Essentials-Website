@@ -747,3 +747,10 @@
 .boho-product-heading>p:last-child{display:block;margin-top:54px;font-size:clamp(27px,3vw,46px);line-height:1.4;text-align:center;white-space:normal;-webkit-text-stroke:.45px #fff}
 .boho-product-heading>p span{color:#fff;font-weight:600}
 @media(max-width:760px){.boho-intro>.eyebrow{font-size:20px!important}.boho-intro .boho-lede{width:90vw;margin-top:32px;font-size:25px;line-height:1.35}.boho-intro .boho-collection-link{width:88vw;margin-top:30px;font-size:22px}.boho-product-heading>p:last-child{width:90vw;min-height:0;margin-top:42px;padding:0;font-size:25px;line-height:1.45;-webkit-text-stroke:.3px #fff}}
+
+/* A small golden plane and curling vapor trail complete the skywriting story. */
+.boho-sky-plane{width:min(330px,58vw);margin:4px auto -18px;pointer-events:none;filter:drop-shadow(0 5px 8px rgba(28,75,112,.25))}
+.boho-sky-plane svg{display:block;width:100%;height:auto;overflow:visible}
+.boho-vapor-trail{fill:none;stroke:#fff;stroke-width:5;stroke-linecap:round;opacity:.94;filter:drop-shadow(0 0 5px #fff)}
+.boho-plane{fill:#c98732;stroke:#8b541d;stroke-width:1.5;stroke-linejoin:round}
+@media(max-width:760px){.boho-sky-plane{width:min(250px,72vw);margin:2px auto -10px}}
