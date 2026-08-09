@@ -800,3 +800,7 @@
 /* Match the frame to DREAMS: blush-pink structure surrounded by a white glow. */
 .boho-portrait figure{border-color:#efa0bd;box-shadow:0 0 5px rgba(255,255,255,1),0 0 15px rgba(255,255,255,.92),0 0 30px rgba(255,255,255,.66),0 24px 60px rgba(24,69,106,.36)}
 .boho-portrait figure:after{border-color:#ffd7e5}
+
+/* Carry the blush campaign glow onto each Boho product card. */
+.boho-card{border-color:rgba(239,160,189,.7);box-shadow:0 0 5px rgba(255,220,233,.92),0 0 15px rgba(239,160,189,.62),0 0 30px rgba(225,119,166,.34),0 16px 38px rgba(39,74,105,.2);transition:box-shadow .35s ease,transform .35s ease}
+.boho-card:hover,.boho-card:focus-within{box-shadow:0 0 7px rgba(255,235,243,1),0 0 20px rgba(244,167,197,.82),0 0 40px rgba(225,119,166,.48),0 20px 44px rgba(39,74,105,.24)}
