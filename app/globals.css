@@ -754,3 +754,8 @@
 .boho-vapor-trail{fill:none;stroke:#fff;stroke-width:5;stroke-linecap:round;opacity:.94;filter:drop-shadow(0 0 5px #fff)}
 .boho-plane{fill:#c98732;stroke:#8b541d;stroke-width:1.5;stroke-linejoin:round}
 @media(max-width:760px){.boho-sky-plane{width:min(250px,72vw);margin:2px auto -10px}}
+
+/* Bold pink edging keeps the white skywriting legible across the moving sky. */
+.boho-intro>.eyebrow,.boho-intro .boho-lede,.boho-intro .boho-collection-link,.boho-product-heading>p:last-child{font-weight:800;-webkit-text-stroke:1.35px #e27ca6;text-shadow:0 0 2px #fff,0 0 7px #fff,0 0 14px rgba(255,255,255,.9),2px 2px 0 rgba(190,91,136,.72),0 5px 18px rgba(45,83,126,.4)}
+.boho-product-heading>p span{color:#fff;font-weight:800;-webkit-text-stroke:1.35px #e27ca6}
+@media(max-width:760px){.boho-intro>.eyebrow,.boho-intro .boho-lede,.boho-intro .boho-collection-link,.boho-product-heading>p:last-child,.boho-product-heading>p span{-webkit-text-stroke:1px #e27ca6}}
