@@ -252,20 +252,56 @@ test("a code exchanged once is never exchanged again on a second visit", async (
 // 5 · UNKNOWN OR MISSING flow FAILS CLOSED
 // ════════════════════════════════════════════════════════════════════════════
 
-for (const marker of [
-  { label: "absent", query: {} },
-  { label: "empty", query: { flow: "" } },
-  { label: "unrecognised", query: { flow: "somebody_else_initiated" } },
-  { label: "case-shifted", query: { flow: "HWL_INITIATED" } },
-  { label: "padded", query: { flow: " hwl_initiated" } },
-  { label: "prefixed", query: { flow: "not_hwl_initiated" } },
+/**
+ * There are exactly TWO accepted values and they are compared with `===`:
+ *
+ *   "hwl_initiated"   "wynn_initiated"
+ *
+ * No trimming, no lower-casing, no prefix match, no default. Everything else —
+ * including anything that merely LOOKS like one of them — is "unknown", and
+ * unknown takes the stricter rule. Each case below is quoted in its own test
+ * name so a near-miss can never be mistaken for the real value when these
+ * results are read back or summarised.
+ */
+for (const flow of [
+  "",                        // present but empty
+  " hwl_initiated",          // leading space
+  "hwl_initiated ",          // trailing space
+  "HWL_INITIATED",           // upper case
+  "Hwl_Initiated",           // mixed case
+  "hwl-initiated",           // hyphen for underscore
+  "hwl_initiated\n",         // trailing newline
+  "not_hwl_initiated",       // the valid value as a suffix
+  "hwl_initiated_v2",        // the valid value as a prefix
+  "somebody_else_initiated", // simply unrecognised
 ]) {
-  test(`5. an ${marker.label} flow marker applies the stricter rule`, async () => {
-    const r = await callback({ status: "match_ready", code: "code-xyz", ...marker.query }, { cookies: {} });
-    assert.equal(r.state, "SESSION_LOST", `"${marker.query.flow ?? ""}" must not be read as hwl_initiated`);
+  test(`5. flow=${JSON.stringify(flow)} is not hwl_initiated, so the stricter rule applies`, async () => {
+    const r = await callback({ status: "match_ready", code: "code-xyz", flow }, { cookies: {} });
+    assert.equal(r.state, "SESSION_LOST", `${JSON.stringify(flow)} was read as hwl_initiated`);
     assert.equal(exchanges.length, 0);
   });
 }
+
+test("5. an absent flow marker applies the stricter rule", async () => {
+  const r = await callback({ status: "match_ready", code: "code-xyz" }, { cookies: {} });
+  assert.equal(r.state, "SESSION_LOST");
+  assert.equal(exchanges.length, 0);
+});
+
+/**
+ * The two outcomes side by side, from one request that differs by one
+ * character. Stated as a single test because the near-miss cases above only
+ * mean something next to the value that actually works.
+ */
+test("5c. exactly \"hwl_initiated\" connects; the same string plus one space does not", async () => {
+  const exact = await callback({ status: "match_ready", code: "code-1", flow: "hwl_initiated" }, { cookies: {} });
+  assert.equal(exact.state, "MATCH_READY");
+  assert.equal(exact.connected, true);
+
+  const padded = await callback({ status: "match_ready", code: "code-2", flow: " hwl_initiated" }, { cookies: {} });
+  assert.equal(padded.state, "SESSION_LOST");
+  assert.equal(padded.connected, false);
+});
 
 test("5b. a repeated flow parameter cannot smuggle the weaker rule past the stricter one", async () => {
   const { result } = await requestScope({ cookies: {} }, () =>
