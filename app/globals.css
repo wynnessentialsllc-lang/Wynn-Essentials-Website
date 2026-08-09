@@ -796,3 +796,7 @@
 
 /* Shift the portrait's aura from white to the campaign's blush pink. */
 .boho-portrait figure{box-shadow:0 0 5px rgba(255,205,224,.98),0 0 15px rgba(244,154,190,.88),0 0 32px rgba(231,116,165,.62),0 24px 60px rgba(24,69,106,.36)}
+
+/* Match the frame to DREAMS: blush-pink structure surrounded by a white glow. */
+.boho-portrait figure{border-color:#efa0bd;box-shadow:0 0 5px rgba(255,255,255,1),0 0 15px rgba(255,255,255,.92),0 0 30px rgba(255,255,255,.66),0 24px 60px rgba(24,69,106,.36)}
+.boho-portrait figure:after{border-color:#ffd7e5}
