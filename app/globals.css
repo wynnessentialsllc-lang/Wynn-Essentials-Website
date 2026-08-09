@@ -810,3 +810,11 @@
 .boho-portrait figure{transform-style:preserve-3d;transform:translate3d(0,-14px,34px) rotateX(1.4deg) rotateY(-3deg) rotateZ(-1deg);box-shadow:0 0 5px rgba(255,255,255,1),0 0 15px rgba(255,255,255,.9),0 0 30px rgba(255,255,255,.62),16px 30px 22px -12px rgba(13,50,82,.42),28px 48px 70px rgba(13,50,82,.32);animation:boho-portrait-hover 6s ease-in-out infinite;will-change:transform}
 @keyframes boho-portrait-hover{0%,100%{transform:translate3d(0,-10px,34px) rotateX(1.4deg) rotateY(-3deg) rotateZ(-1deg)}50%{transform:translate3d(0,-24px,44px) rotateX(.5deg) rotateY(-1.8deg) rotateZ(-.6deg)}}
 @media(prefers-reduced-motion:reduce){.boho-portrait figure{animation:none}}
+
+/* Turn the Boho campaign's blush accents into a cohesive neon-pink light system. */
+.boho-intro h2 em{color:#ff8fc0;text-shadow:0 0 2px #fff,0 0 7px #ffd7e9,0 0 15px #ff80b8,0 0 28px rgba(255,61,146,.9),0 0 48px rgba(244,38,132,.55)}
+.boho-intro h2 strong{background:linear-gradient(180deg,#fff0f7 0%,#ffb7d5 22%,#ff6eae 68%,#f33f91 100%);background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;-webkit-text-stroke:1.7px #fff;text-shadow:0 0 4px #fff,0 0 10px #ffc2dc,0 0 22px #ff70ad,0 0 42px rgba(245,44,137,.82),0 10px 0 rgba(184,130,211,.55),0 16px 30px rgba(72,42,73,.3)}
+.boho-portrait figure{border-color:#ff65a8;box-shadow:0 0 4px #fff,0 0 11px #ffd8e9,0 0 23px #ff78b3,0 0 42px rgba(246,50,143,.78),18px 32px 28px -14px rgba(13,50,82,.46),30px 50px 74px rgba(13,50,82,.32)}
+.boho-portrait figure:after{border-color:#fff0f7}
+.boho-card{border-color:#ff70ad;box-shadow:0 0 4px rgba(255,255,255,.96),0 0 12px rgba(255,191,218,.88),0 0 25px rgba(255,91,165,.62),0 0 42px rgba(242,45,136,.36),0 18px 40px rgba(35,69,101,.22)}
+.boho-card:hover,.boho-card:focus-within{box-shadow:0 0 6px #fff,0 0 16px #ffc2dc,0 0 32px #ff65a8,0 0 54px rgba(242,45,136,.62),0 22px 48px rgba(35,69,101,.26)}
