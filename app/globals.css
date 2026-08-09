@@ -650,3 +650,4 @@
 @keyframes boho-cloud-drift{from{background-position:47% 49%}to{background-position:53% 46%}}
 @media(max-width:760px){.boho-editorial{background-size:auto 108%;animation-duration:30s}}
 @media(prefers-reduced-motion:reduce){.boho-editorial{animation:none}}
+@media(max-width:760px){.boho-intro{order:-1}}
