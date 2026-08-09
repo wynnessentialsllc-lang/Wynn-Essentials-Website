@@ -759,3 +759,7 @@
 .boho-intro>.eyebrow,.boho-intro .boho-lede,.boho-intro .boho-collection-link,.boho-product-heading>p:last-child{font-weight:800;-webkit-text-stroke:1.35px #e27ca6;text-shadow:0 0 2px #fff,0 0 7px #fff,0 0 14px rgba(255,255,255,.9),2px 2px 0 rgba(190,91,136,.72),0 5px 18px rgba(45,83,126,.4)}
 .boho-product-heading>p span{color:#fff;font-weight:800;-webkit-text-stroke:1.35px #e27ca6}
 @media(max-width:760px){.boho-intro>.eyebrow,.boho-intro .boho-lede,.boho-intro .boho-collection-link,.boho-product-heading>p:last-child,.boho-product-heading>p span{-webkit-text-stroke:1px #e27ca6}}
+
+/* Keep the small premium label crisp rather than rendering it as cursive skywriting. */
+.boho-intro>.eyebrow{font-family:var(--font-sans),Arial,sans-serif;font-style:normal;font-weight:900;letter-spacing:.22em;line-height:1.2;text-transform:uppercase;-webkit-text-stroke:.8px #d96f9b;text-shadow:0 0 3px #fff,0 0 9px rgba(255,255,255,.95),1px 2px 0 rgba(177,74,120,.72),0 5px 14px rgba(39,79,119,.34)}
+@media(max-width:760px){.boho-intro>.eyebrow{font-size:17px!important;letter-spacing:.16em;-webkit-text-stroke:.65px #d96f9b}}
