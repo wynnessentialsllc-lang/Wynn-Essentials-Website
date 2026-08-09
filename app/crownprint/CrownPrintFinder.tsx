@@ -487,7 +487,7 @@ export default function CrownPrintFinder({
 
           {/* 5 — BEST WYNN MATCHES */}
           <section className="cp-panel cp-results" aria-labelledby="cp-results-heading">
-            <p className="eyebrow">BEST WYNN MATCHES</p>
+            <p className="eyebrow">BEST WYNN ESSENTIALS MATCHES</p>
             <h2 id="cp-results-heading">
               {noFit ? "No product match for this CrownPrint" : "What we’d put in your routine"}
             </h2>
@@ -529,7 +529,7 @@ export default function CrownPrintFinder({
           {/* 6 — WHAT WYNN DOES NOT CURRENTLY CARRY */}
           {gaps.length > 0 && (
             <section className="cp-panel cp-gaps" aria-labelledby="cp-gaps-heading">
-              <p className="eyebrow">WHAT WYNN DOES NOT CURRENTLY CARRY</p>
+              <p className="eyebrow">WHAT WYNN ESSENTIALS DOES NOT CURRENTLY CARRY</p>
               <h2 id="cp-gaps-heading">Gaps we won&rsquo;t pretend to fill</h2>
               <p>
                 Your CrownPrint points at these, and we don&rsquo;t make them. Buy them elsewhere — we&rsquo;d rather you

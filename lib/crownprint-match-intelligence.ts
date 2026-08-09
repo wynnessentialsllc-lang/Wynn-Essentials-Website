@@ -413,7 +413,7 @@ export function buildRationale(input: RationaleInput): MatchRationale {
     if (productReason) parts.push(productReason);
     if (wynnFilled) {
       parts.push(
-        "It sits at Good rather than Strong on purpose: the Hair Wellness Lab identified the need, and Wynn Essentials matched its own catalog to it. Wynn never promotes a product to a Strong Match that the Lab did not support — selling it is not evidence that it is right for you.",
+        "It sits at Good rather than Strong on purpose: the Hair Wellness Lab identified the need, and Wynn Essentials matched its own catalog to it. Wynn Essentials never promotes a product to a Strong Match that the Lab did not support — selling it is not evidence that it is right for you.",
       );
     } else if (limitedBy?.length) {
       parts.push(
