@@ -20,11 +20,21 @@ import { adminTokenConfigured } from "../../../../lib/admin-auth";
  *   allowedOriginConfigured boolean — the trusted HWL origin resolves
  *   audience               string   — the integration audience this app uses
  *   app / environment      string   — which deployment answered
+ *   serverTimeSeconds      number   — this deployment's clock, in the unit the
+ *                                     exchange signature timestamp uses
+ *   timestampUnit          string   — that unit, stated rather than assumed
+ *   timestampToleranceSeconds number — the freshness window both clocks must
+ *                                     agree within
+ *
+ * The clock fields answer the second bring-up question the fingerprint cannot.
+ * A signature can be byte-correct and still be refused as stale if the two
+ * hosts have drifted. Call this and HWL's equivalent in quick succession and
+ * subtract. A clock is not a secret, and this route is token-gated regardless.
  *
  * WHAT IT NEVER RETURNS
  * The secret, any HMAC key or signature, any connect code, any CrownPrint or
- * CrownState data, any user data, and no stack or config beyond the five fields
- * above.
+ * CrownState data, any user data, and no stack or config beyond the fields
+ * listed above.
  *
  * WHY IT IS GATED
  * The fingerprint is one-way and truncated, so it does not disclose the secret.
@@ -71,6 +81,9 @@ export async function GET(request: Request) {
       secretFingerprint: secret ? await secretFingerprint(secret) : null,
       allowedOriginConfigured: Boolean(hwlOrigin()),
       audience: AUDIENCE,
+      serverTimeSeconds: Math.floor(Date.now() / 1000),
+      timestampUnit: "seconds",
+      timestampToleranceSeconds: 300,
     },
     { headers: { "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } },
   );
