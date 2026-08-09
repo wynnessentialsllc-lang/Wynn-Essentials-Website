@@ -36,20 +36,51 @@ test("2. a wrong token gets the same 404", async () => {
   assert.equal((await call({})).status, 404);
 });
 
-test("3. the admin token returns exactly the five approved fields", async () => {
+test("3. the admin token returns exactly the approved fields", async () => {
   const res = await withToken(ADMIN_TOKEN);
   assert.equal(res.status, 200);
   const body = await res.json();
 
+  // A fixed allowlist, widened once and on purpose. The three clock fields were
+  // added because the fingerprint answers "same secret?" but not "same clock?",
+  // and a byte-correct signature is still refused when the two hosts have
+  // drifted past the freshness window. A wall-clock reading and two constants
+  // of the protocol are not secrets, and the route stays token-gated. Nothing
+  // joins this list without the same argument being made for it.
   assert.deepEqual(
     Object.keys(body).sort(),
-    ["allowedOriginConfigured", "app", "audience", "environment", "integrationConfigured", "secretFingerprint"],
+    [
+      "allowedOriginConfigured",
+      "app",
+      "audience",
+      "environment",
+      "integrationConfigured",
+      "secretFingerprint",
+      "serverTimeSeconds",
+      "timestampToleranceSeconds",
+      "timestampUnit",
+    ],
     "the payload is a fixed allowlist — nothing else may be added by accident",
   );
   assert.equal(body.app, "wynn-essentials");
   assert.equal(body.integrationConfigured, true);
   assert.equal(body.allowedOriginConfigured, true);
   assert.equal(body.audience, "wynn-essentials");
+});
+
+test("3b. the clock fields say what the exchange signature actually uses", async () => {
+  const body = await (await withToken(ADMIN_TOKEN)).json();
+
+  // Seconds, not milliseconds — stating the unit is the whole point of the field.
+  assert.equal(body.timestampUnit, "seconds");
+  assert.equal(body.timestampToleranceSeconds, 300);
+  assert.ok(Number.isInteger(body.serverTimeSeconds));
+  assert.ok(
+    Math.abs(body.serverTimeSeconds - Math.floor(Date.now() / 1000)) <= 5,
+    "the reported clock must be this deployment's own, read at request time",
+  );
+  // A seconds reading is ~10 digits; a milliseconds one is 13.
+  assert.ok(String(body.serverTimeSeconds).length <= 11, "serverTimeSeconds is in milliseconds");
 });
 
 test("4. the fingerprint is the same value both sites log, and nothing more", async () => {

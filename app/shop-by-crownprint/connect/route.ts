@@ -90,19 +90,74 @@ export async function GET(request: Request) {
     return landing(status);
   }
 
-  // CSRF: this browser must have initiated the connect within the window. The
-  // check is absolute — a code that arrives without a valid pending marker is
-  // NEVER exchanged — but the two ways it can fail need different recovery copy,
-  // and both need to be visible in the logs. Neither outcome asks the shopper to
-  // pay again or to retake the assessment.
-  const pending = await consumePending();
-  if (pending !== "ok") {
-    console.error(
-      pending === "missing"
-        ? `[crownprint] Connect code arrived with NO pending cookie. Refusing the exchange. Common causes: the return URL landed on a different host than the outbound hop (bare vs www, or a preview domain), third-party cookie blocking, or the HWL flow was finished in another browser. Return host: ${url.host}.`
-        : "[crownprint] Connect code arrived with an invalid or expired pending cookie. Refusing the exchange. The 15-minute window elapsed, or WYNN_SESSION_SECRET changed between the two hops.",
+  /*
+   * WHICH JOURNEY IS THIS?
+   *
+   * The pending-cookie check below is a CSRF marker: it proves the browser that
+   * came back is the one WE sent out. That is meaningful only for a journey
+   * WYNN started. For a journey Hair Wellness Lab started — a shopper clicking
+   * "Shop products for my CrownPrint" on their paid HWL report — Wynn was never
+   * visited before this callback, so no outbound hop happened here and no
+   * pending cookie could exist. Requiring one made the primary paid-report CTA
+   * fail on its first click by design, with SESSION_LOST.
+   *
+   * HWL now states the journey's origin explicitly on the return contract.
+   * We read it; we never infer it from the absence of state, which is how this
+   * class of bug gets rediscovered.
+   *
+   * `flow` IS NOT AUTHORIZATION. It selects which callback-state rule applies
+   * and nothing else. Trust still comes from the one-time code, the HMAC
+   * exchange, and HWL's entitlement check — all unchanged below, and all
+   * equally required on both branches.
+   */
+  const flowParam = url.searchParams.get("flow");
+  const flow: "wynn_initiated" | "hwl_initiated" | "unknown" =
+    flowParam === "wynn_initiated" ? "wynn_initiated"
+      : flowParam === "hwl_initiated" ? "hwl_initiated"
+        : "unknown";
+
+  /*
+   * Unknown or absent → the STRICTER rule, never the weaker one.
+   *
+   * Failing closed here means applying Wynn-initiated validation, not refusing
+   * outright: an HWL-initiated journey is refused exactly as it is today, while
+   * a legitimate Wynn-initiated journey from a deploy that predates `flow`
+   * keeps working. Nothing is inferred to be HWL-initiated, ever — the only way
+   * to skip the pending check is for HWL to say so in as many words.
+   */
+  const requirePendingState = flow !== "hwl_initiated";
+
+  if (flow === "unknown") {
+    console.warn(
+      `[crownprint] Connect code arrived with ${flowParam === null ? "no" : `an unrecognised (${flowParam})`} flow marker. ` +
+        "Applying Wynn-initiated validation. If this is a paid-report CTA it will be refused — check that HWL is deployed with the flow contract.",
     );
-    return landing(pending === "missing" ? "SESSION_LOST" : "EXPIRED");
+  }
+
+  if (requirePendingState) {
+    // CSRF: this browser must have initiated the connect within the window. The
+    // check is absolute for a Wynn-initiated journey — a code that arrives
+    // without a valid pending marker is NEVER exchanged — but the two ways it
+    // can fail need different recovery copy, and both need to be visible in the
+    // logs. Neither outcome asks the shopper to pay again or to retake the
+    // assessment.
+    const pending = await consumePending();
+    if (pending !== "ok") {
+      console.error(
+        pending === "missing"
+          ? `[crownprint] Connect code arrived with NO pending cookie on a ${flow} journey. Refusing the exchange. Common causes: the return URL landed on a different host than the outbound hop (bare vs www, or a preview domain), third-party cookie blocking, or the HWL flow was finished in another browser. Return host: ${url.host}.`
+          : "[crownprint] Connect code arrived with an invalid or expired pending cookie. Refusing the exchange. The 15-minute window elapsed, or WYNN_SESSION_SECRET changed between the two hops.",
+      );
+      return landing(pending === "missing" ? "SESSION_LOST" : "EXPIRED");
+    }
+  } else {
+    /*
+     * HWL-initiated: there is no pending marker to consume, and its absence is
+     * expected rather than suspicious. Clear any stale one so a later
+     * Wynn-initiated journey cannot reuse a marker this hop left behind.
+     */
+    await consumePending();
+    console.info("[crownprint] HWL-initiated journey; no Wynn pending state expected. Authorization is the one-time code.");
   }
 
   // Exchange the code EXACTLY ONCE. HWL atomically redeems it; after this the
