@@ -681,3 +681,15 @@
 .boho-grid{padding-top:38px;background:#f4eadc;box-shadow:0 0 0 100vmax #f4eadc;clip-path:inset(0 -100vmax)}
 @media(max-width:760px){.boho-hair{background-size:auto 118%;animation-duration:15s}.boho-product-heading{margin-top:0}.boho-grid{padding-top:30px}}
 @media(prefers-reduced-motion:reduce){.boho-hair{animation:none}}
+
+/* Readability panels become independently floating cloud forms. */
+.boho-intro>.eyebrow,.boho-intro .boho-lede,.boho-intro .boho-collection-link,.boho-product-heading>p:last-child{position:relative;isolation:isolate;border:0;border-radius:48% 52% 45% 55%/58% 45% 55% 42%;box-shadow:0 12px 26px rgba(25,64,91,.2);animation:boho-copy-float 6s ease-in-out infinite}
+.boho-intro>.eyebrow:before,.boho-intro .boho-lede:before,.boho-intro .boho-collection-link:before,.boho-product-heading>p:last-child:before,.boho-intro>.eyebrow:after,.boho-intro .boho-lede:after,.boho-intro .boho-collection-link:after,.boho-product-heading>p:last-child:after{position:absolute;z-index:-1;background:#fff;border-radius:50%;content:"";pointer-events:none}
+.boho-intro>.eyebrow:before,.boho-intro .boho-lede:before,.boho-intro .boho-collection-link:before,.boho-product-heading>p:last-child:before{width:38%;height:78%;left:12%;top:-28%}
+.boho-intro>.eyebrow:after,.boho-intro .boho-lede:after,.boho-intro .boho-collection-link:after,.boho-product-heading>p:last-child:after{width:34%;height:72%;right:13%;top:-20%}
+.boho-intro>.eyebrow{padding:12px 22px;animation-duration:5.5s}
+.boho-intro .boho-lede{padding:24px 34px;animation-duration:7s;animation-delay:-1.4s}
+.boho-intro .boho-collection-link{padding:14px 24px;animation-duration:6.2s;animation-delay:-2.6s}
+.boho-product-heading>p:last-child{padding:18px 32px;animation-duration:7.4s;animation-delay:-3.2s}
+@keyframes boho-copy-float{0%,100%{transform:translate3d(0,0,0) rotate(-.25deg)}50%{transform:translate3d(7px,-12px,0) rotate(.35deg)}}
+@media(prefers-reduced-motion:reduce){.boho-intro>.eyebrow,.boho-intro .boho-lede,.boho-intro .boho-collection-link,.boho-product-heading>p:last-child{animation:none}}
