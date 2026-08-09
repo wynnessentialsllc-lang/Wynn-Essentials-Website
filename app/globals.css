@@ -673,3 +673,11 @@
 .boho-intro>.eyebrow{display:inline-block;padding:8px 12px;background:#fff;border:1px solid rgba(52,40,33,.14);border-radius:3px;box-shadow:0 6px 18px rgba(25,64,91,.16);color:#352923;font-weight:900;text-shadow:none}
 .boho-intro .boho-lede{background:#fff;border-color:#fff;box-shadow:0 9px 26px rgba(25,64,91,.18)}
 .boho-intro .boho-collection-link{display:inline-block;padding:10px 14px;background:#fff;border:1px solid rgba(52,40,33,.14);border-radius:3px;box-shadow:0 7px 20px rgba(25,64,91,.16);color:#201915;font-weight:900;text-shadow:none}
+
+/* A single shared sky removes the visual seam between the story and product transition. */
+.boho-hair{background-color:#7bc8ef;background-image:url("/collections/boho-cloud-sky-v3.png");background-repeat:no-repeat;background-position:50% 48%;background-size:125% auto;animation:boho-cloud-drift 12s ease-in-out infinite alternate}
+.boho-editorial,.boho-product-heading{background-color:transparent;background-image:none;animation:none}
+.boho-product-heading{margin-top:0;border-top:0}
+.boho-grid{padding-top:38px;background:#f4eadc;box-shadow:0 0 0 100vmax #f4eadc;clip-path:inset(0 -100vmax)}
+@media(max-width:760px){.boho-hair{background-size:auto 118%;animation-duration:15s}.boho-product-heading{margin-top:0}.boho-grid{padding-top:30px}}
+@media(prefers-reduced-motion:reduce){.boho-hair{animation:none}}
