@@ -260,6 +260,11 @@ test("the connect callback maps every HWL outcome to an explicit state", async (
   }
   // Every redirect out of the callback carries a state marker — none is bare.
   assert.match(route, /\$\{LANDING\}\?state=\$\{state\}/);
+  // ...and LANDING is pinned to the real customer results route. HWL returns to
+  // /shop-by-crownprint/connect, the exchange happens here, and this is the only
+  // thing that decides where the shopper actually lands. A stale value (the
+  // Shopify-era /pages/… route) would 404 every successful exchange.
+  assert.match(route, /const LANDING = "\/shop-by-crownprint";/);
   // A non-match-ready verdict drops any session left from an earlier visit.
   assert.match(route, /status === "NO_CROWNPRINT" \|\| status === "AUTH_REQUIRED"\) await clearMatchSession\(\)/);
   // MATCH_READY without a code is a contract violation, not a CrownPrint verdict.
