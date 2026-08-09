@@ -721,3 +721,9 @@
 .boho-hair{background-size:cover;background-position:center center}
 .boho-grid{padding-top:38px;padding-bottom:34px;background:transparent;box-shadow:none;clip-path:none}
 @media(max-width:760px){.boho-hair{background-size:auto 110%;background-position:center center}.boho-grid{padding-top:30px;padding-bottom:28px}}
+
+/* Strict safe zones prevent copy from reaching the transparent edges of real cloud cutouts. */
+.boho-intro .boho-lede{box-sizing:border-box;width:min(760px,92vw);max-width:none;min-height:360px;padding:118px 150px 88px;font-size:clamp(15px,1.15vw,18px);line-height:1.55;text-align:center}
+.boho-intro .boho-collection-link{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;width:min(620px,86vw);min-height:180px;padding:62px 100px;font-size:12px;line-height:1.35;text-align:center;white-space:normal}
+.boho-product-heading>p:last-child{min-height:430px;padding:132px 168px 92px;font-size:clamp(16px,1.55vw,21px);line-height:1.4}
+@media(max-width:760px){.boho-intro .boho-lede{width:94vw;min-height:320px;padding:98px 62px 72px;font-size:15px}.boho-intro .boho-collection-link{width:90vw;min-height:160px;padding:55px 58px;font-size:11px}.boho-product-heading>p:last-child{width:94vw;min-height:330px;padding:102px 60px 72px;font-size:15px}}
