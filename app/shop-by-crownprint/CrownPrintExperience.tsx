@@ -563,7 +563,7 @@ export default function CrownPrintExperience({
         {functions.length > 0 && (
           <div className="cp-functions-inline">
             <p className="eyebrow">PRODUCT FUNCTIONS YOU NEED</p>
-            <p className="cp-fine">Resolved by the Hair Wellness Lab. Everything below is Wynn matching its catalog to these.</p>
+            <p className="cp-fine">Resolved by the Hair Wellness Lab. Everything below is Wynn Essentials matching its catalog to these.</p>
             <ul>{functions.map((f) => <li key={f.label}><b>{f.label}</b>{f.detail ? ` — ${f.detail}` : ""}</li>)}</ul>
           </div>
         )}
@@ -572,14 +572,14 @@ export default function CrownPrintExperience({
             shopper is told what those words mean — and what they don't. */}
         <MatchLegend source={source} />
 
-        <h3 className="cp-section-heading">Best Wynn matches</h3>
+        <h3 className="cp-section-heading">Best Wynn Essentials matches</h3>
         <MatchGroup cls="strong" cards={products} onAdd={onAdd} />
         <MatchGroup cls="good" cards={products} onAdd={onAdd} />
         <MatchGroup cls="conditional" cards={products} onAdd={onAdd} />
 
         {gaps.length > 0 && (
           <div className="cp-functions-inline cp-gaps-inline">
-            <p className="eyebrow">WHAT WYNN DOES NOT CURRENTLY CARRY</p>
+            <p className="eyebrow">WHAT WYNN ESSENTIALS DOES NOT CURRENTLY CARRY</p>
             <p className="cp-fine">
               Your resolved CrownPrint calls for these and we don&rsquo;t make them. Buy them elsewhere — we&rsquo;d
               rather you have the right routine than a complete receipt.

@@ -8,9 +8,11 @@
 import { existsSync } from "node:fs";
 
 const STUB = new URL("./next-headers-stub.mjs", import.meta.url).href;
+const SERVER_STUB = new URL("./next-server-stub.mjs", import.meta.url).href;
 
 export async function resolve(specifier, context, nextResolve) {
   if (specifier === "next/headers") return { url: STUB, shortCircuit: true };
+  if (specifier === "next/server") return { url: SERVER_STUB, shortCircuit: true };
   if (specifier.startsWith(".") && !/\.[mc]?[jt]s(\?|$)/.test(specifier) && context.parentURL) {
     const [path, query] = specifier.split("?");
     const candidate = new URL(`${path}.ts`, context.parentURL);

@@ -119,7 +119,18 @@ export async function GET(request: Request) {
   // context whose entitlement is inactive or whose assessment is incomplete.
   // Entitlement is the gate, so that resolves to NO_CROWNPRINT, not to matches.
   const resolved = deriveContextStatus(result.context);
-  console.info(`[crownprint] Exchange succeeded; context resolved as ${resolved} with ${result.context.matches.length} match(es).`);
+  // Counts only — enough to see at a glance how complete the resolved 360
+  // context was, without a single CrownPrint value crossing into the logs.
+  const ctx = result.context;
+  console.info(
+    `[crownprint] Exchange succeeded; context resolved as ${resolved}. ` +
+      `code: ${ctx.crownPrintCode ? "present" : "absent"} · ` +
+      `crownState: ${ctx.crownState.present ? (ctx.crownState.fresh ? "fresh" : "stale") : "absent"} · ` +
+      `priorities: ${ctx.currentPriorities?.length ?? 0} · ` +
+      `functions: ${ctx.productFunctionsNeeded?.length ?? 0} · ` +
+      `matches: ${ctx.matches.length} · ` +
+      `notCarried: ${ctx.notCarried?.length ?? 0}`,
+  );
   if (resolved === "NO_CROWNPRINT") {
     await clearMatchSession();
     return landing("NO_CROWNPRINT");
