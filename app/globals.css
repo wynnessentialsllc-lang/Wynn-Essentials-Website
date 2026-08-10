@@ -981,6 +981,7 @@
 }
 
 /* Skywriting section label, matching the white vapor lettering in this story. */
+.boho-product-heading{border-top:0;border-bottom:0}
 .boho-product-heading>.eyebrow{
   display:block;
   width:max-content;
