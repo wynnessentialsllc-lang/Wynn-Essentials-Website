@@ -89,6 +89,7 @@ const render = (over = {}) =>
       gaps: [],
       contextNotes: [],
       noStrongMatch: false,
+      unresolvedCount: 0,
       hasStrong: true,
       products: [REVAIVL],
       urls: URLS,
@@ -192,11 +193,11 @@ test("a coverage-only product name never becomes a rendered product card", () =>
 test("an accessory renders in its own section with mechanical, not formulation, language", () => {
   const html = render({ accessories: [ACCESSORY], coverage: COVERAGE });
 
-  assert.match(html, /Helpful tools &amp; accessories/i);
+  assert.match(html, /Routine support/i);
   assert.match(html, /Soft Life Bonnet/);
   assert.match(html, /reduced overnight friction against bedding/);
   assert.match(html, /work mechanically/, "the mechanism is explained as mechanical");
-  assert.match(html, /not CrownPrint formulation matches/, "and explicitly separated from matches");
+  assert.match(html, /not<\/b> CrownPrint formulation matches/, "and explicitly separated from matches");
 });
 
 test("an accessory never carries formulation-evidence vocabulary", () => {

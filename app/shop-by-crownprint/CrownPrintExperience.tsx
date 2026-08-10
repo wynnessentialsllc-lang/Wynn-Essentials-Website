@@ -35,6 +35,14 @@ export type CardProduct = {
   evidence?: { ingredient?: string; capabilityKey?: string; statement?: string };
   limitation?: string;
   /**
+   * Where this product sits in The Wynn Method — Wynn's own catalog truth about
+   * its own products, and the same "STEP n · CATEGORY" language the storefront
+   * already uses. It ORGANIZES an authorized product; it never authorizes one,
+   * and it is never derived from anything HWL sent.
+   */
+  routineStep?: number;
+  routineStage?: string;
+  /**
    * Why THIS product is in THIS class for THIS shopper, built server-side from
    * the signals the Hair Wellness Lab resolved. Never optional: a classification
    * without its reasoning is the thing this replaced.
@@ -107,8 +115,13 @@ function MatchCard({ product, onAdd }: { product: CardProduct; onAdd: (p: CardPr
         <span className={`cp-badge cp-badge-${product.matchClass}`}>{CLASS_LABEL[product.matchClass]}</span>
       </Link>
       <div className="cp-card-body">
-        <p className="eyebrow">{product.subtitle}</p>
+        <p className="eyebrow">
+          {product.routineStep && product.routineStage
+            ? `THE WYNN METHOD · STEP ${product.routineStep} · ${product.routineStage.toUpperCase()}`
+            : product.subtitle.toUpperCase()}
+        </p>
         <h4>{product.name}</h4>
+        <p className="cp-card-subtitle">{product.subtitle}</p>
         <strong className="cp-card-price">{money(product.price)}</strong>
         {/* WHAT THIS CARD ANSWERS, in the order a shopper asks it:
             what need · what function · what evidence · what it does NOT do.
@@ -537,6 +550,7 @@ export default function CrownPrintExperience({
   crownStateMessage,
   currentPriorityLabel,
   noStrongMatch,
+  unresolvedCount,
   whatToLookFor,
   hasStrong,
   products,
@@ -571,6 +585,13 @@ export default function CrownPrintExperience({
   crownStateMessage?: string;
   currentPriorityLabel?: string;
   noStrongMatch: boolean;
+  /**
+   * Products the Lab authorized that Wynn could not put on the page. Reported
+   * rather than absorbed: "CrownPrint chose nothing" and "CrownPrint chose
+   * something we could not show you" are different facts, and telling a shopper
+   * the first when the second is true is a lie about their own assessment.
+   */
+  unresolvedCount: number;
   whatToLookFor?: WhatToLookFor;
   hasStrong: boolean;
   products: CardProduct[];
@@ -724,7 +745,20 @@ export default function CrownPrintExperience({
             product for these priorities, which is a real answer — so the page
             says so and then spends its space on the coverage the shopper does
             have. */}
-        {products.length === 0 && (
+        {products.length === 0 && unresolvedCount > 0 && (
+          <div className="cp-noauth">
+            <p className="cp-noauth-lead">
+              <b>Your CrownPrint authorized {unresolvedCount === 1 ? "a product" : `${unresolvedCount} products`}, but we couldn&rsquo;t display {unresolvedCount === 1 ? "it" : "them"} here.</b>
+            </p>
+            <p>
+              This is a problem on our side, not with your CrownPrint. Your assessment resolved normally and the
+              recommendation exists — we just couldn&rsquo;t match it to something in our current collection. We would
+              rather tell you that than quietly show you a shorter page.
+            </p>
+          </div>
+        )}
+
+        {products.length === 0 && unresolvedCount === 0 && (
           <div className="cp-noauth">
             <p className="cp-noauth-lead">
               <b>No direct Wynn Essentials product match was authorized for this recommendation set.</b>
@@ -758,10 +792,11 @@ export default function CrownPrintExperience({
             a suggested bonnet is never read as a resolved product match. */}
         {accessories.length > 0 && (
           <div className="cp-functions-inline cp-accessories-inline">
-            <p className="eyebrow">HELPFUL TOOLS &amp; ACCESSORIES</p>
+            <p className="eyebrow">ROUTINE SUPPORT</p>
             <p className="cp-fine">
-              These work mechanically — through contact, friction, and coverage — not through a formulation.
-              They are suggested alongside your matches and are not CrownPrint formulation matches.
+              Tools the Hair Wellness Lab supplied alongside your matches. They work mechanically — through
+              contact, friction and coverage — not through a formulation, so they carry no ingredient evidence and
+              are <b>not</b> CrownPrint formulation matches.
             </p>
             <ul>
               {accessories.map((a) => (
