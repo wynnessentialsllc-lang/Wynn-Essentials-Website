@@ -753,7 +753,7 @@
 .boho-sky-plane{width:min(330px,58vw);margin:4px auto -18px;pointer-events:none;filter:drop-shadow(0 5px 8px rgba(28,75,112,.25))}
 .boho-sky-plane{position:relative}
 .boho-sky-plane svg{display:block;width:100%;height:auto;overflow:visible}
-.boho-sky-plane>img{position:absolute;z-index:1;right:-4%;top:-27%;width:52%;height:auto;object-fit:contain;transform:rotate(-7deg);filter:drop-shadow(0 7px 7px rgba(20,55,84,.32))}
+.boho-sky-plane>img{position:absolute;z-index:1;right:-4%;top:-27%;width:52%;height:auto;object-fit:contain;transform:rotate(-7deg);filter:sepia(.48) saturate(.62) brightness(1.12) contrast(.92) drop-shadow(0 7px 7px rgba(20,55,84,.32))}
 .boho-vapor-mist,.boho-vapor-trail{fill:none;stroke:#fff;stroke-linecap:round}
 .boho-vapor-mist{stroke-width:13;opacity:.26;filter:blur(5px) drop-shadow(0 0 7px rgba(255,255,255,.9))}
 .boho-vapor-trail{stroke-width:9;stroke-dasharray:1 13;opacity:.9;filter:drop-shadow(0 0 4px #fff) drop-shadow(0 0 8px rgba(255,255,255,.76))}
