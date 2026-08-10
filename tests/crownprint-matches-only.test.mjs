@@ -396,6 +396,48 @@ test("R3. coverage[] is explanatory only", () => {
   assert.deepEqual(guidance.accessories, [], "and 'partial' on a friction function produces no accessory");
 });
 
+test("R3b. a qualifying product is named only when it is also an authorized match", () => {
+  const guidance = selectGuidance({
+    context: context({
+      coverage: [
+        // Lathyr is NOT authorized. Naming it here would show a shopper a
+        // product CrownPrint did not choose, inside a section that tells them
+        // it is not a recommendation.
+        { functionKey: "cleanse_scalp", functionLabel: "Gentle cleansing", status: "covered", qualifyingProducts: ["Lathyr", "Revaivl"] },
+        { functionKey: "seal_moisture", functionLabel: "Moisture sealing", status: "partial", qualifyingProducts: ["Nourish"] },
+      ],
+      matches: [{ productKey: "revaivl", productName: "Revaivl", matchClass: "strong", why: "Resolved." }],
+    }),
+    catalog,
+  });
+
+  const cleanse = guidance.coverage.find((c) => c.functionKey === "cleanse_scalp");
+  assert.deepEqual(cleanse.qualifyingProducts, ["Revaivl"], "only the authorized name survives");
+  assert.equal(cleanse.label, "Gentle cleansing", "the function is still described in full");
+
+  const seal = guidance.coverage.find((c) => c.functionKey === "seal_moisture");
+  assert.deepEqual(seal.qualifyingProducts, [], "an unauthorized name is stripped entirely");
+
+  // Stripping a name never removes the coverage row itself.
+  assert.equal(guidance.coverage.length, 2);
+  // And it certainly does not create a card.
+  assert.deepEqual(guidance.matches.map((m) => m.productKey), ["revaivl"]);
+});
+
+test("R3c. the qualifying-name filter is case- and whitespace-insensitive", () => {
+  const guidance = selectGuidance({
+    context: context({
+      coverage: [{ functionKey: "strength", status: "covered", qualifyingProducts: ["  revaivl  ", "LATHYR"] }],
+      matches: [{ productKey: "revaivl", productName: "Revaivl", matchClass: "strong", why: "Resolved." }],
+    }),
+    catalog,
+  });
+  // The boundary already trims every string it accepts, so what reaches here is
+  // "revaivl" — matched case-insensitively against the authorized "Revaivl",
+  // and printed in the Lab's own casing. "LATHYR" is stripped.
+  assert.deepEqual(guidance.coverage[0].qualifyingProducts, ["revaivl"]);
+});
+
 test("R4. an empty matches array legitimately renders zero product cards", () => {
   const guidance = selectGuidance({
     context: context({

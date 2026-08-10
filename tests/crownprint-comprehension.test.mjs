@@ -53,8 +53,8 @@ const REVAIVL = {
 };
 
 const COVERAGE = [
-  { functionKey: "cleanse_scalp", status: "covered", label: "Gentle cleansing", detail: "Our collection serves this.", qualifyingProducts: ["Lathyr"] },
-  { functionKey: "seal_moisture", status: "partial", label: "Moisture sealing", detail: "Supports slowing water loss; it does not deliver water into the fibre.", qualifyingProducts: ["Nourish"] },
+  { functionKey: "cleanse_scalp", status: "covered", label: "Gentle cleansing", detail: "This establishes cleansing capability, not chelation.", qualifyingProducts: [] },
+  { functionKey: "seal_moisture", status: "partial", label: "Moisture sealing", detail: "Supports slowing water loss; it does not deliver water into the fibre.", qualifyingProducts: [] },
   { functionKey: "heat_protection", status: "not_carried", label: "Heat protection", detail: "We don't make this.", qualifyingProducts: [] },
 ];
 
@@ -148,8 +148,11 @@ test("a covered function does NOT look like a direct match", () => {
   const html = render({ coverage: COVERAGE });
   const needs = section(html, "cp-otherneeds", ["cp-functions-inline", "cp-utility"]);
 
-  assert.match(needs, /Lathyr/, "the qualifying product is named as information…");
-  // …and carries none of the signals that mean "we chose this for you".
+  // No unauthorized product is NAMED here at all: the guidance layer strips a
+  // qualifying name unless that product is also an authorized match.
+  assert.equal(/Lathyr|Nourish/.test(needs), false, "an unauthorized product is not named in coverage");
+  assert.match(needs, /Gentle cleansing/, "the FUNCTION is still explained");
+  // And it carries none of the signals that mean "we chose this for you".
   assert.equal(/cp-card\b/.test(needs), false, "no product card");
   assert.equal(/Add to Cart/.test(needs), false, "no add-to-bag");
   assert.equal(/href="\/products\//.test(needs), false, "no product link");
@@ -237,7 +240,7 @@ test("a match with no evidence, function or limitation from HWL simply shows les
   assert.match(html, /Revaivl/);
   assert.equal(/Why it qualifies/.test(html), false, "no evidence line is invented");
   assert.equal(/CrownPrint function:/.test(html), false, "no function is invented");
-  // The boundary still prints, because "this is not everything" is Wynn's own
-  // honest framing rather than a claim about chemistry.
-  assert.match(html, /Boundary:/);
+  // And no boundary is invented either. A boundary Wynn wrote itself would read
+  // as the Lab's verdict on what this product does not do.
+  assert.equal(/Boundary:/.test(html), false, "no limitation is invented");
 });

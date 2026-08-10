@@ -118,22 +118,30 @@ function MatchCard({ product, onAdd }: { product: CardProduct; onAdd: (p: CardPr
         {product.functionServed && (
           <p className="cp-card-function"><b>CrownPrint function:</b> {product.functionServed}</p>
         )}
-        {product.evidence && (
+        {/* EXACTLY AS SUPPLIED. No sentence is composed around these values and
+            no wording is invented when one is missing: the Lab's statement is
+            printed if there is one, and the ingredient / capability are printed
+            as the labelled facts they are otherwise. Wynn writing "carries the
+            X function" would be Wynn making a formulation claim. */}
+        {product.evidence && (product.evidence.statement || product.evidence.ingredient || product.evidence.capabilityKey) && (
           <p className="cp-card-evidence">
             <b>Why it qualifies:</b>{" "}
-            {product.evidence.statement
-              ? product.evidence.statement
-              : `${product.evidence.ingredient ?? "This formulation"} carries the ${product.evidence.capabilityKey ?? "capability"} function your CrownPrint called for.`}
+            {product.evidence.statement ?? (
+              <>
+                {product.evidence.ingredient}
+                {product.evidence.ingredient && product.evidence.capabilityKey ? " — " : ""}
+                {product.evidence.capabilityKey}
+              </>
+            )}
           </p>
         )}
         <MatchReasoning rationale={product.rationale} />
-        {/* The boundary is printed on the card, not tucked into a footnote. A
-            shopper who buys one product should know what it is not for. */}
-        <p className="cp-card-boundary">
-          <b>Boundary:</b>{" "}
-          {product.limitation ??
-            "This match addresses the need named above. It does not stand in for the other needs in your CrownPrint — see “Your other CrownPrint needs” below."}
-        </p>
+        {/* Printed on the card rather than tucked into a footnote — but only
+            when the Lab supplied one. A boundary Wynn wrote itself would read
+            as the Lab's verdict on what this product does not do. */}
+        {product.limitation && (
+          <p className="cp-card-boundary"><b>Boundary:</b> {product.limitation}</p>
+        )}
         {product.whenToUse && <p className="cp-card-usage"><b>When to use it:</b> {product.whenToUse}</p>}
         <div className="cp-card-actions">
           {product.simple && product.price != null ? (
