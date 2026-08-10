@@ -190,6 +190,8 @@ export default async function ShopByCrownPrintPage({
           currentPriorityLabel={context?.currentPriorityLabel}
           noStrongMatch={context?.noStrongMatch ?? false}
           unresolvedCount={context ? Math.max(0, context.matches.length - cards.length) : 0}
+          routineStatus={guidance.routineStatus}
+          routine={guidance.routine}
           whatToLookFor={context?.whatToLookFor}
           hasStrong={context ? hasStrongMatch(context) : false}
           products={cards}

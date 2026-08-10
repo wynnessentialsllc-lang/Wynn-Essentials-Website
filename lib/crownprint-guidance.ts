@@ -94,11 +94,37 @@ export type Guidance = {
   coverage: CoveragePoint[];
   /** Accessories/tools from HWL's explicit accessory channel. Never matches. */
   accessories: AccessorySupport[];
+  /** Routine build state. Undefined when HWL sent none. */
+  routineStatus?: RoutineStatus;
+  /** The built routine, in HWL's order. Empty unless routineStatus is "built". */
+  routine: RoutineStep[];
   gaps: LabelledPoint[];
   notes: string[];
   noFit: boolean;
   noStrongMatch: boolean;
   whatToLookFor: WhatToLookFor;
+};
+
+export type RoutineStatus = "built" | "not_built" | "unavailable";
+
+/**
+ * One routine step, joined to the catalog for display.
+ *
+ * Separate from FitMatch by design: no matchClass, no evidence, no rationale.
+ * Being placed in a routine is not being authorized against a resolved need,
+ * and the two must stay distinguishable in the type system as well as on screen.
+ */
+export type RoutineStep = {
+  order: number;
+  productKey: string;
+  catalogSlug: string;
+  productName: string;
+  slot?: string;
+  routineRole?: string;
+  whenToUse?: string;
+  frequency?: string;
+  why?: string;
+  isAccessory: boolean;
 };
 
 /** How Wynn served one resolved function. Descriptive; carries no product. */
@@ -144,6 +170,8 @@ export type TrustedContext = {
   productFunctionsNeeded?: { label: string; detail?: string }[];
   notCarried?: { label: string; detail?: string }[];
   coverage?: { functionKey: string; status: CoverageStatus; detail?: string; functionLabel?: string; qualifyingProducts?: string[] }[];
+  routineStatus?: RoutineStatus;
+  routine?: { order: number; productKey: string; slot?: string; routineRole?: string; whenToUse?: string; frequency?: string; why?: string; isAccessory?: boolean }[];
   accessories?: { productKey: string; why?: string }[];
   matches: {
     productKey: string;
@@ -399,6 +427,42 @@ function fromTrustedContext(context: TrustedContext, catalog: FitCatalogProduct[
     })
     .filter((a): a is AccessorySupport => a !== null);
 
+  // 6. The routine the shopper built — a SEPARATE authority from matches.
+  //
+  // HWL's `order` is preserved exactly. Wynn does not re-sort by match class or
+  // by its own Wynn Method step: those order different things, and applying
+  // either here would silently overwrite the sequence the shopper built. A
+  // routine step is placement, never authorization, so nothing here can add to
+  // `matches` and no step carries a class or evidence.
+  const routineStatus = context.routineStatus;
+  const routine: RoutineStep[] =
+    routineStatus === "built"
+      ? (context.routine ?? [])
+          .map((r): RoutineStep | null => {
+            const catalogSlug = resolveCatalogSlug(r.productKey, catalog);
+            const product = catalogSlug ? byName.get(catalogSlug) : undefined;
+            if (!product || !catalogSlug) {
+              console.error(
+                `[crownprint] routine step "${r.productKey}" could not be resolved to a Wynn catalog product; the step is omitted.`,
+              );
+              return null;
+            }
+            return {
+              order: r.order,
+              productKey: r.productKey,
+              catalogSlug,
+              productName: product.name,
+              ...(r.slot ? { slot: r.slot } : {}),
+              ...(r.routineRole ? { routineRole: r.routineRole } : {}),
+              ...(r.whenToUse ? { whenToUse: r.whenToUse } : {}),
+              ...(r.frequency ? { frequency: r.frequency } : {}),
+              ...(r.why ? { why: r.why } : {}),
+              isAccessory: r.isAccessory === true || product.kind === "accessory",
+            };
+          })
+          .filter((r): r is RoutineStep => r !== null)
+      : [];
+
   const priorities: LabelledPoint[] = (context.currentPriorities ?? []).map((p) => ({
     label: p.label,
     detail: p.detail ?? "",
@@ -436,6 +500,8 @@ function fromTrustedContext(context: TrustedContext, catalog: FitCatalogProduct[
     matches,
     coverage,
     accessories,
+    ...(routineStatus ? { routineStatus } : {}),
+    routine,
     gaps,
     notes,
     noFit: matches.length === 0,
@@ -486,6 +552,9 @@ function fromLocalCore(profile: CrownPrintProfile, catalog: FitCatalogProduct[])
     // accessory channel to read. Empty, never reconstructed locally.
     coverage: [],
     accessories: [],
+    // The fallback has no HWL context, so there is no routine authority either.
+    // Wynn never generates a routine of its own.
+    routine: [],
     gaps: fit.gaps,
     notes: fit.notes,
     noFit: fit.noFit,
