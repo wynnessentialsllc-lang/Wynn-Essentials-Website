@@ -821,3 +821,20 @@
 
 /* Replace the brown cart interaction with the campaign's neon-pink light. */
 .boho-card .outline-button:hover,.boho-card .outline-button:focus-visible,.boho-card .outline-button:active{background:linear-gradient(180deg,#ff8fc0 0%,#f53f92 100%);border-color:#ffb6d4;color:#fff;box-shadow:0 0 4px #fff,0 0 12px #ffc2dc,0 0 24px #ff65a8,0 0 38px rgba(242,45,136,.62);text-shadow:0 1px 2px rgba(104,17,57,.42)}
+
+/* Keep the Boho campaign centered, legible, and complete on phone screens. */
+@media(max-width:760px){
+  .boho-intro{align-items:center;padding:58px 6vw 68px;overflow:visible;text-align:center}
+  .boho-intro>.eyebrow{max-width:88vw;margin-bottom:18px;font-size:14px!important;letter-spacing:.14em;line-height:1.35}
+  .boho-intro h2{max-width:94vw;margin:12px auto 18px;text-align:center}
+  .boho-intro h2 span{font-size:clamp(42px,12.5vw,56px);line-height:1.02}
+  .boho-intro h2 em{margin:8px 0 4px;font-size:clamp(29px,9vw,38px);line-height:1}
+  .boho-intro h2 strong{font-size:clamp(58px,17vw,74px);line-height:.92}
+  .boho-sky-plane{position:relative;display:block;width:min(290px,82vw);height:104px;margin:12px auto 2px;overflow:visible}
+  .boho-sky-plane svg{position:absolute;inset:0;display:block;width:100%;height:100%}
+  .boho-sky-plane>img{display:block!important;visibility:visible!important;opacity:1!important;left:50%;right:auto;top:2px;width:48%;transform:translateX(8%) rotate(-7deg)}
+  .boho-intro .boho-lede{width:min(92vw,560px);max-width:92vw;margin:20px auto 0;font-size:clamp(20px,5.8vw,24px);font-weight:700;line-height:1.42;letter-spacing:.005em;-webkit-text-stroke:.15px rgba(255,255,255,.95);text-shadow:0 1px 2px rgba(13,57,98,.95),0 2px 5px rgba(13,57,98,.72),0 0 5px #fff,0 0 11px rgba(255,255,255,.78)}
+  .boho-intro .boho-collection-link{width:min(90vw,520px);max-width:90vw;margin:26px auto 0;font-size:clamp(19px,5.4vw,22px);font-weight:700;line-height:1.35;text-shadow:0 1px 2px rgba(13,57,98,.95),0 2px 5px rgba(13,57,98,.7),0 0 5px #fff,0 0 10px rgba(255,255,255,.75)}
+  .boho-product-heading h3{max-width:94vw;margin-inline:auto;font-size:clamp(43px,13vw,58px);line-height:.98}
+  .boho-product-heading>p:last-child{width:calc(100vw - 28px);max-width:calc(100vw - 28px);font-size:clamp(12px,3.15vw,16px);font-weight:700;line-height:1.25;letter-spacing:0;white-space:nowrap;text-shadow:0 1px 2px rgba(13,57,98,.95),0 0 5px #fff,0 0 10px rgba(255,255,255,.72)}
+}
