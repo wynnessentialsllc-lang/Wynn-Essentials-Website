@@ -3,7 +3,7 @@ import { products } from "../../../data";
 import { readMatchSession } from "../../../../lib/crownprint";
 import { enforceMatchesOnly, selectGuidance } from "../../../../lib/crownprint-guidance";
 import { HWL_CANONICAL_PRODUCT_KEYS, resolveCatalogSlug } from "../../../../lib/crownprint-catalog-key";
-import { CAPABILITY_LABELS } from "../../../../lib/crownprint-capability-labels";
+import { hasCapabilityLabel } from "../../../../lib/crownprint-capability-labels";
 import { adminTokenConfigured } from "../../../../lib/admin-auth";
 
 /**
@@ -160,7 +160,7 @@ export async function GET(request: Request) {
     ...new Set(
       rendered
         .map((m) => m.evidence?.capabilityKey)
-        .filter((k): k is string => Boolean(k) && !CAPABILITY_LABELS[k!.toLowerCase()]),
+        .filter((k): k is string => Boolean(k) && !hasCapabilityLabel(k)),
     ),
   ];
 
