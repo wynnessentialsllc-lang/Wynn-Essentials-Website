@@ -9,12 +9,8 @@ import type { AccessorySupport, CoveragePoint, CoverageStatus } from "../../lib/
 import type { GuidanceSource, MatchRationale } from "../../lib/crownprint-match-intelligence";
 import { MatchLegend, MatchReasoning } from "../MatchIntelligence";
 
-/** Customer-facing wording for a coverage verdict. Explanation, not a verdict on quality. */
-const COVERAGE_WORDING: Record<CoverageStatus, string> = {
-  covered: "covered",
-  partial: "partially supported",
-  not_carried: "not carried",
-};
+// Coverage wording now lives in the OtherNeeds group headings, where each status
+// gets a full sentence of explanation rather than a one-word verdict.
 
 export type CardProduct = {
   slug: string;
@@ -30,6 +26,13 @@ export type CardProduct = {
   // shopper needs both to act on a match: which need it serves, and when to use it.
   need?: string;
   whenToUse?: string;
+  /**
+   * The Lab's own explanation of the match, rendered verbatim. Presentation
+   * only — none of it selects, classifies, or orders anything.
+   */
+  functionServed?: string;
+  evidence?: { ingredient?: string; capabilityKey?: string; statement?: string };
+  limitation?: string;
   /**
    * Why THIS product is in THIS class for THIS shopper, built server-side from
    * the signals the Hair Wellness Lab resolved. Never optional: a classification
@@ -106,8 +109,31 @@ function MatchCard({ product, onAdd }: { product: CardProduct; onAdd: (p: CardPr
         <p className="eyebrow">{product.subtitle}</p>
         <h4>{product.name}</h4>
         <strong className="cp-card-price">{money(product.price)}</strong>
-        {product.need && <p className="cp-card-need"><b>Need it serves:</b> {product.need}</p>}
+        {/* WHAT THIS CARD ANSWERS, in the order a shopper asks it:
+            what need · what function · what evidence · what it does NOT do.
+            Every one of these strings is the Lab's, rendered verbatim. Wynn
+            never writes chemistry, and an absent field simply does not print —
+            a quieter card is better than an invented one. */}
+        {product.need && <p className="cp-card-need"><b>Supports:</b> {product.need}</p>}
+        {product.functionServed && (
+          <p className="cp-card-function"><b>CrownPrint function:</b> {product.functionServed}</p>
+        )}
+        {product.evidence && (
+          <p className="cp-card-evidence">
+            <b>Why it qualifies:</b>{" "}
+            {product.evidence.statement
+              ? product.evidence.statement
+              : `${product.evidence.ingredient ?? "This formulation"} carries the ${product.evidence.capabilityKey ?? "capability"} function your CrownPrint called for.`}
+          </p>
+        )}
         <MatchReasoning rationale={product.rationale} />
+        {/* The boundary is printed on the card, not tucked into a footnote. A
+            shopper who buys one product should know what it is not for. */}
+        <p className="cp-card-boundary">
+          <b>Boundary:</b>{" "}
+          {product.limitation ??
+            "This match addresses the need named above. It does not stand in for the other needs in your CrownPrint — see “Your other CrownPrint needs” below."}
+        </p>
         {product.whenToUse && <p className="cp-card-usage"><b>When to use it:</b> {product.whenToUse}</p>}
         <div className="cp-card-actions">
           {product.simple && product.price != null ? (
@@ -123,6 +149,67 @@ function MatchCard({ product, onAdd }: { product: CardProduct; onAdd: (p: CardPr
         </div>
       </div>
     </article>
+  );
+}
+
+/**
+ * "Your other CrownPrint needs" — the three coverage groups.
+ *
+ * Deliberately NOT card-shaped. These are list items with no image, no price,
+ * no add-to-bag and no product link, because a shopper decides what is being
+ * recommended by how it looks long before they read a heading. A function Wynn
+ * can cover must never be mistakable for a product CrownPrint authorized.
+ */
+function OtherNeeds({ coverage }: { coverage: CoveragePoint[] }) {
+  const groups: { status: CoverageStatus; heading: string; blurb: string }[] = [
+    {
+      status: "covered",
+      heading: "Wynn Essentials can cover",
+      blurb: "Functions in your CrownPrint that our collection is able to serve. Listed so you know they exist — not as recommendations for this set.",
+    },
+    {
+      status: "partial",
+      heading: "Wynn Essentials can partially support",
+      blurb: "We serve part of what this function needs. The limit is stated rather than glossed over.",
+    },
+    {
+      status: "not_carried",
+      heading: "Wynn Essentials does not currently carry",
+      blurb: "Your CrownPrint calls for these and we don't make them. Buy them elsewhere — we'd rather you have the right routine than a complete receipt.",
+    },
+  ];
+
+  return (
+    <section className="cp-otherneeds" aria-labelledby="cp-otherneeds-heading">
+      <h3 className="cp-section-heading" id="cp-otherneeds-heading">Your other CrownPrint needs</h3>
+      <p className="cp-otherneeds-intro">
+        Your CrownPrint contains more information than the product cards above. Here is what else it identified,
+        and how far Wynn Essentials can go on each.
+      </p>
+      {groups.map(({ status, heading, blurb }) => {
+        const rows = coverage.filter((c) => c.status === status);
+        if (!rows.length) return null;
+        return (
+          <div className={`cp-needgroup cp-needgroup-${status}`} key={status}>
+            <h4>{heading}</h4>
+            <p className="cp-fine">{blurb}</p>
+            <ul>
+              {rows.map((c) => (
+                <li key={c.functionKey}>
+                  <b>{c.label}</b>
+                  {c.detail ? ` — ${c.detail}` : ""}
+                  {/* Display names only. No link, no price, no button: this is
+                      information about the catalog, not an offer. */}
+                  {c.qualifyingProducts.length > 0 && (
+                    <span className="cp-qualifying"> Wynn Essentials products in this function: {c.qualifyingProducts.join(", ")}.</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+    </section>
   );
 }
 
@@ -144,7 +231,7 @@ function NoStrongMatch({ guidance, productHub }: { guidance?: WhatToLookFor; pro
       <h3 id="cp-nomatch-heading">
         We don&rsquo;t currently have a Wynn Essentials product that strongly matches this particular need.
       </h3>
-      <p className="cp-nomatch-lead">
+      <p className="cp-noauth-lead">
         That&rsquo;s okay — and worth knowing. Here&rsquo;s what to look for so you can care for your hair well right now.
       </p>
       {guidance && (
@@ -589,10 +676,57 @@ export default function CrownPrintExperience({
             shopper is told what those words mean — and what they don't. */}
         <MatchLegend source={source} />
 
-        <h3 className="cp-section-heading">Best Wynn Essentials matches</h3>
+        {/* THE SUMMARY. A single authorized product is a precise result, not a
+            thin one, and the copy has to carry that — a shopper who reads "1
+            match" as "we only found one thing" will distrust a page that is
+            working exactly as designed. The count is never the headline. */}
+        <div className="cp-matchsummary">
+          <h3 className="cp-section-heading" id="cp-matches-heading">Your Wynn Essentials matches</h3>
+          <p>
+            CrownPrint found the Wynn Essentials products that best fit the needs it prioritized for you. Only
+            products explicitly authorized by CrownPrint appear here.
+          </p>
+          {products.length === 1 && (
+            <p className="cp-matchsummary-one">
+              <b>One product earned a direct CrownPrint match for your current priorities.</b> That is a precise
+              result, not a short one — your CrownPrint holds more than these cards show, and the rest of it is
+              set out below.
+            </p>
+          )}
+        </div>
+
+        {/* ZERO AUTHORIZED MATCHES. Not an error, not a catalog dump, and not
+            a single fallback product. CrownPrint declined to authorize a direct
+            product for these priorities, which is a real answer — so the page
+            says so and then spends its space on the coverage the shopper does
+            have. */}
+        {products.length === 0 && (
+          <div className="cp-noauth">
+            <p className="cp-noauth-lead">
+              <b>No direct Wynn Essentials product match was authorized for this recommendation set.</b>
+            </p>
+            <p>
+              That does not mean Wynn Essentials has nothing relevant to your hair. It means CrownPrint did not
+              authorize a direct product recommendation for these priorities — and we would rather show you
+              nothing than put a product in front of you that your CrownPrint did not choose.
+            </p>
+            {coverage.length > 0 && <p>Here is what your CrownPrint did identify, and how far we can go on each.</p>}
+          </div>
+        )}
+
         <MatchGroup cls="strong" cards={products} onAdd={onAdd} />
         <MatchGroup cls="good" cards={products} onAdd={onAdd} />
         <MatchGroup cls="conditional" cards={products} onAdd={onAdd} />
+
+        {/* WHY COVERAGE IS NOT A MATCH. Printed next to the cards, where the
+            question actually occurs, rather than in a help page nobody opens. */}
+        {coverage.length > 0 && (
+          <p className="cp-coverage-disclosure">
+            A product can belong to a function Wynn Essentials is capable of supporting without being selected as
+            one of your direct CrownPrint matches. Your match cards reflect the needs CrownPrint prioritized for
+            this recommendation set.
+          </p>
+        )}
 
         {/* Accessories and tools. A SEPARATE support channel, explicitly sent by
             the Hair Wellness Lab — never a formulation match, never produced by
@@ -600,10 +734,10 @@ export default function CrownPrintExperience({
             a suggested bonnet is never read as a resolved product match. */}
         {accessories.length > 0 && (
           <div className="cp-functions-inline cp-accessories-inline">
-            <p className="eyebrow">TOOLS THAT SUPPORT THIS ROUTINE</p>
+            <p className="eyebrow">HELPFUL TOOLS &amp; ACCESSORIES</p>
             <p className="cp-fine">
-              Suggested alongside your matches as everyday support — not part of your CrownPrint formulation
-              matches above.
+              These work mechanically — through contact, friction, and coverage — not through a formulation.
+              They are suggested alongside your matches and are not CrownPrint formulation matches.
             </p>
             <ul>
               {accessories.map((a) => (
@@ -616,26 +750,13 @@ export default function CrownPrintExperience({
           </div>
         )}
 
-        {/* Coverage: descriptive only. It says how well we served each resolved
-            function — covered, partially supported, not carried — and names no
-            products, because it cannot. Product cards come from matches alone. */}
-        {coverage.length > 0 && (
-          <div className="cp-functions-inline cp-coverage-inline">
-            <p className="eyebrow">HOW WYNN ESSENTIALS COVERED YOUR RESOLVED FUNCTIONS</p>
-            <p className="cp-fine">
-              An honest account of what we could and could not serve. This explains coverage — it isn&rsquo;t a
-              product recommendation.
-            </p>
-            <ul>
-              {coverage.map((c) => (
-                <li key={c.functionKey}>
-                  <b>{c.label}</b> — <i>{COVERAGE_WORDING[c.status]}</i>
-                  {c.detail ? `. ${c.detail}` : ""}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        {/* YOUR OTHER CROWNPRINT NEEDS.
+            Three groups, three different messages. This is the section that
+            stops "one product shown" from reading as "one hair need exists":
+            the CrownPrint holds more than the cards, and this is the more.
+            It never produces a product card — the names it prints are display
+            text with no key to join on. */}
+        {coverage.length > 0 && <OtherNeeds coverage={coverage} />}
 
         {gaps.length > 0 && (
           <div className="cp-functions-inline cp-gaps-inline">
@@ -648,7 +769,13 @@ export default function CrownPrintExperience({
           </div>
         )}
 
-        {(noStrongMatch || !hasStrong) && <NoStrongMatch guidance={whatToLookFor} productHub={urls.productHub} />}
+        {/* The no-strong-match panel answers "we have nothing STRONG for this".
+            With zero authorized products the cp-noauth panel above already said
+            something more accurate, and two near-identical explanations in a row
+            read as a page apologising twice. One message per situation. */}
+        {products.length > 0 && (noStrongMatch || !hasStrong) && (
+          <NoStrongMatch guidance={whatToLookFor} productHub={urls.productHub} />
+        )}
 
         <div className="cp-utility">
           <a href={urls.refresh} onClick={() => trackCrownPrintEvent("crownstate_update_clicked")}>Update my hair needs</a>
