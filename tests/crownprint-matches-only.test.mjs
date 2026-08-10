@@ -180,31 +180,63 @@ test("R5. accessories remain separate and explicit", () => {
 // A source-level check, deliberately. The behavioral tests above prove the
 // current code does not convert functions into products; this one fails when
 // someone writes the machinery to do it again, even before it is wired up.
+//
+// SCOPE. Every file on a CrownPrint product-rendering path, not just the two
+// libs — a lookup table reintroduced in a page component would render products
+// exactly as well as one in lib/, and would have slipped past a lib-only scan.
 // ---------------------------------------------------------------------------
-test("R6. no function/label/category-to-product lookup exists in the CrownPrint libs", async () => {
-  const url = (p) => new URL(p, import.meta.url);
-  const fit = await readFile(url("../lib/crownprint-fit.ts"), "utf8");
-  const guidance = await readFile(url("../lib/crownprint-guidance.ts"), "utf8");
+const RENDER_PATH_FILES = [
+  "../lib/crownprint-fit.ts",
+  "../lib/crownprint-guidance.ts",
+  "../lib/crownprint-match-intelligence.ts",
+  "../app/shop-by-crownprint/page.tsx",
+  "../app/shop-by-crownprint/CrownPrintExperience.tsx",
+  "../app/crownprint/page.tsx",
+  "../app/crownprint/CrownPrintFinder.tsx",
+];
 
-  for (const gone of ["CATALOG_CAPABILITIES", "matchFunctionsToCatalog", "FunctionCoverage"]) {
+/** Strip comments so a mention in prose never trips the scan — only live code counts. */
+const liveCode = (source) =>
+  source
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .split("\n")
+    .filter((line) => !/^\s*(\/\/|\*)/.test(line))
+    .join("\n");
+
+test("R6. no function/label/category-to-product lookup exists on any render path", async () => {
+  const sources = new Map();
+  for (const path of RENDER_PATH_FILES) {
+    sources.set(path, liveCode(await readFile(new URL(path, import.meta.url), "utf8")));
+  }
+
+  // The retired machinery, by name.
+  for (const gone of ["CATALOG_CAPABILITIES", "matchFunctionsToCatalog", "FunctionCoverage", "wynnFilled"]) {
+    for (const [path, source] of sources) {
+      assert.equal(
+        new RegExp(`\\b${gone}\\b`).test(source),
+        false,
+        `${gone} is back as live code in ${path} — the retired fallback must not return`,
+      );
+    }
+  }
+
+  // Appending to matches after HWL's array is consumed IS the retired pattern,
+  // whatever it is named this time.
+  for (const [path, source] of sources) {
     assert.equal(
-      new RegExp(`^(?!\\s*(//|\\*)).*\\b${gone}\\b`, "m").test(fit),
+      /\bmatches\.push\(/.test(source),
       false,
-      `${gone} is back in lib/crownprint-fit.ts as live code — the retired lookup must not return`,
-    );
-    assert.equal(
-      new RegExp(`^(?!\\s*(//|\\*)).*\\b${gone}\\b`, "m").test(guidance),
-      false,
-      `${gone} is back in lib/crownprint-guidance.ts as live code`,
+      `${path} appends to matches — nothing may be added after HWL's array is consumed`,
     );
   }
 
-  // The trusted path must never push into matches after HWL's own array is
-  // mapped. Any `matches.push(` in the guidance layer is that pattern returning.
-  assert.equal(
-    /^(?!\s*(\/\/|\*)).*matches\.push\(/m.test(guidance),
-    false,
-    "nothing may be appended to matches after HWL's array is consumed",
+  // And the guard must still be wired in at the render boundary. Deleting the
+  // call is the quietest way to undo all of this, so it is asserted directly
+  // rather than inferred from behavior.
+  assert.match(
+    sources.get("../app/shop-by-crownprint/page.tsx"),
+    /enforceMatchesOnly\(/,
+    "the fail-closed render guard has been removed from /shop-by-crownprint",
   );
 });
 
