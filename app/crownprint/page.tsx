@@ -126,7 +126,16 @@ export default async function CrownPrintCodePage({ searchParams }: { searchParam
   // Join the fit result with the real catalog so every card carries actual Wynn
   // Essentials data — image, name, price, product URL. CrownPrint explains fit;
   // it never changes what a product is or what its own copy claims.
-  const cards: FitCard[] = fit.matches
+  //
+  // THE MATCHES-ONLY INVARIANT ON THIS PAGE. These cards come from Wynn's own
+  // Core engine, not from an HWL matches array — which is legitimate here and
+  // labelled as a fallback throughout, but only because no trusted 360 exists.
+  // The moment one does, this page stops showing products entirely and sends the
+  // shopper to their Blueprint (see the `connected` branch below). Emptying the
+  // list here makes that structural rather than something you have to notice
+  // sixty lines later, so a Core-derived card can never coexist with a resolved
+  // CrownPrint whose matches array it is not a subset of.
+  const cards: FitCard[] = (connected ? [] : fit.matches)
     .map((m): FitCard | null => {
       const p = products.find((x) => x.slug === m.productKey);
       if (!p) return null;

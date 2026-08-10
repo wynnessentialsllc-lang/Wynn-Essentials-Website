@@ -90,31 +90,42 @@ test("1. a trusted CrownPrint 360 outranks any local Core reconstruction", () =>
   assert.notEqual(relief.why, localReliefWhy, "the 360 result must not carry Wynn's locally derived reasoning");
 });
 
-test("1b. Wynn matches its catalog to the RESOLVED functions, and only fills gaps", () => {
+test("1b. resolved functions are DESCRIBED, never turned into product cards", () => {
   const guidance = selectGuidance({ context: resolved360(), catalog });
 
-  // "Water-based daily moisture" is a resolved function HWL didn't name a product
-  // for. Wynn may serve it from its own catalog — but never at "strong", because
-  // "strong" is an intelligence verdict and that belongs to HWL.
-  const hydrate = guidance.matches.find((m) => m.productKey === "hydrate-herbal-hair-mist");
-  assert.ok(hydrate, "Wynn should cover a resolved function it can serve");
-  assert.equal(hydrate.matchClass, "good");
-  assert.match(hydrate.why, /calls for/i);
+  // HWL resolved exactly one product: Relief. Three product functions were named
+  // alongside it, and under the old contract Wynn keyword-matched those labels
+  // into extra cards. It no longer does. What HWL matched is what renders.
+  assert.deepEqual(
+    guidance.matches.map((m) => m.productKey),
+    ["relief-oil"],
+    "matches is HWL's array and nothing else",
+  );
 
-  // "A bond-repair treatment" is a resolved function Wynn cannot serve, so it
-  // joins the not-carried list rather than being approximated with a protein
-  // conditioner.
-  const gapLabels = guidance.gaps.map((g) => g.label);
-  assert.ok(gapLabels.includes("A bond-repair treatment"));
-  assert.ok(gapLabels.includes("A heat protectant"), "HWL's own notCarried must be carried through");
+  // "Water-based daily moisture" used to pull in the Hydrate mist by label.
+  assert.equal(
+    guidance.matches.some((m) => m.productKey === "hydrate-herbal-hair-mist"),
+    false,
+    "a resolved function label must not manufacture a product card",
+  );
+
+  // The functions themselves are still shown — as functions, which is what they
+  // are. Describing a need is not recommending a product for it.
+  assert.ok(
+    guidance.functions.some((f) => f.label === "Water-based daily moisture"),
+    "the resolved function is still surfaced to the shopper",
+  );
+
+  // HWL's own not-carried verdict still reads through.
+  assert.ok(
+    guidance.gaps.map((g) => g.label).includes("A heat protectant"),
+    "HWL's own notCarried must be carried through",
+  );
   assert.equal(
     guidance.matches.some((m) => m.productKey === "revaivl-protein-conditioner"),
     false,
     "a bond builder must not be approximated with a protein conditioner",
   );
-
-  // And a function is matched on its name, not on incidental words in its
-  // explanation — "applied to the parts while styled" is not a styling need.
   assert.equal(
     guidance.matches.some((m) => m.productKey === "thairap-moisture-styling-cream"),
     false,
@@ -301,13 +312,20 @@ test("8b. a not-carried function can never become a Wynn product recommendation"
     "HWL said we don't carry this — no keyword overlap may override that",
   );
   assert.ok(guidance.gaps.some((g) => /strengthening/i.test(g.label)), "it stays a gap");
-  // The function we DO carry is still matched.
-  assert.ok(guidance.matches.some((m) => m.productKey === "nourish-oil"), "sealing is genuinely covered");
+  // And "Sealing" — a function we plainly could serve — still yields no card,
+  // because HWL named no product for it. Capability is not authorization.
+  assert.equal(
+    guidance.matches.some((m) => m.productKey === "nourish-oil"),
+    false,
+    "a function Wynn could serve is still not a product HWL resolved",
+  );
 });
 
-test("8c. Wynn's own catalog fill can never reach strong", () => {
+test("8c. no HWL matches means no product cards, however many functions were resolved", () => {
   const context = resolved360({
-    // HWL named no products at all — everything here is Wynn filling functions.
+    // HWL resolved four functions and named NO products. Under the old contract
+    // Wynn filled all four from its own catalog. That was Wynn inventing a
+    // recommendation the Lab never made.
     matches: [],
     productFunctionsNeeded: [
       { label: "Gentle cleansing" },
@@ -319,13 +337,12 @@ test("8c. Wynn's own catalog fill can never reach strong", () => {
   });
   const guidance = selectGuidance({ context, catalog });
 
-  assert.ok(guidance.matches.length >= 3, "Wynn should cover the functions it can serve");
-  assert.equal(
-    guidance.matches.some((m) => m.matchClass === "strong"),
-    false,
-    "strong is HWL's verdict to make; Wynn filling a function is good at most",
-  );
-  assert.equal(guidance.noStrongMatch, true, "and that must read honestly as no strong match");
+  assert.deepEqual(guidance.matches, [], "an empty matches array renders an empty result");
+  assert.equal(guidance.noFit, true, "and that reads honestly as no fit");
+  assert.equal(guidance.noStrongMatch, true);
+  // The functions are still described, so the page explains itself rather than
+  // going silently blank.
+  assert.equal(guidance.functions.length, 4);
 });
 
 test("8d. HWL's own classes are carried through untouched", () => {

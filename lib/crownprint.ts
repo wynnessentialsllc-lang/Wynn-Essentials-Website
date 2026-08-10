@@ -129,6 +129,36 @@ export type SafeLinks = { productHub?: string; assessment?: string; crownstateUp
 /** A resolved, consumer-safe point HWL sends: a priority, a function, a gap. */
 export type SafePoint = { label: string; detail?: string };
 
+/** How well Wynn Essentials serves one resolved product function. */
+export type CoverageStatus = "covered" | "partial" | "not_carried";
+
+/**
+ * Descriptive coverage metadata — NEVER a source of product cards.
+ *
+ * Note the absence of any product field. That is deliberate and enforced at the
+ * boundary (`asCoverage` in lib/crownprint-state.mjs drops productKey/slug/
+ * products outright), so no amount of downstream code can turn a coverage row
+ * into a recommendation. Coverage explains; `matches` recommends.
+ */
+export type SafeCoverage = {
+  /** The stable integration identifier. The only coverage field to key on. */
+  functionKey: string;
+  status: CoverageStatus;
+  detail?: string;
+  /**
+   * @deprecated Display text only, readable until 2026-11-30. HWL may reword it
+   * at any time, so nothing may branch, match, or select on it.
+   */
+  functionLabel?: string;
+};
+
+/**
+ * Accessories and tools: a separate support channel, explicitly sourced by HWL.
+ * Rendered in their own section and never as CrownPrint product cards, so a
+ * suggested bonnet can never be mistaken for a resolved formulation match.
+ */
+export type SafeAccessory = { productKey: string; why?: string };
+
 export type WynnMatchContext = {
   crownPrintPresent: boolean;                 // CrownPrint exists / missing
   crownState: { present: boolean; fresh: boolean; message?: string; summary?: string };
@@ -137,7 +167,9 @@ export type WynnMatchContext = {
   currentPriorities?: SafePoint[];            // HWL's ranked priorities
   productFunctionsNeeded?: SafePoint[];       // what the routine must do — Wynn matches on these
   notCarried?: SafePoint[];                   // needs HWL resolved that Wynn doesn't carry
-  matches: SafeMatchProduct[];                // product keys + class + why
+  coverage?: SafeCoverage[];                  // descriptive coverage only — never product cards
+  accessories?: SafeAccessory[];              // separate accessory/tool support channel
+  matches: SafeMatchProduct[];                // THE ONLY source of CrownPrint product cards
   noStrongMatch: boolean;                     // intentional no-strong-match outcome
   whatToLookFor?: WhatToLookFor;              // guidance for the no-match outcome
   safeLinks?: SafeLinks;                       // safe HWL links
