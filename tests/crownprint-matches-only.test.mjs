@@ -34,7 +34,11 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { LEGACY_COVERAGE_FIELDS_READABLE_UNTIL, normalizeMatchContext } from "../lib/crownprint-state.mjs";
-import { resolveCatalogSlug } from "../lib/crownprint-catalog-key.ts";
+import {
+  HWL_CANONICAL_PRODUCT_KEYS,
+  HWL_PRODUCT_KEY_ALIASES,
+  resolveCatalogSlug,
+} from "../lib/crownprint-catalog-key.ts";
 import { enforceMatchesOnly, selectGuidance } from "../lib/crownprint-guidance.ts";
 import { products } from "../app/data.ts";
 
@@ -106,6 +110,71 @@ test("the audit's own failure mode: authorized-but-unrendered is caught, not hid
     ["a-product-we-no-longer-carry"],
     "unresolvedKeys is what surfaces it",
   );
+});
+
+// ---------------------------------------------------------------------------
+// COMPLETENESS. Every key in HWL's frozen vocabulary (PR #640) must land on a
+// real Wynn product — by slug or by explicit alias. A key that resolves only by
+// the product-name fallback is not covered: names change for merchandising
+// reasons, and the shopper loses the product the day one does.
+// ---------------------------------------------------------------------------
+test("COMPLETENESS: every canonical HWL key resolves directly or via an explicit alias", () => {
+  const slugs = new Set(catalog.map((p) => p.slug));
+  const aliasIndex = new Map(
+    Object.entries(HWL_PRODUCT_KEY_ALIASES).map(([k, v]) => [k.toLowerCase(), v]),
+  );
+
+  assert.equal(HWL_CANONICAL_PRODUCT_KEYS.length, 11, "the frozen vocabulary is eleven keys");
+
+  for (const key of HWL_CANONICAL_PRODUCT_KEYS) {
+    const lower = key.toLowerCase();
+    const direct = slugs.has(lower);
+    const aliased = aliasIndex.has(lower);
+
+    assert.ok(
+      direct || aliased,
+      `"${key}" resolves by neither slug nor alias — it would rely on the name fallback, which is not a contract`,
+    );
+
+    const resolved = resolveCatalogSlug(key, catalog);
+    assert.ok(resolved, `"${key}" does not resolve at all`);
+    assert.ok(slugs.has(resolved), `"${key}" resolves to "${resolved}", which is not in the live catalog`);
+  }
+});
+
+test("COMPLETENESS: the alias table is one-to-one and points only at live products", () => {
+  const slugs = new Set(catalog.map((p) => p.slug));
+  const targets = Object.values(HWL_PRODUCT_KEY_ALIASES);
+
+  for (const [key, slug] of Object.entries(HWL_PRODUCT_KEY_ALIASES)) {
+    assert.ok(slugs.has(slug), `alias "${key}" points at "${slug}", which the catalog no longer carries`);
+  }
+  assert.equal(
+    new Set(targets).size,
+    targets.length,
+    "two HWL keys map to the same product — the mapping must be one-to-one",
+  );
+  // The nine required mappings, asserted literally against the frozen contract.
+  assert.deepEqual(HWL_PRODUCT_KEY_ALIASES, {
+    hydrateMist: "hydrate-herbal-hair-mist",
+    therapi: "thairap-moisture-styling-cream",
+    lathyr: "lathyr-shampoo",
+    uplyft: "uplyft-conditioner",
+    revaivl: "revaivl-protein-conditioner",
+    nourishOil: "nourish-oil",
+    growOil: "grow-oil",
+    reliefOil: "relief-oil",
+    scrunchieSet: "heritage-hold-scrunchie-set",
+  });
+});
+
+test("COMPLETENESS: aliases resolve regardless of the casing HWL sends", () => {
+  assert.equal(resolveCatalogSlug("hydrateMist", catalog), "hydrate-herbal-hair-mist");
+  assert.equal(resolveCatalogSlug("hydratemist", catalog), "hydrate-herbal-hair-mist");
+  assert.equal(resolveCatalogSlug("HYDRATEMIST", catalog), "hydrate-herbal-hair-mist");
+  // therapi is the case the name fallback could never have covered: HWL's
+  // spelling and Wynn's product name ("ThairaP") do not match.
+  assert.equal(resolveCatalogSlug("therapi", catalog), "thairap-moisture-styling-cream");
 });
 
 test("key resolution is exact and one-to-one — it cannot invent a product", () => {
