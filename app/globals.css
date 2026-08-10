@@ -979,3 +979,35 @@
 @media(prefers-reduced-motion:reduce){
   .boho-texture-clouds a{animation:none;transform:translateY(var(--cloud-offset,0))}
 }
+
+/* Clean section label: tan type with a crisp dark outline, no cloud. */
+.boho-product-heading>.eyebrow{
+  display:block;
+  width:max-content;
+  max-width:calc(100vw - 32px);
+  min-height:0;
+  aspect-ratio:auto;
+  margin:0 auto;
+  padding:0;
+  background:none;
+  filter:none;
+  color:#d7b58a;
+  font-size:clamp(13px,1.15vw,17px);
+  letter-spacing:.13em;
+  line-height:1.2;
+  text-align:center;
+  -webkit-text-stroke:1px #17110e;
+  text-shadow:0 1px 0 #17110e;
+  white-space:nowrap;
+}
+@media(max-width:760px){
+  .boho-product-heading>.eyebrow{
+    width:max-content;
+    max-width:calc(100vw - 24px);
+    aspect-ratio:auto;
+    padding:0;
+    font-size:clamp(11px,3.2vw,14px);
+    letter-spacing:.1em;
+    -webkit-text-stroke:.8px #17110e;
+  }
+}
