@@ -347,6 +347,7 @@
 .cp-matchsummary-one{color:var(--black)!important}
 /* Per-card explanation. Each line answers one question, so they stay separate
    rows rather than merging into a paragraph a shopper skims past. */
+.cp-card-subtitle{font-size:12px;letter-spacing:.04em;color:var(--muted);margin:0 0 8px}
 .cp-card-need,.cp-card-function,.cp-card-evidence,.cp-card-boundary,.cp-card-usage{
   font-size:13px;line-height:1.6;margin:0 0 8px;overflow-wrap:anywhere}
 .cp-card-evidence-statement{font-size:13px;line-height:1.6;margin:0 0 8px;color:var(--muted);

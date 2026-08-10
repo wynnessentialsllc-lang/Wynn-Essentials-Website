@@ -127,6 +127,8 @@ export default async function ShopByCrownPrintPage({
         ...(m.functionServed ? { functionServed: m.functionServed } : {}),
         ...(m.evidence ? { evidence: m.evidence } : {}),
         ...(m.limitation ? { limitation: m.limitation } : {}),
+        // Wynn's own routine placement, for organizing only.
+        ...(p.methodStep > 0 ? { routineStep: p.methodStep, routineStage: p.category } : {}),
         // Built server-side from the priorities and CrownState the Lab resolved.
         rationale: m.rationale,
       };
@@ -187,6 +189,7 @@ export default async function ShopByCrownPrintPage({
           crownStateMessage={context?.crownState.message}
           currentPriorityLabel={context?.currentPriorityLabel}
           noStrongMatch={context?.noStrongMatch ?? false}
+          unresolvedCount={context ? Math.max(0, context.matches.length - cards.length) : 0}
           whatToLookFor={context?.whatToLookFor}
           hasStrong={context ? hasStrongMatch(context) : false}
           products={cards}
