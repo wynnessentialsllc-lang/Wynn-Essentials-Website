@@ -347,12 +347,13 @@ export type RationaleInput = {
   caution?: string;
   /** Core axes the reasoning leans on that we were never given. */
   limitedBy?: string[];
-  /**
-   * True when Wynn added this itself to serve a function HWL resolved. Wynn may
-   * map its catalog onto HWL's needs; it may never promote a product to Strong
-   * that HWL did not support — this flag is what says so on the card.
-   */
-  wynnFilled?: boolean;
+  // REMOVED with the contract hardening: `wynnFilled`. It marked a card Wynn had
+  // added itself to serve a function HWL resolved, and its whole job was to
+  // caveat that on the page ("Wynn Essentials never promotes a product to a
+  // Strong Match that the Lab did not support"). Wynn no longer adds cards of
+  // its own on the connected path, so nothing could set it — and a caveat for a
+  // card that cannot exist is a door left ajar. If this flag is ever needed
+  // again, the thing that would set it is the fallback that must not return.
   source: GuidanceSource;
 };
 
@@ -366,7 +367,7 @@ export type RationaleInput = {
  * and when it does not.
  */
 export function buildRationale(input: RationaleInput): MatchRationale {
-  const { matchClass, productName, functionServed, productReason, whenToUse, caution, limitedBy, wynnFilled, source } = input;
+  const { matchClass, productName, functionServed, productReason, whenToUse, caution, limitedBy, source } = input;
   const signals = dedupeSignals(input.signals).slice(0, 3);
   const phrases = signals.map((s) => s.phrase);
   const fn = lowerFirst(functionServed);
@@ -411,11 +412,7 @@ export function buildRationale(input: RationaleInput): MatchRationale {
         : `Your CrownPrint points at ${fn}, and ${productName} is what covers that step.`,
     );
     if (productReason) parts.push(productReason);
-    if (wynnFilled) {
-      parts.push(
-        "It sits at Good rather than Strong on purpose: the Hair Wellness Lab identified the need, and Wynn Essentials matched its own catalog to it. Wynn Essentials never promotes a product to a Strong Match that the Lab did not support — selling it is not evidence that it is right for you.",
-      );
-    } else if (limitedBy?.length) {
+    if (limitedBy?.length) {
       parts.push(
         `It sits at Good rather than Strong because part of the reasoning here leans on ${joinList(limitedBy)}, which your CrownPrint code didn't include. We won't assume what we weren't told, so we hold the classification back instead of overstating it.`,
       );
