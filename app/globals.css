@@ -818,3 +818,6 @@
 .boho-portrait figure:after{border-color:#fff0f7}
 .boho-card{border-color:#ff70ad;box-shadow:0 0 4px rgba(255,255,255,.96),0 0 12px rgba(255,191,218,.88),0 0 25px rgba(255,91,165,.62),0 0 42px rgba(242,45,136,.36),0 18px 40px rgba(35,69,101,.22)}
 .boho-card:hover,.boho-card:focus-within{box-shadow:0 0 6px #fff,0 0 16px #ffc2dc,0 0 32px #ff65a8,0 0 54px rgba(242,45,136,.62),0 22px 48px rgba(35,69,101,.26)}
+
+/* Replace the brown cart interaction with the campaign's neon-pink light. */
+.boho-card .outline-button:hover,.boho-card .outline-button:focus-visible,.boho-card .outline-button:active{background:linear-gradient(180deg,#ff8fc0 0%,#f53f92 100%);border-color:#ffb6d4;color:#fff;box-shadow:0 0 4px #fff,0 0 12px #ffc2dc,0 0 24px #ff65a8,0 0 38px rgba(242,45,136,.62);text-shadow:0 1px 2px rgba(104,17,57,.42)}
