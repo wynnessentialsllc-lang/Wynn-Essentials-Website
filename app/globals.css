@@ -754,7 +754,9 @@
 .boho-sky-plane{position:relative}
 .boho-sky-plane svg{display:block;width:100%;height:auto;overflow:visible}
 .boho-sky-plane>img{position:absolute;z-index:1;right:-4%;top:-27%;width:52%;height:auto;object-fit:contain;transform:rotate(-7deg);filter:drop-shadow(0 7px 7px rgba(20,55,84,.32))}
-.boho-vapor-trail{fill:none;stroke:#fff;stroke-width:5;stroke-linecap:round;opacity:.94;filter:drop-shadow(0 0 5px #fff)}
+.boho-vapor-mist,.boho-vapor-trail{fill:none;stroke:#fff;stroke-linecap:round}
+.boho-vapor-mist{stroke-width:13;opacity:.26;filter:blur(5px) drop-shadow(0 0 7px rgba(255,255,255,.9))}
+.boho-vapor-trail{stroke-width:9;stroke-dasharray:1 13;opacity:.9;filter:drop-shadow(0 0 4px #fff) drop-shadow(0 0 8px rgba(255,255,255,.76))}
 @media(max-width:760px){.boho-sky-plane{width:min(250px,72vw);margin:2px auto -10px}}
 
 /* Bold pink edging keeps the white skywriting legible across the moving sky. */
