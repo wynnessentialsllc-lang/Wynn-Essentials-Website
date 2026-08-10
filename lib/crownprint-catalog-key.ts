@@ -52,19 +52,19 @@ export const HWL_PRODUCT_KEY_ALIASES: Record<string, string> = {
   growOil: "grow-oil",
   reliefOil: "relief-oil",
   scrunchieSet: "heritage-hold-scrunchie-set",
+  edgeControl: "edge-control",
+  softLifeBonnet: "soft-life-bonnet",
 };
 
 /**
- * Every product key HWL may send, frozen at eleven.
+ * Every product key HWL may send, frozen at eleven (HWL PR #640).
  *
- * Nine carry an alias above. The remaining two are already spelled as Wynn
- * slugs and resolve at step 1 — they are listed here so the completeness test
- * covers the whole vocabulary rather than only the aliased part.
- *
- * If HWL ever sends one of those two in the camelCase style the other nine use
- * (`edgeControl`, `softLifeBonnet`), it will NOT resolve and the shopper will
- * lose the product. The fix is one line in the alias table, and the audit's
- * `unresolvedKeys` will name the key.
+ * All eleven carry an explicit alias above. That is the requirement, not a
+ * coincidence: the completeness test rejects a canonical key that resolves only
+ * through the product-name fallback, so the integration can never come to
+ * depend on a display name. HWL's vocabulary is uniformly camelCase — including
+ * `edgeControl` and `softLifeBonnet`, which look like Wynn slugs in hyphenated
+ * form but are not what the Lab sends.
  */
 export const HWL_CANONICAL_PRODUCT_KEYS: readonly string[] = [
   "hydrateMist",
@@ -76,8 +76,8 @@ export const HWL_CANONICAL_PRODUCT_KEYS: readonly string[] = [
   "growOil",
   "reliefOil",
   "scrunchieSet",
-  "edge-control",     // already a Wynn slug — resolves at step 1
-  "soft-life-bonnet", // already a Wynn slug — resolves at step 1
+  "edgeControl",
+  "softLifeBonnet",
 ];
 
 // Aliases are declared in HWL's own casing so this file reads as the contract

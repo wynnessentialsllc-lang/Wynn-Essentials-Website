@@ -126,19 +126,44 @@ test("COMPLETENESS: every canonical HWL key resolves directly or via an explicit
 
   assert.equal(HWL_CANONICAL_PRODUCT_KEYS.length, 11, "the frozen vocabulary is eleven keys");
 
+  const unresolved = [];
   for (const key of HWL_CANONICAL_PRODUCT_KEYS) {
     const lower = key.toLowerCase();
     const direct = slugs.has(lower);
     const aliased = aliasIndex.has(lower);
 
+    // ONLY these two satisfy completeness. Resolution runs slug → alias → name,
+    // so proving one of the first two hits proves the name fallback is never
+    // reached for a canonical key: it may stay as defence, but the integration
+    // does not rest on it. A product renamed for merchandising reasons must not
+    // be able to break the bridge.
     assert.ok(
       direct || aliased,
-      `"${key}" resolves by neither slug nor alias — it would rely on the name fallback, which is not a contract`,
+      `"${key}" resolves by neither slug nor alias — it would fall through to display-name matching, which is not a contract`,
     );
 
     const resolved = resolveCatalogSlug(key, catalog);
-    assert.ok(resolved, `"${key}" does not resolve at all`);
-    assert.ok(slugs.has(resolved), `"${key}" resolves to "${resolved}", which is not in the live catalog`);
+    if (!resolved || !slugs.has(resolved)) unresolved.push(key);
+  }
+  assert.deepEqual(unresolved, [], "unresolved canonical keys must be none");
+});
+
+test("COMPLETENESS: no canonical key depends on display-name matching", () => {
+  // The direct proof: resolve every canonical key against a catalog whose
+  // product NAMES have all been replaced. Slug and alias resolution are
+  // unaffected; anything that was secretly leaning on the name fallback breaks.
+  const renamed = catalog.map((p, i) => ({ ...p, name: `Renamed Product ${i}` }));
+
+  for (const key of HWL_CANONICAL_PRODUCT_KEYS) {
+    assert.ok(
+      resolveCatalogSlug(key, renamed),
+      `"${key}" stopped resolving when product names changed — it was depending on display-name matching`,
+    );
+    assert.equal(
+      resolveCatalogSlug(key, renamed),
+      resolveCatalogSlug(key, catalog),
+      `"${key}" resolves differently once names change`,
+    );
   }
 });
 
@@ -154,7 +179,7 @@ test("COMPLETENESS: the alias table is one-to-one and points only at live produc
     targets.length,
     "two HWL keys map to the same product — the mapping must be one-to-one",
   );
-  // The nine required mappings, asserted literally against the frozen contract.
+  // The frozen contract, asserted literally. All eleven canonical keys.
   assert.deepEqual(HWL_PRODUCT_KEY_ALIASES, {
     hydrateMist: "hydrate-herbal-hair-mist",
     therapi: "thairap-moisture-styling-cream",
@@ -165,7 +190,79 @@ test("COMPLETENESS: the alias table is one-to-one and points only at live produc
     growOil: "grow-oil",
     reliefOil: "relief-oil",
     scrunchieSet: "heritage-hold-scrunchie-set",
+    edgeControl: "edge-control",
+    softLifeBonnet: "soft-life-bonnet",
   });
+});
+
+// ---------------------------------------------------------------------------
+// The two new keys, against the channel separation. Resolving a key must not
+// change which channel it may enter through.
+// ---------------------------------------------------------------------------
+test("edgeControl cannot enter unless present in authoritative matches", () => {
+  // It resolves perfectly. It is still not authorized.
+  assert.equal(resolveCatalogSlug("edgeControl", catalog), "edge-control", "resolvable…");
+
+  const ctx = context({
+    productFunctionsNeeded: [{ label: "Edge definition" }],
+    coverage: [{ functionKey: "lay_edges", functionLabel: "Edge definition", status: "covered" }],
+    matches: [{ productKey: "revaivl", productName: "Revaivl", matchClass: "strong", why: "Resolved." }],
+  });
+  const guidance = selectGuidance({ context: ctx, catalog });
+
+  assert.equal(
+    guidance.matches.some((m) => m.catalogSlug === "edge-control"),
+    false,
+    "…and a covered edge function still does not authorize it",
+  );
+  assert.deepEqual(
+    enforceMatchesOnly([{ productKey: "edgeControl", catalogSlug: "edge-control" }], ctx.matches),
+    [],
+    "the guard blocks it at the render boundary too",
+  );
+
+  // Present in matches, it renders — in HWL's vocabulary, at HWL's class.
+  const authorized = context({
+    matches: [{ productKey: "edgeControl", productName: "Edge Control", matchClass: "good", why: "Resolved." }],
+  });
+  const ok = selectGuidance({ context: authorized, catalog });
+  assert.deepEqual(ok.matches.map((m) => m.productKey), ["edgeControl"]);
+  assert.deepEqual(ok.matches.map((m) => m.catalogSlug), ["edge-control"]);
+  assert.equal(ok.matches[0].matchClass, "good");
+});
+
+test("softLifeBonnet renders only from the accessory channel, never from formulation coverage", () => {
+  // Coverage naming the friction function, and nothing in the accessory array.
+  const coverageOnly = selectGuidance({
+    context: context({
+      coverage: [{ functionKey: "reduce_surface_friction", functionLabel: "Reduce surface friction", status: "partial" }],
+      matches: [{ productKey: "revaivl", productName: "Revaivl", matchClass: "strong", why: "Resolved." }],
+    }),
+    catalog,
+  });
+  assert.deepEqual(coverageOnly.accessories, [], "coverage produces no accessory");
+  assert.equal(
+    coverageOnly.matches.some((m) => m.catalogSlug === "soft-life-bonnet"),
+    false,
+    "and no formulation match",
+  );
+
+  // The explicit channel, in HWL's vocabulary — this is the only way through.
+  const explicit = selectGuidance({
+    context: context({
+      accessories: [{ productKey: "softLifeBonnet", why: "Protects the style overnight." }],
+      matches: [{ productKey: "revaivl", productName: "Revaivl", matchClass: "strong", why: "Resolved." }],
+    }),
+    catalog,
+  });
+  assert.deepEqual(explicit.accessories.map((a) => a.productKey), ["softLifeBonnet"]);
+  assert.deepEqual(explicit.accessories.map((a) => a.catalogSlug), ["soft-life-bonnet"]);
+  assert.equal(
+    explicit.matches.some((m) => m.catalogSlug === "soft-life-bonnet"),
+    false,
+    "an accessory never joins the formulation matches",
+  );
+  assert.deepEqual(explicit.matches.map((m) => m.productKey), ["revaivl"]);
 });
 
 test("COMPLETENESS: aliases resolve regardless of the casing HWL sends", () => {
