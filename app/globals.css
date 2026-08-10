@@ -955,6 +955,37 @@
   }
 }
 
+/* A restrained highlight glides across DREAMS without obscuring the neon lettering. */
+.boho-intro h2 strong::before{
+  position:absolute;
+  inset:0;
+  z-index:1;
+  display:block;
+  background:linear-gradient(108deg,transparent 34%,rgba(255,255,255,.18) 43%,rgba(255,255,255,.82) 50%,rgba(255,255,255,.2) 57%,transparent 66%);
+  background-position:145% 50%;
+  background-size:250% 100%;
+  background-clip:text;
+  -webkit-background-clip:text;
+  color:transparent;
+  content:"DREAMS";
+  font:inherit;
+  letter-spacing:inherit;
+  line-height:inherit;
+  pointer-events:none;
+  -webkit-text-fill-color:transparent;
+  -webkit-text-stroke:0 transparent;
+  animation:boho-dreams-glare 6s ease-in-out infinite;
+}
+@keyframes boho-dreams-glare{
+  0%,62%{background-position:145% 50%;opacity:0}
+  68%{opacity:.28}
+  82%{background-position:-45% 50%;opacity:.72}
+  88%,100%{background-position:-45% 50%;opacity:0}
+}
+@media(prefers-reduced-motion:reduce){
+  .boho-intro h2 strong::before{background-position:50% 50%;opacity:.22;animation:none}
+}
+
 /* Give each linked texture cloud its own soft, staggered drift. */
 @keyframes boho-linked-cloud-float{
   0%,100%{transform:translate3d(0,var(--cloud-offset,0),0)}
