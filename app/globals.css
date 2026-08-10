@@ -925,3 +925,32 @@
   .boho-texture-clouds a:nth-child(3){transform:translateY(-3px)}
   .boho-texture-clouds a:nth-child(4){transform:translateY(6px)}
 }
+
+/* Keep the section label centered inside a natural, responsive cloud. */
+.boho-product-heading>.eyebrow{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-sizing:border-box;
+  width:clamp(320px,36vw,460px);
+  min-height:0;
+  aspect-ratio:2.65/1;
+  margin:0 auto;
+  padding:9% 14% 4%;
+  background:url("/collections/boho-copy-cloud-v1.png") center/contain no-repeat;
+  filter:drop-shadow(0 8px 12px rgba(25,68,105,.22));
+  font-size:clamp(12px,1vw,16px);
+  letter-spacing:.11em;
+  line-height:1.1;
+  text-align:center;
+  white-space:nowrap;
+}
+@media(max-width:760px){
+  .boho-product-heading>.eyebrow{
+    width:min(82vw,340px);
+    aspect-ratio:2.55/1;
+    padding:10% 13% 4%;
+    font-size:clamp(10px,3vw,13px);
+    letter-spacing:.08em;
+  }
+}
