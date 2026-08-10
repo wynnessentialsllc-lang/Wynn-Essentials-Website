@@ -910,16 +910,16 @@
 }
 
 /* Each texture cloud is a direct, accessible product link. */
-.boho-texture-clouds{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:center;gap:clamp(2px,.7vw,10px);box-sizing:border-box;width:min(94%,1100px);min-height:122px;margin:34px auto 0;padding:10px 0 8px}
-.boho-texture-clouds a{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:100%;aspect-ratio:2.45/1;padding:8% 8% 3%;background:url("/collections/boho-copy-cloud-v1.png") center/contain no-repeat;filter:drop-shadow(0 6px 8px rgba(25,68,105,.2));color:#603452;font-family:var(--font-sans),Arial,sans-serif;font-size:clamp(12px,1vw,16px);font-weight:900;letter-spacing:-.01em;line-height:1.05;text-align:center;text-decoration:none;white-space:nowrap;transition:filter .2s ease,transform .2s ease}
+.boho-texture-clouds{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:center;gap:clamp(8px,1vw,14px);box-sizing:border-box;width:min(90%,1080px);max-width:calc(100vw - 48px);min-height:122px;margin:34px auto 0;padding:10px 0 8px}
+.boho-texture-clouds a{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:100%;max-width:100%;min-width:0;aspect-ratio:2.45/1;padding:8% 8% 3%;background:url("/collections/boho-copy-cloud-v1.png") center/contain no-repeat;filter:drop-shadow(0 6px 8px rgba(25,68,105,.2));color:#603452;font-family:var(--font-sans),Arial,sans-serif;font-size:clamp(12px,1vw,16px);font-weight:900;letter-spacing:-.01em;line-height:1.05;text-align:center;text-decoration:none;white-space:nowrap;transition:filter .2s ease,transform .2s ease}
 .boho-texture-clouds a:nth-child(1){transform:translateY(-7px)}
 .boho-texture-clouds a:nth-child(2){transform:translateY(7px)}
 .boho-texture-clouds a:nth-child(3){transform:translateY(-5px)}
 .boho-texture-clouds a:nth-child(4){transform:translateY(8px)}
 .boho-texture-clouds a:hover,.boho-texture-clouds a:focus-visible{filter:drop-shadow(0 8px 11px rgba(239,81,151,.48));outline:2px solid transparent}
 @media(max-width:760px){
-  .boho-texture-clouds{grid-template-columns:repeat(2,minmax(0,1fr));gap:0 4px;width:calc(100vw - 20px);max-width:430px;min-height:170px;margin-top:26px;padding:4px 0}
-  .boho-texture-clouds a{aspect-ratio:2.35/1;padding:9% 7% 3%;font-size:clamp(10px,2.75vw,12px);letter-spacing:-.025em}
+  .boho-texture-clouds{grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 8px;width:min(calc(100vw - 40px),400px);max-width:calc(100vw - 40px);min-height:170px;margin:26px auto 0;padding:4px 0}
+  .boho-texture-clouds a{width:100%;max-width:100%;min-width:0;aspect-ratio:2.35/1;padding:9% 7% 3%;font-size:clamp(10px,2.75vw,12px);letter-spacing:-.025em}
   .boho-texture-clouds a:nth-child(1){transform:translateY(-4px)}
   .boho-texture-clouds a:nth-child(2){transform:translateY(5px)}
   .boho-texture-clouds a:nth-child(3){transform:translateY(-3px)}
