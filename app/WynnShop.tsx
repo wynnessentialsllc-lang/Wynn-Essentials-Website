@@ -221,7 +221,14 @@ function ModalShell({ label, onClose, children, className = "" }: { label: strin
     };
     document.addEventListener("keydown", key);
     document.body.classList.add("locked");
-    return () => { document.removeEventListener("keydown", key); document.body.classList.remove("locked"); previous?.focus(); };
+    return () => {
+      document.removeEventListener("keydown", key);
+      document.body.classList.remove("locked");
+      // Keep Safari from scrolling the page back to the element that opened
+      // the modal. This is especially noticeable while browsing the Boho
+      // section, where restoring focus used to pull the viewport upward.
+      previous?.focus({ preventScroll: true });
+    };
   }, [mounted, onClose]);
   if (!mounted) return null;
   return createPortal(
