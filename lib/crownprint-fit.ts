@@ -38,7 +38,20 @@ import {
 export type { MatchClass, MatchRationale };
 
 export type FitMatch = {
+  /**
+   * The AUTHORIZATION identity, in the vocabulary of whoever authorized it —
+   * HWL's own product key on the connected path. This is what
+   * enforceMatchesOnly() compares and what the audit reports, so both sides of
+   * the subset check speak the same language.
+   */
   productKey: string;
+  /**
+   * The Wynn catalog slug this resolves to — the RENDERING identity, used for
+   * the product join, the image, the price and the URL. Usually identical to
+   * productKey; different when HWL names a product in its own vocabulary
+   * ("revaivl" → "revaivl-protein-conditioner").
+   */
+  catalogSlug: string;
   productName: string;
   matchClass: MatchClass;
   /** Why this product fits THIS CrownPrint. */
@@ -656,6 +669,9 @@ export function matchProducts(profile: CrownPrintProfile, catalog: FitCatalogPro
 
     scored.set(product.slug, {
       productKey: product.slug,
+      // Wynn's own engine authorizes from its own catalog, so the two
+      // identities are the same slug here.
+      catalogSlug: product.slug,
       productName: product.name,
       matchClass,
       why,
@@ -702,6 +718,7 @@ export function matchProducts(profile: CrownPrintProfile, catalog: FitCatalogPro
       );
       scored.set(BUNDLE_SLUG, {
         productKey: BUNDLE_SLUG,
+        catalogSlug: BUNDLE_SLUG,
         productName: bundle.name,
         matchClass: bundleClass,
         why: bundleWhy,

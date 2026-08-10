@@ -33,7 +33,12 @@ import { adminTokenConfigured } from "../../../../lib/admin-auth";
  * WHAT IT RETURNS
  *   connected      boolean   — whether a trusted CrownPrint session was present
  *   authorizedKeys string[]  — HWL's matches[].productKey, verbatim
- *   renderedKeys   string[]  — the product keys the page would render
+ *   renderedKeys   string[]  — the same keys, for those the page actually renders
+ *   renderedCatalogSlugs string[] — the Wynn slug each rendered key resolved to
+ *   unresolvedKeys string[]  — authorized by HWL but NOT rendered. Non-empty
+ *                              means a valid CrownPrint is losing products —
+ *                              `subset` stays true, so this is the field that
+ *                              catches it
  *   accessoryKeys  string[]  — the separate accessory channel, reported apart
  *   coverageKeys   string[]  — coverage functionKeys, to show they name no product
  *   subset         boolean   — renderedKeys ⊆ authorizedKeys
@@ -77,10 +82,18 @@ export async function GET(request: Request) {
   const rendered = enforceMatchesOnly(guidance.matches, context ? context.matches : null)
     // The page then drops anything missing from the live catalog; mirror that so
     // renderedKeys is what a shopper actually sees, not what survived the guard.
-    .filter((m) => products.some((p) => p.slug === m.productKey));
+    // Joined on catalogSlug, exactly as the page joins it.
+    .filter((m) => products.some((p) => p.slug === m.catalogSlug));
 
+  // Both sides in HWL's vocabulary, so the subset check is like-for-like. The
+  // Wynn slug each one renders as is reported separately rather than swapped in,
+  // because a key that silently changed shape is the bug this audit found.
   const authorizedKeys = (context?.matches ?? []).map((m) => m.productKey);
   const renderedKeys = rendered.map((m) => m.productKey);
+  const renderedCatalogSlugs = rendered.map((m) => m.catalogSlug);
+  // Authorized by HWL but not renderable: the failure mode that produced an
+  // empty results page for a shopper whose CrownPrint was perfectly valid.
+  const unresolvedKeys = authorizedKeys.filter((k) => !renderedKeys.includes(k));
   const allowed = new Set(authorizedKeys);
   const violations = renderedKeys.filter((k) => !allowed.has(k));
 
@@ -91,6 +104,8 @@ export async function GET(request: Request) {
       connected: context !== null && context.crownPrintPresent === true,
       authorizedKeys,
       renderedKeys,
+      renderedCatalogSlugs,
+      unresolvedKeys,
       accessoryKeys: guidance.accessories.map((a) => a.productKey),
       coverageKeys: guidance.coverage.map((c) => c.functionKey),
       // The assertion itself. An unconnected session renders nothing, so the

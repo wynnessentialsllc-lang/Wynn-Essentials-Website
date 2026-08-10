@@ -137,7 +137,7 @@ export default async function CrownPrintCodePage({ searchParams }: { searchParam
   // CrownPrint whose matches array it is not a subset of.
   const cards: FitCard[] = (connected ? [] : fit.matches)
     .map((m): FitCard | null => {
-      const p = products.find((x) => x.slug === m.productKey);
+      const p = products.find((x) => x.slug === m.catalogSlug);
       if (!p) return null;
       const simple = !(p.colors?.length) && !((p.variants?.length ?? 0) > 1);
       return {
