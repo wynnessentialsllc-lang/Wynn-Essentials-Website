@@ -119,8 +119,18 @@ export type CoveragePoint = {
   detail: string;
 };
 
-/** An accessory HWL explicitly suggested. Rendered apart from matches. */
-export type AccessorySupport = { productKey: string; productName: string; why: string };
+/**
+ * An accessory HWL explicitly suggested. Rendered apart from matches.
+ *
+ * Carries the same two identities as a match: `productKey` is HWL's vocabulary,
+ * `catalogSlug` is what Wynn links and renders.
+ */
+export type AccessorySupport = {
+  productKey: string;
+  catalogSlug: string;
+  productName: string;
+  why: string;
+};
 
 /** The subset of WynnMatchContext this module reads. */
 export type TrustedContext = {
@@ -330,10 +340,21 @@ function fromTrustedContext(context: TrustedContext, catalog: FitCatalogProduct[
   //    product cards.
   const accessories: AccessorySupport[] = (context.accessories ?? [])
     .map((a): AccessorySupport | null => {
-      const product = byName.get(a.productKey);
-      if (!product) return null;
+      // The accessory channel speaks the same HWL vocabulary as matches
+      // (`softLifeBonnet`, `scrunchieSet`), so it needs the same key resolution.
+      // Looking these up by raw key against slugs is the exact bug that lost
+      // Revaivl, and it would lose every suggested tool the same silent way.
+      const catalogSlug = resolveCatalogSlug(a.productKey, catalog);
+      const product = catalogSlug ? byName.get(catalogSlug) : undefined;
+      if (!product || !catalogSlug) {
+        console.error(
+          `[crownprint] SUGGESTED accessory "${a.productKey}" could not be resolved to a Wynn catalog product; it will not be shown.`,
+        );
+        return null;
+      }
       return {
         productKey: a.productKey,
+        catalogSlug,
         productName: product.name,
         why: a.why ?? "Suggested by the Hair Wellness Lab as everyday support for your routine.",
       };

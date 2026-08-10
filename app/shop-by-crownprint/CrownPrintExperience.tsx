@@ -608,7 +608,7 @@ export default function CrownPrintExperience({
             <ul>
               {accessories.map((a) => (
                 <li key={a.productKey}>
-                  <a href={`/products/${a.productKey}`}><b>{a.productName}</b></a>
+                  <a href={`/products/${a.catalogSlug}`}><b>{a.productName}</b></a>
                   {a.why ? ` — ${a.why}` : ""}
                 </li>
               ))}

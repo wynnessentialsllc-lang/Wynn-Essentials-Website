@@ -27,14 +27,64 @@
 import type { FitCatalogProduct } from "./crownprint-fit";
 
 /**
- * Explicit overrides, for keys that match neither a slug nor a product name.
+ * The frozen Hair Wellness Lab product vocabulary (HWL PR #640), mapped to Wynn
+ * catalog slugs.
  *
- * Deliberately empty at present: the observed HWL convention is the product's
- * own name, which resolves automatically below and cannot go stale as the
- * catalog changes. Add an entry here only for a genuine exception, and only as
- * an exact key mapping to exactly one slug — never a pattern.
+ * This is the canonical contract between the two systems, written out rather
+ * than inferred. Relying on the product-name fallback for these would be
+ * fragile in both directions: `therapi` never matches "ThairaP", `hydrateMist`
+ * never matches "Hydrate", and even the three that happen to match by name
+ * today (`lathyr`, `uplyft`, `revaivl`) would silently break the moment a
+ * product is renamed for merchandising reasons. An alias is a promise; a name
+ * collision is a coincidence.
+ *
+ * Every entry is an EXACT key mapping to EXACTLY ONE slug. Never a pattern,
+ * never a category, never a need. Adding a regex here would reintroduce the
+ * bypass this whole contract exists to prevent.
  */
-export const HWL_PRODUCT_KEY_ALIASES: Record<string, string> = {};
+export const HWL_PRODUCT_KEY_ALIASES: Record<string, string> = {
+  hydrateMist: "hydrate-herbal-hair-mist",
+  therapi: "thairap-moisture-styling-cream",
+  lathyr: "lathyr-shampoo",
+  uplyft: "uplyft-conditioner",
+  revaivl: "revaivl-protein-conditioner",
+  nourishOil: "nourish-oil",
+  growOil: "grow-oil",
+  reliefOil: "relief-oil",
+  scrunchieSet: "heritage-hold-scrunchie-set",
+  edgeControl: "edge-control",
+  softLifeBonnet: "soft-life-bonnet",
+};
+
+/**
+ * Every product key HWL may send, frozen at eleven (HWL PR #640).
+ *
+ * All eleven carry an explicit alias above. That is the requirement, not a
+ * coincidence: the completeness test rejects a canonical key that resolves only
+ * through the product-name fallback, so the integration can never come to
+ * depend on a display name. HWL's vocabulary is uniformly camelCase — including
+ * `edgeControl` and `softLifeBonnet`, which look like Wynn slugs in hyphenated
+ * form but are not what the Lab sends.
+ */
+export const HWL_CANONICAL_PRODUCT_KEYS: readonly string[] = [
+  "hydrateMist",
+  "therapi",
+  "lathyr",
+  "uplyft",
+  "revaivl",
+  "nourishOil",
+  "growOil",
+  "reliefOil",
+  "scrunchieSet",
+  "edgeControl",
+  "softLifeBonnet",
+];
+
+// Aliases are declared in HWL's own casing so this file reads as the contract
+// it mirrors, and indexed case-insensitively so lookup does not depend on it.
+const ALIAS_INDEX = new Map(
+  Object.entries(HWL_PRODUCT_KEY_ALIASES).map(([key, slug]) => [key.toLowerCase(), slug]),
+);
 
 /** Trim, lowercase, and treat separators as spaces. Nothing fuzzier than that. */
 const normalize = (value: string): string =>
@@ -65,10 +115,18 @@ export function resolveCatalogSlug(
   const bySlug = catalog.find((p) => p.slug.toLowerCase() === lower);
   if (bySlug) return bySlug.slug;
 
-  const alias = HWL_PRODUCT_KEY_ALIASES[lower];
+  const alias = ALIAS_INDEX.get(lower);
   if (alias) {
     const aliased = catalog.find((p) => p.slug === alias);
     if (aliased) return aliased.slug;
+    // A contract alias pointing at a product the catalog no longer carries is a
+    // configuration error, not a shopper's problem — say so rather than falling
+    // through to the name fallback and resolving to something else.
+    console.error(
+      `[crownprint] HWL alias "${lower}" maps to "${alias}", which is not in the Wynn catalog. ` +
+        `The alias table and the catalog have diverged.`,
+    );
+    return null;
   }
 
   const key = normalize(raw);
