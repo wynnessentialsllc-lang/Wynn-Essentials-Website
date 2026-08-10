@@ -349,10 +349,6 @@
    rows rather than merging into a paragraph a shopper skims past. */
 .cp-card-need,.cp-card-function,.cp-card-evidence,.cp-card-boundary,.cp-card-usage{
   font-size:13px;line-height:1.6;margin:0 0 8px;overflow-wrap:anywhere}
-/* The canonical capability pair. Monospaced so "proteins_peptides" reads as the
-   contract identifier it is rather than as a typo in a sentence. */
-.cp-card-capability{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;
-  background:var(--linen);padding:2px 6px;border-radius:3px;overflow-wrap:anywhere}
 .cp-card-evidence-statement{font-size:13px;line-height:1.6;margin:0 0 8px;color:var(--muted);
   overflow-wrap:anywhere}
 .cp-card-boundary{padding:9px 11px;background:var(--linen);border-left:3px solid var(--taupe)}
@@ -378,12 +374,12 @@
 .cp-needgroup li{font-size:13px;line-height:1.65;margin-bottom:7px;overflow-wrap:anywhere}
 .cp-needgroup-covered{border-left:3px solid var(--kraft);padding-left:14px}
 .cp-needgroup-partial{border-left:3px solid var(--taupe);padding-left:14px}
-.cp-needgroup-not_carried{border-left:3px solid var(--line);padding-left:14px}
+.cp-needgroup-notcarried{border-left:3px solid var(--line);padding-left:14px}
 .cp-qualifying{color:var(--muted)}
 .cp-accessories-inline{border-left:4px solid var(--kraft)}
 @media(max-width:480px){
   .cp-otherneeds,.cp-noauth{padding:16px 14px}
-  .cp-needgroup-covered,.cp-needgroup-partial,.cp-needgroup-not_carried{padding-left:11px}
+  .cp-needgroup-covered,.cp-needgroup-partial,.cp-needgroup-notcarried{padding-left:11px}
 }
 
 .cp-group{margin:0 0 40px}

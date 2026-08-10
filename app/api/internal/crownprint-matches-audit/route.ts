@@ -135,6 +135,15 @@ export async function GET(request: Request) {
       renderedCatalogSlugs,
       unresolvedKeys,
       accessoryKeys: guidance.accessories.map((a) => a.productKey),
+      // The canonical machine identifiers, preserved for audit and debugging.
+      // Customers see readable labels; this is where the raw keys live.
+      evidenceKeys: rendered
+        .filter((m) => m.functionKey || m.evidence?.capabilityKey)
+        .map((m) => ({
+          productKey: m.productKey,
+          functionKey: m.functionKey ?? null,
+          capabilityKey: m.evidence?.capabilityKey ?? null,
+        })),
       coverageKeys: guidance.coverage.map((c) => c.functionKey),
       // The assertion itself. An unconnected session renders nothing, so the
       // empty set is trivially a subset — `connected` is what says whether this

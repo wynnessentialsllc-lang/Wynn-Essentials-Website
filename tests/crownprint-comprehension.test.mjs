@@ -112,9 +112,11 @@ test("a matched product renders as a product card with class, need, function, ev
   assert.match(html, /Strong Match/i, "the match class renders");
   assert.match(html, /Supports:<\/b> Strength &amp; Protein Support/, "the CrownPrint need renders");
   assert.match(html, /CrownPrint function:<\/b> Temporarily reinforce the fibre/, "the function renders");
-  // Contract #642: the STRUCTURED pair is the canonical explanation source.
-  assert.match(html, /Why it qualifies:<\/b>\s*<span[^>]*>Rice protein \/ proteins_peptides<\/span>/,
-    "ingredient / capabilityKey render as the canonical evidence");
+  // Contract #642: the structured pair is the canonical explanation source,
+  // rendered as two labelled facts — the ingredient verbatim, the capability
+  // through Wynn's display map.
+  assert.match(html, /Evidence:<\/b> Rice protein/, "the ingredient renders verbatim");
+  assert.match(html, /Capability:<\/b> Protein &amp; peptides/, "the capability renders as a readable label");
   assert.match(html, /Rice protein provides the protein\/peptide capability/, "and the Lab's statement follows verbatim");
   assert.match(html, /Boundary:<\/b> This recommendation addresses temporary fibre reinforcement/, "the limitation renders");
 
@@ -241,10 +243,55 @@ test("a match with no evidence, function or limitation from HWL simply shows les
   const html = render({ products: [bare] });
 
   assert.match(html, /Revaivl/);
-  assert.equal(/Why it qualifies/.test(html), false, "no evidence line is invented");
-  assert.equal(/cp-card-capability/.test(html), false, "and no capability pair is invented");
+  assert.equal(/Evidence:/.test(html), false, "no evidence line is invented");
+  assert.equal(/Capability:/.test(html), false, "and no capability line is invented");
   assert.equal(/CrownPrint function:/.test(html), false, "no function is invented");
   // And no boundary is invented either. A boundary Wynn wrote itself would read
   // as the Lab's verdict on what this product does not do.
   assert.equal(/Boundary:/.test(html), false, "no limitation is invented");
+});
+
+// ---------------------------------------------------------------------------
+// No raw contract identifier reaches a customer.
+//
+// The payload keeps its machine identifiers — that is the contract, and an
+// audit needs them. They are simply not customer copy: "Capability:
+// proteins_peptides" is a database column on a product card, and it undermines
+// the care taken over every other line.
+// ---------------------------------------------------------------------------
+
+/** snake_case tokens — the shape every HWL identifier takes. */
+const SNAKE_CASE = /\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/g;
+
+test("no raw snake_case contract identifier appears anywhere in the rendered output", () => {
+  const html = render({
+    coverage: [
+      { functionKey: "cleanse_scalp", status: "covered", label: "Gentle cleansing", detail: "d", qualifyingProducts: [] },
+      // No functionLabel: the key must be humanized rather than printed raw.
+      { functionKey: "reduce_surface_friction", status: "partial", label: "Reduce surface friction", detail: "d", qualifyingProducts: [] },
+      { functionKey: "heat_protection", status: "not_carried", label: "Heat protection", detail: "d", qualifyingProducts: [] },
+    ],
+    accessories: [ACCESSORY],
+  });
+
+  // Attributes AND text: a key hidden in a data-* attribute is still shipped to
+  // the browser, and is one view-source away from a customer.
+  const leaks = [...new Set(html.match(SNAKE_CASE) ?? [])];
+  assert.deepEqual(leaks, [], `raw contract identifiers reached the page: ${leaks.join(", ")}`);
+});
+
+test("the visible text carries the label, and the key is nowhere on the page", () => {
+  const html = render();
+  const text = html.replace(/<[^>]+>/g, " ");
+
+  assert.match(text, /Capability:\s*Protein &amp; peptides/, "the readable label is what a customer sees");
+  assert.equal(/proteins_peptides/.test(html), false, "the raw key is not in the markup at all");
+});
+
+test("an unmapped capability key still never renders raw", () => {
+  const exotic = { ...REVAIVL, evidence: { ingredient: "Something new", capabilityKey: "humidity_resistance_barrier" } };
+  const html = render({ products: [exotic] });
+
+  assert.equal(/humidity_resistance_barrier/.test(html), false, "the raw key never reaches the page");
+  assert.match(html, /Capability:<\/b> Humidity resistance barrier/, "it degrades to a readable form");
 });
