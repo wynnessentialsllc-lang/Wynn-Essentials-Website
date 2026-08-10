@@ -117,6 +117,8 @@ export type CoveragePoint = {
   status: CoverageStatus;
   label: string;
   detail: string;
+  /** Display names only. Explains capability; never renders a product card. */
+  qualifyingProducts: string[];
 };
 
 /**
@@ -141,9 +143,19 @@ export type TrustedContext = {
   currentPriorities?: { label: string; detail?: string }[];
   productFunctionsNeeded?: { label: string; detail?: string }[];
   notCarried?: { label: string; detail?: string }[];
-  coverage?: { functionKey: string; status: CoverageStatus; detail?: string; functionLabel?: string }[];
+  coverage?: { functionKey: string; status: CoverageStatus; detail?: string; functionLabel?: string; qualifyingProducts?: string[] }[];
   accessories?: { productKey: string; why?: string }[];
-  matches: { productKey: string; productName: string; matchClass: MatchClass; why: string }[];
+  matches: {
+    productKey: string;
+    productName: string;
+    matchClass: MatchClass;
+    why: string;
+    needServed?: string;
+    functionServed?: string;
+    functionKey?: string;
+    evidence?: { ingredient?: string; capabilityKey?: string; statement?: string };
+    limitation?: string;
+  }[];
   noStrongMatch: boolean;
   whatToLookFor?: Partial<WhatToLookFor>;
 };
@@ -263,7 +275,10 @@ function fromTrustedContext(context: TrustedContext, catalog: FitCatalogProduct[
     .map(({ match: m, catalogSlug }) => {
       const product = byName.get(catalogSlug)!;
       const usage = productUsage(catalogSlug);
-      const need = usage?.need ?? "Part of your resolved routine";
+      // HWL's resolved need wins when it sent one. Wynn's catalog role is the
+      // fallback label only — it describes a routine step, never a CrownPrint
+      // verdict, and it is never dressed up as one.
+      const need = m.needServed ?? usage?.need ?? "Part of your resolved routine";
       const whenToUse = usage?.whenToUse ?? "Follow the directions on the product page.";
       return {
         productKey: m.productKey,
@@ -271,6 +286,12 @@ function fromTrustedContext(context: TrustedContext, catalog: FitCatalogProduct[
         productName: product.name,
         matchClass: m.matchClass,
         why: m.why,
+        // HWL's explanation, passed through untouched. Presentation only.
+        ...(m.needServed ? { needServed: m.needServed } : {}),
+        ...(m.functionServed ? { functionServed: m.functionServed } : {}),
+        ...(m.functionKey ? { functionKey: m.functionKey } : {}),
+        ...(m.evidence ? { evidence: m.evidence } : {}),
+        ...(m.limitation ? { limitation: m.limitation } : {}),
         need,
         whenToUse,
         keyIngredients: [],
@@ -319,6 +340,7 @@ function fromTrustedContext(context: TrustedContext, catalog: FitCatalogProduct[
     // is ever compared, matched, or selected on.
     label: c.functionLabel?.trim() || humanizeFunctionKey(c.functionKey),
     detail: c.detail ?? COVERAGE_DETAIL[c.status],
+    qualifyingProducts: c.qualifyingProducts ?? [],
   }));
 
   // 4. Gaps: what HWL determined Wynn doesn't carry — from `notCarried`, and

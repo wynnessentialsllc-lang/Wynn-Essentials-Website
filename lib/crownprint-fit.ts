@@ -56,6 +56,19 @@ export type FitMatch = {
   matchClass: MatchClass;
   /** Why this product fits THIS CrownPrint. */
   why: string;
+  /**
+   * HWL's own explanation of the match, rendered verbatim when present.
+   *
+   * These are PRESENTATION fields. They never influence which products render,
+   * their class, or their order — `matches` decides all of that. When HWL sends
+   * none of them the card shows less, because the alternative is Wynn inventing
+   * chemistry, which it must not do.
+   */
+  needServed?: string;
+  functionServed?: string;
+  functionKey?: string;
+  evidence?: { ingredient?: string; capabilityKey?: string; statement?: string };
+  limitation?: string;
   /** Which CrownPrint need it serves — the routine role, in one phrase. */
   need: string;
   /** When and how often to use it, tuned to this profile where that matters. */

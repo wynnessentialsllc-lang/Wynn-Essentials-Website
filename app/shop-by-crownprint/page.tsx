@@ -123,6 +123,10 @@ export default async function ShopByCrownPrintPage({
         why: m.why,
         need: m.need,
         whenToUse: m.whenToUse,
+        // HWL's explanation fields, passed straight to the card.
+        ...(m.functionServed ? { functionServed: m.functionServed } : {}),
+        ...(m.evidence ? { evidence: m.evidence } : {}),
+        ...(m.limitation ? { limitation: m.limitation } : {}),
         // Built server-side from the priorities and CrownState the Lab resolved.
         rationale: m.rationale,
       };

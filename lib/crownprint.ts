@@ -105,11 +105,28 @@ export const parseReturnState = (raw: unknown): ConnectStatus | LocalReturnState
 
 export type MatchClass = "strong" | "good" | "conditional";
 
+/**
+ * HWL's formulation evidence for one match. Mechanism, not performance: it says
+ * a formulation carries a capability CrownPrint asked for, never that the
+ * finished product achieves a result. Wynn renders it verbatim and never
+ * reconstructs chemistry of its own.
+ */
+export type SafeEvidence = {
+  ingredient?: string;      // "Rice protein"
+  capabilityKey?: string;   // "proteins_peptides" — the durable identifier
+  statement?: string;       // consumer-safe sentence, HWL's wording
+};
+
 export type SafeMatchProduct = {
-  productKey: string;   // maps to a Product.slug in app/data.ts (catalog = truth)
+  productKey: string;   // HWL's key; resolved to a catalog slug by crownprint-catalog-key
   productName: string;  // convenience label from HWL; catalog name is authoritative
   matchClass: MatchClass;
   why: string;          // consumer-safe explanation of FIT (not a new efficacy claim)
+  needServed?: string;      // the CrownPrint need, e.g. "Strength & Protein Support"
+  functionServed?: string;  // the function, e.g. "Temporarily reinforce the fibre"
+  functionKey?: string;     // stable identifier for that function
+  evidence?: SafeEvidence;  // why the formulation qualifies
+  limitation?: string;      // what this match does NOT address
 };
 
 // Consumer-safe, educational "what to look for" guidance for the no-strong-match
@@ -145,6 +162,12 @@ export type SafeCoverage = {
   functionKey: string;
   status: CoverageStatus;
   detail?: string;
+  /**
+   * Display NAMES of products that qualify for this function. Names only — no
+   * keys, slugs or ids — so this can be read but never joined, and therefore
+   * never becomes a product card. Authorization remains `matches` alone.
+   */
+  qualifyingProducts?: string[];
   /**
    * @deprecated Display text only, readable until 2026-11-30. HWL may reword it
    * at any time, so nothing may branch, match, or select on it.
