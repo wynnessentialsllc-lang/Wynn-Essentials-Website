@@ -980,7 +980,7 @@
   .boho-texture-clouds a{animation:none;transform:translateY(var(--cloud-offset,0))}
 }
 
-/* Clean section label: tan type with a crisp dark outline, no cloud. */
+/* Skywriting section label, matching the white vapor lettering in this story. */
 .boho-product-heading>.eyebrow{
   display:block;
   width:max-content;
@@ -991,13 +991,16 @@
   padding:0;
   background:none;
   filter:none;
-  color:#d7b58a;
-  font-size:clamp(13px,1.15vw,17px);
-  letter-spacing:.13em;
+  color:#fff;
+  font-family:"Dancing Script","Segoe Script",cursive;
+  font-size:clamp(24px,2.4vw,38px);
+  font-style:normal;
+  font-weight:600;
+  letter-spacing:.025em;
   line-height:1.2;
   text-align:center;
-  -webkit-text-stroke:1px #17110e;
-  text-shadow:0 1px 0 #17110e;
+  -webkit-text-stroke:.2px rgba(255,255,255,.9);
+  text-shadow:0 1px 1px rgba(29,84,130,.72),0 0 2px #fff,0 0 5px rgba(255,255,255,.96),0 0 10px rgba(255,255,255,.72),0 0 18px rgba(255,255,255,.4);
   white-space:nowrap;
 }
 @media(max-width:760px){
@@ -1006,8 +1009,8 @@
     max-width:calc(100vw - 24px);
     aspect-ratio:auto;
     padding:0;
-    font-size:clamp(11px,3.2vw,14px);
-    letter-spacing:.1em;
-    -webkit-text-stroke:.8px #17110e;
+    font-size:clamp(20px,6vw,28px);
+    letter-spacing:.015em;
+    -webkit-text-stroke:.15px rgba(255,255,255,.9);
   }
 }
