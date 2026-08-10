@@ -34,6 +34,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { LEGACY_COVERAGE_FIELDS_READABLE_UNTIL, normalizeMatchContext } from "../lib/crownprint-state.mjs";
+import { resolveCatalogSlug } from "../lib/crownprint-catalog-key.ts";
 import { enforceMatchesOnly, selectGuidance } from "../lib/crownprint-guidance.ts";
 import { products } from "../app/data.ts";
 
@@ -50,6 +51,106 @@ const context = (overrides = {}) =>
     crownState: { present: true, fresh: true, summary: "Loose natural, mid-wear, comfortable scalp" },
     ...overrides,
   });
+
+// ---------------------------------------------------------------------------
+// THE AUTHORIZED → RENDERED PATH.
+//
+// Production acceptance passed the guard (subset: true, violations: []) and
+// still rendered nothing: authorizedKeys ["revaivl"], renderedKeys []. HWL names
+// the product `revaivl`; the Wynn catalog slug is `revaivl-protein-conditioner`.
+// The bare `catalog.has(productKey)` join dropped it — silently — before
+// enforceMatchesOnly() ever saw a candidate.
+//
+// The rule these pin: an authorized product that EXISTS in the catalog must
+// reach the page. Dropping it is as much a defect as rendering an unauthorized
+// one; it is simply the failure that does not trip a subset check.
+// ---------------------------------------------------------------------------
+test("ACCEPTANCE: authorizedKeys ['revaivl'] + catalog contains Revaivl → renderedKeys ['revaivl']", () => {
+  const ctx = context({
+    currentPriorityLabel: "Strength & Protein Support",
+    matches: [{ productKey: "revaivl", productName: "Revaivl", matchClass: "strong", why: "Resolved by the Lab." }],
+  });
+
+  const authorizedKeys = ctx.matches.map((m) => m.productKey);
+  const rendered = enforceMatchesOnly(selectGuidance({ context: ctx, catalog }).matches, ctx.matches)
+    .filter((m) => catalog.some((p) => p.slug === m.catalogSlug));
+  const renderedKeys = rendered.map((m) => m.productKey);
+  const violations = renderedKeys.filter((k) => !authorizedKeys.includes(k));
+
+  // The exact production assertion, in both directions.
+  assert.deepEqual(authorizedKeys, ["revaivl"]);
+  assert.deepEqual(renderedKeys, ["revaivl"], "the authorized product must reach the page");
+  assert.deepEqual(authorizedKeys, renderedKeys, "authorizedKeys === renderedKeys");
+  assert.deepEqual(violations, [], "and nothing unauthorized came with it");
+
+  // It renders as the real catalog product, with HWL's class untouched.
+  assert.equal(rendered[0].catalogSlug, "revaivl-protein-conditioner");
+  assert.equal(rendered[0].matchClass, "strong");
+  assert.ok(catalog.some((p) => p.slug === rendered[0].catalogSlug), "and that slug is really in the catalog");
+});
+
+test("the audit's own failure mode: authorized-but-unrendered is caught, not hidden by subset", () => {
+  // A key that resolves to nothing real. subset stays TRUE — an empty rendered
+  // set is trivially a subset — which is exactly why unresolvedKeys exists.
+  const ctx = context({
+    matches: [{ productKey: "a-product-we-no-longer-carry", productName: "Gone", matchClass: "strong", why: "Resolved." }],
+  });
+  const authorizedKeys = ctx.matches.map((m) => m.productKey);
+  const renderedKeys = enforceMatchesOnly(selectGuidance({ context: ctx, catalog }).matches, ctx.matches)
+    .map((m) => m.productKey);
+
+  assert.deepEqual(renderedKeys, []);
+  assert.equal(renderedKeys.every((k) => authorizedKeys.includes(k)), true, "subset is still true");
+  assert.deepEqual(
+    authorizedKeys.filter((k) => !renderedKeys.includes(k)),
+    ["a-product-we-no-longer-carry"],
+    "unresolvedKeys is what surfaces it",
+  );
+});
+
+test("key resolution is exact and one-to-one — it cannot invent a product", () => {
+  // Slug, and product name, both resolve. Nothing else does.
+  assert.equal(resolveCatalogSlug("revaivl-protein-conditioner", catalog), "revaivl-protein-conditioner");
+  assert.equal(resolveCatalogSlug("revaivl", catalog), "revaivl-protein-conditioner");
+  assert.equal(resolveCatalogSlug("REVAIVL", catalog), "revaivl-protein-conditioner");
+  assert.equal(resolveCatalogSlug("Soft Life Bonnet", catalog), "soft-life-bonnet");
+
+  // A NEED is not a product key. This is the retired lookup's whole vocabulary,
+  // and none of it may resolve to anything.
+  for (const need of [
+    "cleanse_scalp",
+    "reduce_surface_friction",
+    "strength_protein_support",
+    "protein",
+    "strengthening treatment",
+    "scalp comfort care",
+    "shampoo",
+    "conditioner",
+    "oil",
+  ]) {
+    assert.equal(resolveCatalogSlug(need, catalog), null, `"${need}" must not resolve to a product`);
+  }
+
+  // No partial or fuzzy matching in either direction.
+  assert.equal(resolveCatalogSlug("revaiv", catalog), null, "a prefix is not a key");
+  assert.equal(resolveCatalogSlug("revaivl protein", catalog), null, "a near-miss is not a key");
+  assert.equal(resolveCatalogSlug("", catalog), null);
+  assert.equal(resolveCatalogSlug(null, catalog), null);
+});
+
+test("resolution never creates authorization — an unauthorized key still cannot render", () => {
+  // "lathyr" resolves perfectly well as a catalog key. It is still not in
+  // matches, so it still may not render.
+  const ctx = context({
+    matches: [{ productKey: "revaivl", productName: "Revaivl", matchClass: "strong", why: "Resolved." }],
+  });
+  assert.equal(resolveCatalogSlug("lathyr", catalog), "lathyr-shampoo", "resolvable…");
+  assert.deepEqual(
+    enforceMatchesOnly([{ productKey: "lathyr", catalogSlug: "lathyr-shampoo" }], ctx.matches),
+    [],
+    "…and still unauthorized",
+  );
+});
 
 // ---------------------------------------------------------------------------
 // THE FIVE RULES.

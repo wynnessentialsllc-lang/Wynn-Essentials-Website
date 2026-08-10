@@ -105,7 +105,10 @@ export default async function ShopByCrownPrintPage({
     context ? context.matches : null,
   )
     .map((m): CardProduct | null => {
-      const p = products.find((x) => x.slug === m.productKey);
+      // Join on catalogSlug, not productKey: HWL authorizes in its own
+      // vocabulary and the catalog is keyed by slug. Authorization was already
+      // settled above, against productKey.
+      const p = products.find((x) => x.slug === m.catalogSlug);
       if (!p) return null; // ignore anything not in the live catalog
       const simple = !(p.colors?.length) && !((p.variants?.length ?? 0) > 1);
       return {

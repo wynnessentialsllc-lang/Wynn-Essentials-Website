@@ -32,6 +32,7 @@
 // itself is directly unit-testable — see tests/crownprint-architecture.test.mjs.
 
 import type { CrownPrintProfile } from "./crownprint-code";
+import { resolveCatalogSlug } from "./crownprint-catalog-key";
 import { formatCrownPrintCode, missingCoreAxes } from "./crownprint-code";
 import {
   matchProducts,
@@ -230,15 +231,33 @@ function fromTrustedContext(context: TrustedContext, catalog: FitCatalogProduct[
   // 1. HWL's own matches, in HWL's own classes. Wynn adds only catalog facts —
   //    the routine need a product serves and how often to use it — and never
   //    re-classifies or re-orders on its own reasoning.
-  const matches: FitMatch[] = context.matches
-    .filter((m) => byName.has(m.productKey))
-    .map((m) => {
-      const product = byName.get(m.productKey)!;
-      const usage = productUsage(m.productKey);
+  // HWL names products in its own vocabulary ("revaivl"); Wynn's catalog is
+  // keyed by slug ("revaivl-protein-conditioner"). Resolve the two before the
+  // join, and say so loudly when a product HWL authorized cannot be resolved —
+  // that is a lost sale and a broken results page, and it used to happen in
+  // total silence. productKey stays HWL's key, so the guard and the audit keep
+  // comparing like with like; catalogSlug is what renders.
+  const resolved = context.matches
+    .map((m) => ({ match: m, catalogSlug: resolveCatalogSlug(m.productKey, catalog) }))
+    .filter((r): r is { match: (typeof context.matches)[number]; catalogSlug: string } => {
+      if (r.catalogSlug && byName.has(r.catalogSlug)) return true;
+      console.error(
+        `[crownprint] AUTHORIZED product "${r.match.productKey}" could not be resolved to a Wynn catalog product. ` +
+          `The Hair Wellness Lab matched it, and the shopper will not see it. ` +
+          `Either the catalog no longer carries it, or the two systems disagree about its key.`,
+      );
+      return false;
+    });
+
+  const matches: FitMatch[] = resolved
+    .map(({ match: m, catalogSlug }) => {
+      const product = byName.get(catalogSlug)!;
+      const usage = productUsage(catalogSlug);
       const need = usage?.need ?? "Part of your resolved routine";
       const whenToUse = usage?.whenToUse ?? "Follow the directions on the product page.";
       return {
         productKey: m.productKey,
+        catalogSlug,
         productName: product.name,
         matchClass: m.matchClass,
         why: m.why,
