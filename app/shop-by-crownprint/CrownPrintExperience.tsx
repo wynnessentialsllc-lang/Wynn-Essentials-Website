@@ -118,22 +118,22 @@ function MatchCard({ product, onAdd }: { product: CardProduct; onAdd: (p: CardPr
         {product.functionServed && (
           <p className="cp-card-function"><b>CrownPrint function:</b> {product.functionServed}</p>
         )}
-        {/* EXACTLY AS SUPPLIED. No sentence is composed around these values and
-            no wording is invented when one is missing: the Lab's statement is
-            printed if there is one, and the ingredient / capability are printed
-            as the labelled facts they are otherwise. Wynn writing "carries the
-            X function" would be Wynn making a formulation claim. */}
-        {product.evidence && (product.evidence.statement || product.evidence.ingredient || product.evidence.capabilityKey) && (
+        {/* EVIDENCE — HWL contract #642.
+            The STRUCTURED pair is the canonical explanation source, so it is
+            what renders: the ingredient, and the capability key it satisfies.
+            The Lab's statement follows it when supplied, verbatim.
+            Wynn composes nothing around either — writing "carries the X
+            function" would be Wynn making a formulation claim of its own. */}
+        {product.evidence && (product.evidence.ingredient || product.evidence.capabilityKey) && (
           <p className="cp-card-evidence">
             <b>Why it qualifies:</b>{" "}
-            {product.evidence.statement ?? (
-              <>
-                {product.evidence.ingredient}
-                {product.evidence.ingredient && product.evidence.capabilityKey ? " — " : ""}
-                {product.evidence.capabilityKey}
-              </>
-            )}
+            <span className="cp-card-capability">
+              {[product.evidence.ingredient, product.evidence.capabilityKey].filter(Boolean).join(" / ")}
+            </span>
           </p>
+        )}
+        {product.evidence?.statement && (
+          <p className="cp-card-evidence-statement">{product.evidence.statement}</p>
         )}
         <MatchReasoning rationale={product.rationale} />
         {/* Printed on the card rather than tucked into a footnote — but only

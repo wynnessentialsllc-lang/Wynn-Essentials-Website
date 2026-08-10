@@ -112,7 +112,10 @@ test("a matched product renders as a product card with class, need, function, ev
   assert.match(html, /Strong Match/i, "the match class renders");
   assert.match(html, /Supports:<\/b> Strength &amp; Protein Support/, "the CrownPrint need renders");
   assert.match(html, /CrownPrint function:<\/b> Temporarily reinforce the fibre/, "the function renders");
-  assert.match(html, /Rice protein provides the protein\/peptide capability/, "the evidence renders verbatim");
+  // Contract #642: the STRUCTURED pair is the canonical explanation source.
+  assert.match(html, /Why it qualifies:<\/b>\s*<span[^>]*>Rice protein \/ proteins_peptides<\/span>/,
+    "ingredient / capabilityKey render as the canonical evidence");
+  assert.match(html, /Rice protein provides the protein\/peptide capability/, "and the Lab's statement follows verbatim");
   assert.match(html, /Boundary:<\/b> This recommendation addresses temporary fibre reinforcement/, "the limitation renders");
 
   // The things that make it a product: price, and a way to buy.
@@ -239,6 +242,7 @@ test("a match with no evidence, function or limitation from HWL simply shows les
 
   assert.match(html, /Revaivl/);
   assert.equal(/Why it qualifies/.test(html), false, "no evidence line is invented");
+  assert.equal(/cp-card-capability/.test(html), false, "and no capability pair is invented");
   assert.equal(/CrownPrint function:/.test(html), false, "no function is invented");
   // And no boundary is invented either. A boundary Wynn wrote itself would read
   // as the Lab's verdict on what this product does not do.
