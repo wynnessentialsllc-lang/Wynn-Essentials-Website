@@ -12,17 +12,25 @@
 // because one said `reduce_surface_friction` — neither of which the Lab ever
 // resolved for them.
 //
-// These tests pin the corrected contract from three directions:
+// THE FIVE RULES, as approved. Each has a named test immediately below, and the
+// detailed cases further down exercise them against real payload shapes.
 //
-//   1. coverage[] describes; it never selects. Not by functionKey, not by the
-//      deprecated functionLabel, not by category wording.
-//   2. accessories are a separate, explicitly-sourced channel — never produced
-//      by formulation coverage, and never mixed into matches.
-//   3. enforceMatchesOnly() is the last gate before render and fails CLOSED, so
-//      even a future regression upstream cannot put an unauthorized product in
-//      front of a shopper.
+//   R1  Capability does not authorize a product card. Wynn being able to serve
+//       a resolved function is not permission to render a product for it.
+//   R2  `matches` is the sole authorization source. Nothing else grants a card.
+//   R3  `coverage[]` is explanatory only — covered / partially supported /
+//       not carried. It never selects, by any field.
+//   R4  An empty `matches` array legitimately renders zero product cards. That
+//       is a correct outcome, not a degraded one, and nothing may pad it.
+//   R5  Accessories remain separate and explicit — their own sourced array,
+//       their own section, never a formulation match.
+//
+// Plus the guarantee that keeps them true: enforceMatchesOnly() is the last gate
+// before render and fails CLOSED, and R6 below fails if anyone reintroduces a
+// function/label/category/capability-to-product lookup in the source.
 
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { LEGACY_COVERAGE_FIELDS_READABLE_UNTIL, normalizeMatchContext } from "../lib/crownprint-state.mjs";
@@ -42,6 +50,163 @@ const context = (overrides = {}) =>
     crownState: { present: true, fresh: true, summary: "Loose natural, mid-wear, comfortable scalp" },
     ...overrides,
   });
+
+// ---------------------------------------------------------------------------
+// THE FIVE RULES.
+// ---------------------------------------------------------------------------
+
+test("R1. capability does not authorize a product card", () => {
+  // Every function here is one Wynn demonstrably can serve — it sells a
+  // cleanser, a leave-in, a sealing oil and a scalp oil. HWL named a product for
+  // exactly one of them. Capability covers all four; authorization covers one.
+  const guidance = selectGuidance({
+    context: context({
+      productFunctionsNeeded: [
+        { label: "Gentle cleansing" },
+        { label: "Leave-in hydration" },
+        { label: "Sealing" },
+        { label: "Direct scalp care" },
+      ],
+      coverage: [
+        { functionKey: "cleanse_scalp", status: "covered" },
+        { functionKey: "leave_in_hydration", status: "covered" },
+        { functionKey: "seal_moisture", status: "covered" },
+        { functionKey: "scalp_care", status: "covered" },
+      ],
+      matches: [{ productKey: "relief-oil", productName: "Relief", matchClass: "strong", why: "Resolved." }],
+    }),
+    catalog,
+  });
+
+  assert.deepEqual(guidance.matches.map((m) => m.productKey), ["relief-oil"]);
+  assert.equal(guidance.coverage.filter((c) => c.status === "covered").length, 4, "all four are reported covered");
+  // Four "covered" verdicts, one card. That gap IS the rule.
+});
+
+test("R2. matches is the sole authorization source", () => {
+  // Priorities, functions, coverage, notCarried and a CrownState summary are all
+  // populated. None of them may grant a card. Only matches does.
+  const ctx = context({
+    currentPriorities: [{ label: "Strength & Protein Support" }],
+    productFunctionsNeeded: [{ label: "Gentle cleansing" }, { label: "Sealing" }],
+    coverage: [
+      { functionKey: "cleanse_scalp", functionLabel: "Gentle cleansing", status: "covered" },
+      { functionKey: "seal_moisture", functionLabel: "Sealing", status: "covered" },
+    ],
+    notCarried: [{ label: "A heat protectant" }],
+    accessories: [{ productKey: "soft-life-bonnet" }],
+    matches: [{ productKey: "revaivl-protein-conditioner", productName: "Revaivl", matchClass: "strong", why: "Resolved." }],
+  });
+  const guidance = selectGuidance({ context: ctx, catalog });
+
+  assert.deepEqual(
+    guidance.matches.map((m) => m.productKey),
+    ctx.matches.map((m) => m.productKey),
+    "the rendered set equals HWL's matches exactly — not a superset of it",
+  );
+});
+
+test("R3. coverage[] is explanatory only", () => {
+  const guidance = selectGuidance({
+    context: context({
+      coverage: [
+        { functionKey: "cleanse_scalp", functionLabel: "Gentle cleansing", status: "covered" },
+        { functionKey: "reduce_surface_friction", functionLabel: "Reduce surface friction", status: "partial" },
+        { functionKey: "bond_repair", functionLabel: "Bond repair", status: "not_carried" },
+      ],
+      matches: [],
+    }),
+    catalog,
+  });
+
+  // It explains, in exactly the three permitted vocabularies.
+  assert.deepEqual(
+    guidance.coverage.map((c) => c.status),
+    ["covered", "partial", "not_carried"],
+  );
+  // And it selects nothing, in any of the three states.
+  assert.deepEqual(guidance.matches, [], "no status, not even 'covered', produces a card");
+  assert.deepEqual(guidance.accessories, [], "and 'partial' on a friction function produces no accessory");
+});
+
+test("R4. an empty matches array legitimately renders zero product cards", () => {
+  const guidance = selectGuidance({
+    context: context({
+      productFunctionsNeeded: [{ label: "Gentle cleansing" }, { label: "Sealing" }, { label: "Direct scalp care" }],
+      coverage: [
+        { functionKey: "cleanse_scalp", status: "covered" },
+        { functionKey: "seal_moisture", status: "covered" },
+        { functionKey: "scalp_care", status: "covered" },
+      ],
+      matches: [],
+    }),
+    catalog,
+  });
+
+  // Zero is the correct answer here, not a failure to be padded around.
+  assert.deepEqual(guidance.matches, []);
+  assert.equal(guidance.noFit, true, "and it reports itself honestly");
+  assert.equal(guidance.noStrongMatch, true);
+  // The page is still explicable: the shopper sees what was needed and how it
+  // was covered, without a single unauthorized product.
+  assert.equal(guidance.functions.length, 3);
+  assert.equal(guidance.coverage.length, 3);
+});
+
+test("R5. accessories remain separate and explicit", () => {
+  const guidance = selectGuidance({
+    context: context({
+      // A friction coverage row AND an explicit accessory. Only the explicit one
+      // may produce anything, and never as a match.
+      coverage: [{ functionKey: "reduce_surface_friction", status: "partial" }],
+      accessories: [{ productKey: "soft-life-bonnet", why: "Protects the style overnight." }],
+      matches: [{ productKey: "revaivl-protein-conditioner", productName: "Revaivl", matchClass: "strong", why: "Resolved." }],
+    }),
+    catalog,
+  });
+
+  assert.deepEqual(guidance.accessories.map((a) => a.productKey), ["soft-life-bonnet"]);
+  assert.deepEqual(guidance.matches.map((m) => m.productKey), ["revaivl-protein-conditioner"]);
+  assert.equal(
+    guidance.matches.some((m) => m.productKey === "soft-life-bonnet"),
+    false,
+    "an accessory is never a CrownPrint formulation match",
+  );
+});
+
+// ---------------------------------------------------------------------------
+// R6. The fallback stays gone.
+//
+// A source-level check, deliberately. The behavioral tests above prove the
+// current code does not convert functions into products; this one fails when
+// someone writes the machinery to do it again, even before it is wired up.
+// ---------------------------------------------------------------------------
+test("R6. no function/label/category-to-product lookup exists in the CrownPrint libs", async () => {
+  const url = (p) => new URL(p, import.meta.url);
+  const fit = await readFile(url("../lib/crownprint-fit.ts"), "utf8");
+  const guidance = await readFile(url("../lib/crownprint-guidance.ts"), "utf8");
+
+  for (const gone of ["CATALOG_CAPABILITIES", "matchFunctionsToCatalog", "FunctionCoverage"]) {
+    assert.equal(
+      new RegExp(`^(?!\\s*(//|\\*)).*\\b${gone}\\b`, "m").test(fit),
+      false,
+      `${gone} is back in lib/crownprint-fit.ts as live code — the retired lookup must not return`,
+    );
+    assert.equal(
+      new RegExp(`^(?!\\s*(//|\\*)).*\\b${gone}\\b`, "m").test(guidance),
+      false,
+      `${gone} is back in lib/crownprint-guidance.ts as live code`,
+    );
+  }
+
+  // The trusted path must never push into matches after HWL's own array is
+  // mapped. Any `matches.push(` in the guidance layer is that pattern returning.
+  assert.equal(
+    /^(?!\s*(\/\/|\*)).*matches\.push\(/m.test(guidance),
+    false,
+    "nothing may be appended to matches after HWL's array is consumed",
+  );
+});
 
 // ---------------------------------------------------------------------------
 // THE EXACT REGRESSION.
