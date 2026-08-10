@@ -5,8 +5,16 @@ import Link from "next/link";
 import { trackAddToCart, trackCrownPrintEvent } from "../analytics";
 import type { ExperienceState, MatchClass, WhatToLookFor } from "../../lib/crownprint";
 import type { LabelledPoint } from "../../lib/crownprint-fit";
+import type { AccessorySupport, CoveragePoint, CoverageStatus } from "../../lib/crownprint-guidance";
 import type { GuidanceSource, MatchRationale } from "../../lib/crownprint-match-intelligence";
 import { MatchLegend, MatchReasoning } from "../MatchIntelligence";
+
+/** Customer-facing wording for a coverage verdict. Explanation, not a verdict on quality. */
+const COVERAGE_WORDING: Record<CoverageStatus, string> = {
+  covered: "covered",
+  partial: "partially supported",
+  not_carried: "not carried",
+};
 
 export type CardProduct = {
   slug: string;
@@ -411,6 +419,8 @@ export default function CrownPrintExperience({
   crownPrintCode,
   priorities,
   functions,
+  coverage,
+  accessories,
   gaps,
   contextNotes,
   crownStateMessage,
@@ -436,6 +446,13 @@ export default function CrownPrintExperience({
   priorities: LabelledPoint[];
   /** The product functions HWL resolved this routine has to perform. */
   functions: LabelledPoint[];
+  /**
+   * Descriptive coverage metadata. Explains covered / partially supported / not
+   * carried. Carries no product identity and renders no product cards.
+   */
+  coverage: CoveragePoint[];
+  /** The separate accessory-support channel. Never CrownPrint product cards. */
+  accessories: AccessorySupport[];
   /** Resolved needs Wynn's catalog cannot serve. */
   gaps: LabelledPoint[];
   /** CrownState summary / staleness notes carried by the resolved context. */
@@ -576,6 +593,49 @@ export default function CrownPrintExperience({
         <MatchGroup cls="strong" cards={products} onAdd={onAdd} />
         <MatchGroup cls="good" cards={products} onAdd={onAdd} />
         <MatchGroup cls="conditional" cards={products} onAdd={onAdd} />
+
+        {/* Accessories and tools. A SEPARATE support channel, explicitly sent by
+            the Hair Wellness Lab — never a formulation match, never produced by
+            coverage. Rendered after the matches and visibly apart from them so
+            a suggested bonnet is never read as a resolved product match. */}
+        {accessories.length > 0 && (
+          <div className="cp-functions-inline cp-accessories-inline">
+            <p className="eyebrow">TOOLS THAT SUPPORT THIS ROUTINE</p>
+            <p className="cp-fine">
+              Suggested alongside your matches as everyday support — not part of your CrownPrint formulation
+              matches above.
+            </p>
+            <ul>
+              {accessories.map((a) => (
+                <li key={a.productKey}>
+                  <a href={`/products/${a.productKey}`}><b>{a.productName}</b></a>
+                  {a.why ? ` — ${a.why}` : ""}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Coverage: descriptive only. It says how well we served each resolved
+            function — covered, partially supported, not carried — and names no
+            products, because it cannot. Product cards come from matches alone. */}
+        {coverage.length > 0 && (
+          <div className="cp-functions-inline cp-coverage-inline">
+            <p className="eyebrow">HOW WYNN ESSENTIALS COVERED YOUR RESOLVED FUNCTIONS</p>
+            <p className="cp-fine">
+              An honest account of what we could and could not serve. This explains coverage — it isn&rsquo;t a
+              product recommendation.
+            </p>
+            <ul>
+              {coverage.map((c) => (
+                <li key={c.functionKey}>
+                  <b>{c.label}</b> — <i>{COVERAGE_WORDING[c.status]}</i>
+                  {c.detail ? `. ${c.detail}` : ""}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {gaps.length > 0 && (
           <div className="cp-functions-inline cp-gaps-inline">

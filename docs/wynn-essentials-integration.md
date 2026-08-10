@@ -362,6 +362,11 @@ assessmentComplete?: boolean         // false ⇒ NO_CROWNPRINT
 resultsReady?: boolean               // false ⇒ NO_CROWNPRINT
 crownState: { present: boolean, fresh: boolean, message?: string }
 currentPriorityLabel?: string
+currentPriorities?: { label, detail? }[]
+productFunctionsNeeded?: { label, detail? }[]
+notCarried?: { label, detail? }[]
+coverage?: { functionKey, status: "covered"|"partial"|"not_carried", detail?, functionLabel? }[]
+accessories?: { productKey, why? }[]
 matches: { productKey, productName, matchClass: "strong"|"good"|"conditional", why }[]
 noStrongMatch: boolean
 whatToLookFor?: { hairNeed?, productType?, formulationCharacteristics[], ingredientFunctions[], whatMayNotFit[], whyThisMatters? }
@@ -377,6 +382,52 @@ The four entitlement flags are **inputs only** — they collapse into
 **Never stored or exposed:** raw CrownPrint answers, CrownPrint axis values,
 CrownState detail, CrownHistory, report content, user UUID, raw scores, weights,
 thresholds, internal reason codes, evidence logic.
+
+### 11a. `matches` is the only source of product cards
+
+This is the hardest rule in the contract, and the only one with a runtime guard,
+a boundary stripper, and a live audit endpoint behind it.
+
+| Array | What it may do | What it may never do |
+| --- | --- | --- |
+| `matches` | Render customer-facing CrownPrint product cards, in HWL's own class | — |
+| `coverage` | Explain **covered / partially supported / not carried** | Name, imply, or select a product |
+| `accessories` | Render tools in their own section, visibly apart from matches | Enter `matches`; be produced by coverage |
+| `notCarried`, `productFunctionsNeeded` | Be displayed as resolved needs | Select a product |
+
+**Coverage cannot name a product, structurally.** `asCoverage()` in
+`lib/crownprint-state.mjs` drops `productKey`, `productKeys`, `slug`, `slugs`,
+`products`, and `recommend` before a coverage row reaches any render path — so
+this is not a rule downstream code has to remember, it is a shape it cannot
+express. A coverage row carries a `functionKey`, a status, and prose.
+
+**`functionKey` is the stable integration identifier.** It is the only coverage
+field either side may key on. `functionLabel` is deprecated display text: HWL may
+reword it freely, Wynn renders it and nothing more. It stays **readable until
+2026-11-30** (`LEGACY_COVERAGE_FIELDS_READABLE_UNTIL`), then comes out. An
+unrecognized `status` is dropped rather than guessed at, so an unknown value can
+never read as "covered".
+
+**What was removed.** Wynn used to keep a table of regexes mapping resolved
+function labels onto its own product slugs (`CATALOG_CAPABILITIES` in
+`lib/crownprint-fit.ts`), and every hit became an extra "good" card. That let a
+coverage row for `cleanse_scalp` render Lathyr, and one for
+`reduce_surface_friction` render the Soft Life Bonnet, to a shopper for whom the
+Lab had resolved neither. The table is gone. Do not reintroduce one: if a
+function should yield a product, it belongs in `matches`, where it can be
+classified, explained, and audited.
+
+**Consequence, stated plainly:** a resolved function Wynn *could* serve but which
+HWL named no product for renders **no card**. Capability is not authorization.
+
+**The guard.** `enforceMatchesOnly()` runs at the render boundary in
+`app/shop-by-crownprint/page.tsx` and fails closed — an unauthorized key is
+dropped and logged, never shown. Regressions are pinned in
+`tests/crownprint-matches-only.test.mjs`.
+
+**The live audit.** `GET /api/internal/crownprint-matches-audit?token=…`
+(admin-gated) runs the real pipeline against a connected session and reports
+`authorizedKeys`, `renderedKeys`, and `subset`.
 
 ## 12. Commerce & data boundaries
 
