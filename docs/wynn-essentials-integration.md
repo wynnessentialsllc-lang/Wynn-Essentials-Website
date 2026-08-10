@@ -427,7 +427,70 @@ dropped and logged, never shown. Regressions are pinned in
 
 **The live audit.** `GET /api/internal/crownprint-matches-audit?token=…`
 (admin-gated) runs the real pipeline against a connected session and reports
-`authorizedKeys`, `renderedKeys`, and `subset`.
+`authorizedKeys`, `renderedKeys`, `renderedCatalogSlugs`, `unresolvedKeys`,
+`subset`, `violations`, and the `bridge` table.
+
+### 11b. Product identity: HWL `productKey` → Wynn `catalogSlug`
+
+The two systems name the same product differently. HWL's frozen vocabulary
+(HWL PR #640) is camelCase; Wynn's catalog is keyed by slug. `lib/crownprint-catalog-key.ts`
+bridges them, and `matches` / `accessories` both resolve through it.
+
+| # | HWL canonical key | Wynn catalogSlug |
+| --- | --- | --- |
+| 1 | `hydrateMist` | `hydrate-herbal-hair-mist` |
+| 2 | `therapi` | `thairap-moisture-styling-cream` |
+| 3 | `lathyr` | `lathyr-shampoo` |
+| 4 | `uplyft` | `uplyft-conditioner` |
+| 5 | `revaivl` | `revaivl-protein-conditioner` |
+| 6 | `nourishOil` | `nourish-oil` |
+| 7 | `growOil` | `grow-oil` |
+| 8 | `reliefOil` | `relief-oil` |
+| 9 | `scrunchieSet` | `heritage-hold-scrunchie-set` |
+| 10 | `edgeControl` | `edge-control` |
+| 11 | `softLifeBonnet` | `soft-life-bonnet` |
+
+Resolution order is **exact slug → explicit alias → exact unique product-name →
+null**. No regex, substring, fuzzy, category or need-based matching; ambiguity
+fails closed. All eleven canonical keys resolve by slug or alias — the name
+fallback is defence for non-canonical input and is **never load-bearing**, which
+a test enforces by resolving every key against a catalog with all product names
+replaced.
+
+**Resolution is not authorization.** `edgeControl` resolves perfectly and still
+cannot render unless it is in `matches`; `softLifeBonnet` renders only through
+the explicit `accessories` array, never from a `reduce_surface_friction`
+coverage row.
+
+### 11c. Storefront bypass — RESOLVED
+
+Two defects, opposite in direction, both closed and verified in production.
+
+**1. Unauthorized products rendering.** A regex table mapped resolved function
+labels onto Wynn slugs, and every hit became a product card: `cleanse_scalp`
+rendered Lathyr, `reduce_surface_friction` rendered the Soft Life Bonnet. Closed
+by deleting the lookup, making coverage structurally incapable of naming a
+product, and adding the fail-closed `enforceMatchesOnly()` guard.
+
+**2. Authorized products NOT rendering.** The catalog join compared HWL's key
+against Wynn slugs, so `revaivl` was discarded silently — a valid CrownPrint
+rendered an empty page while `subset: true` and `violations: []` reported
+health, because an empty set is trivially a subset. Closed by the identity
+bridge above, by `unresolvedKeys` in the audit, and by logging every drop.
+
+Production acceptance, P2-D3-T3-S2-E2:
+
+```json
+{ "connected": true, "authorizedKeys": ["revaivl"], "renderedKeys": ["revaivl"],
+  "renderedCatalogSlugs": ["revaivl-protein-conditioner"],
+  "unresolvedKeys": [], "subset": true, "violations": [] }
+```
+
+**Still to smoke test:** one CrownPrint exercising a second canonical key —
+`edgeControl` (a formulation match) or `softLifeBonnet` (the accessory channel).
+The `bridge` block in the audit verifies all eleven resolve against the deployed
+catalog without needing such a shopper; the smoke test additionally proves the
+end-to-end render for a second key and channel.
 
 ## 12. Commerce & data boundaries
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { products } from "../../../data";
 import { readMatchSession } from "../../../../lib/crownprint";
 import { enforceMatchesOnly, selectGuidance } from "../../../../lib/crownprint-guidance";
+import { HWL_CANONICAL_PRODUCT_KEYS, resolveCatalogSlug } from "../../../../lib/crownprint-catalog-key";
 import { adminTokenConfigured } from "../../../../lib/admin-auth";
 
 /**
@@ -43,6 +44,13 @@ import { adminTokenConfigured } from "../../../../lib/admin-auth";
  *   coverageKeys   string[]  — coverage functionKeys, to show they name no product
  *   subset         boolean   — renderedKeys ⊆ authorizedKeys
  *   violations     string[]  — rendered keys with no HWL verdict (always [] when healthy)
+ *   bridge         object    — the HWL→Wynn identity bridge for ALL eleven
+ *                              canonical keys, resolved against this
+ *                              deployment's catalog. Needs no CrownPrint, so
+ *                              edgeControl and softLifeBonnet can be smoke
+ *                              tested without waiting for a shopper whose
+ *                              matches happen to include them. `complete: true`
+ *                              with `unresolved: []` is the pass.
  *
  * WHAT IT NEVER RETURNS
  * No CrownPrint answers, no CrownState detail, no scores, weights, thresholds or
@@ -97,6 +105,26 @@ export async function GET(request: Request) {
   const allowed = new Set(authorizedKeys);
   const violations = renderedKeys.filter((k) => !allowed.has(k));
 
+  // THE BRIDGE SMOKE TEST.
+  //
+  // Resolves HWL's whole frozen vocabulary against the catalog THIS deployment
+  // actually shipped. It needs no CrownPrint and no session, which is the point:
+  // a shopper whose matches resolve to the bonnet or Edge Control may not come
+  // along for weeks, and waiting for one is how eight broken keys went unnoticed
+  // behind a `revaivl` case that happened to work.
+  //
+  // Read-only and authorization-free by construction: resolving a key says
+  // nothing about whether it may render. Only `matches` decides that.
+  const bridge = HWL_CANONICAL_PRODUCT_KEYS.map((key) => {
+    const catalogSlug = resolveCatalogSlug(key, products);
+    return {
+      key,
+      catalogSlug,
+      inCatalog: Boolean(catalogSlug && products.some((p) => p.slug === catalogSlug)),
+    };
+  });
+  const bridgeUnresolved = bridge.filter((b) => !b.inCatalog).map((b) => b.key);
+
   return NextResponse.json(
     {
       app: "wynn-essentials",
@@ -113,6 +141,15 @@ export async function GET(request: Request) {
       // run actually exercised anything.
       subset: violations.length === 0,
       violations,
+      // Independent of the session above: proves the HWL→Wynn identity bridge
+      // against this deployment's own catalog, for all eleven canonical keys.
+      bridge: {
+        canonicalKeys: bridge.length,
+        resolved: bridge.length - bridgeUnresolved.length,
+        unresolved: bridgeUnresolved,
+        complete: bridgeUnresolved.length === 0,
+        table: bridge,
+      },
     },
     { headers: { "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } },
   );
