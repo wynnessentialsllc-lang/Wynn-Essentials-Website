@@ -755,9 +755,10 @@
 .boho-sky-plane svg{display:block;width:100%;height:auto;overflow:visible}
 .boho-sky-plane>.boho-sky-aircraft{position:absolute;z-index:1;right:-4%;top:-27%;width:52%;height:auto;object-fit:contain;transform:rotate(-7deg);filter:sepia(.48) saturate(.62) brightness(1.12) contrast(.92) drop-shadow(0 7px 7px rgba(20,55,84,.32))}
 .boho-sky-plane>.boho-tail-emblem{position:absolute;z-index:2;left:53.6%;top:31%;width:5.2%;height:auto;object-fit:contain;transform:rotate(-7deg);filter:contrast(1.08) drop-shadow(0 1px 1px rgba(55,37,24,.3));pointer-events:none}
-.boho-vapor-mist,.boho-vapor-trail{fill:none;stroke:#fff;stroke-linecap:round}
-.boho-vapor-mist{stroke-width:13;opacity:.26;filter:blur(5px) drop-shadow(0 0 7px rgba(255,255,255,.9))}
-.boho-vapor-trail{stroke-width:9;stroke-dasharray:1 13;opacity:.9;filter:drop-shadow(0 0 4px #fff) drop-shadow(0 0 8px rgba(255,255,255,.76))}
+.boho-vapor-mist,.boho-vapor-body,.boho-vapor-trail{fill:none;stroke:url(#bohoVaporFade);stroke-linecap:round}
+.boho-vapor-mist{stroke-width:17;opacity:.34;filter:url(#bohoVaporCloud)}
+.boho-vapor-body{stroke-width:10;opacity:.62;filter:blur(1.6px) drop-shadow(0 0 6px rgba(255,255,255,.75))}
+.boho-vapor-trail{stroke-width:3.2;opacity:.82;filter:blur(.35px) drop-shadow(0 0 4px rgba(255,255,255,.82))}
 @media(max-width:760px){.boho-sky-plane{width:min(250px,72vw);margin:2px auto -10px}}
 
 /* Bold pink edging keeps the white skywriting legible across the moving sky. */
