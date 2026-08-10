@@ -884,9 +884,9 @@
   .boho-intro .boho-lede,.boho-intro .boho-collection-link{max-width:min(92%,560px);margin-left:auto;margin-right:auto}
 }
 .boho-product-heading>.eyebrow{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:min(54%,520px);min-height:96px;margin-inline:auto;padding:30px 54px 18px;background:url("/collections/boho-copy-cloud-v1.png") center/100% 100% no-repeat;border:0;filter:drop-shadow(0 9px 12px rgba(25,68,105,.25));color:#34231e;font-family:var(--font-sans),Arial,sans-serif;font-size:clamp(13px,1.15vw,17px);font-style:normal;font-weight:900;letter-spacing:.13em;line-height:1.15;text-align:center;text-shadow:none;white-space:nowrap}
-.boho-product-heading>p:last-child{position:relative;isolation:auto;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:center;box-sizing:border-box;width:min(90%,900px);min-height:132px;margin:32px auto 0;padding:8px 0;background:none;border:0;color:transparent;font-size:0;line-height:1;text-align:center;white-space:nowrap;animation:none;filter:none}
-.boho-product-heading>p:last-child::before,.boho-product-heading>p:last-child span{position:static;z-index:auto;display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:100%;height:auto;min-height:92px;padding:31px 20px 17px;background:url("/collections/boho-copy-cloud-v1.png") center/100% 100% no-repeat;filter:drop-shadow(0 7px 9px rgba(25,68,105,.22));color:#603452;font-family:var(--font-sans),Arial,sans-serif;font-size:clamp(12px,1vw,16px);font-style:normal;font-weight:900;letter-spacing:-.01em;line-height:1.1;text-align:center;white-space:nowrap;-webkit-text-stroke:0}
-.boho-product-heading>p:last-child::after{display:none}
+.boho-product-heading>p:last-child{position:relative;isolation:auto;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:center;gap:clamp(2px,.7vw,10px);box-sizing:border-box;width:min(94%,1100px);min-height:122px;margin:34px auto 0;padding:10px 0 8px;background:none;border:0;color:transparent;font-size:0;line-height:1;text-align:center;white-space:nowrap;animation:none;filter:none}
+.boho-product-heading>p:last-child::before,.boho-product-heading>p:last-child span{position:static;inset:auto;z-index:auto;display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:100%;height:auto;min-height:0;aspect-ratio:2.45/1;padding:8% 8% 3%;background:url("/collections/boho-copy-cloud-v1.png") center/contain no-repeat;box-shadow:none;filter:drop-shadow(0 6px 8px rgba(25,68,105,.2));color:#603452;font-family:var(--font-sans),Arial,sans-serif;font-size:clamp(12px,1vw,16px);font-style:normal;font-weight:900;letter-spacing:-.01em;line-height:1.05;text-align:center;white-space:nowrap;-webkit-text-stroke:0}
+.boho-product-heading>p:last-child::after{display:none!important;content:none!important}
 .boho-product-heading>p:last-child span{font-size:0}
 .boho-product-heading>p:last-child span::before{font-size:clamp(12px,1vw,16px)}
 .boho-product-heading>p:last-child::before{content:"Body Wave";transform:translateY(-7px)}
@@ -899,12 +899,29 @@
 @media(max-width:760px){
   .boho-intro h2 span{max-width:88vw;color:#2d211c;font-size:clamp(38px,10.8vw,49px);font-weight:900;letter-spacing:-.02em;line-height:1.07;text-wrap:balance;text-shadow:0 2px 0 #fff,0 0 4px #fff,0 5px 14px rgba(19,51,80,.44);-webkit-text-stroke:.35px rgba(255,255,255,.8)}
   .boho-product-heading>.eyebrow{width:min(82vw,390px);max-width:none;min-height:78px;padding:25px 32px 15px;font-size:clamp(11px,3.25vw,14px);letter-spacing:.1em;white-space:nowrap}
-  .boho-product-heading>p:last-child{grid-template-columns:repeat(2,minmax(0,1fr));gap:0;width:calc(100vw - 24px);max-width:430px;min-height:192px;margin-top:24px;padding:3px 0}
-  .boho-product-heading>p:last-child::before,.boho-product-heading>p:last-child span{min-height:88px;padding:30px 14px 16px;font-size:clamp(10px,2.85vw,13px);letter-spacing:-.025em}
+  .boho-product-heading>p:last-child{grid-template-columns:repeat(2,minmax(0,1fr));gap:0 4px;width:calc(100vw - 20px);max-width:430px;min-height:170px;margin-top:26px;padding:4px 0}
+  .boho-product-heading>p:last-child::before,.boho-product-heading>p:last-child span{aspect-ratio:2.35/1;min-height:0;padding:9% 7% 3%;font-size:clamp(10px,2.75vw,12px);letter-spacing:-.025em}
   .boho-product-heading>p:last-child span{font-size:0}
   .boho-product-heading>p:last-child span::before{font-size:clamp(10px,2.85vw,13px)}
   .boho-product-heading>p:last-child::before{transform:translateY(-4px)}
   .boho-product-heading>p:last-child span:nth-of-type(1){transform:translateY(5px)}
   .boho-product-heading>p:last-child span:nth-of-type(2){transform:translateY(-3px)}
   .boho-product-heading>p:last-child span:nth-of-type(3){transform:translateY(6px)}
+}
+
+/* Each texture cloud is a direct, accessible product link. */
+.boho-texture-clouds{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:center;gap:clamp(2px,.7vw,10px);box-sizing:border-box;width:min(94%,1100px);min-height:122px;margin:34px auto 0;padding:10px 0 8px}
+.boho-texture-clouds a{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:100%;aspect-ratio:2.45/1;padding:8% 8% 3%;background:url("/collections/boho-copy-cloud-v1.png") center/contain no-repeat;filter:drop-shadow(0 6px 8px rgba(25,68,105,.2));color:#603452;font-family:var(--font-sans),Arial,sans-serif;font-size:clamp(12px,1vw,16px);font-weight:900;letter-spacing:-.01em;line-height:1.05;text-align:center;text-decoration:none;white-space:nowrap;transition:filter .2s ease,transform .2s ease}
+.boho-texture-clouds a:nth-child(1){transform:translateY(-7px)}
+.boho-texture-clouds a:nth-child(2){transform:translateY(7px)}
+.boho-texture-clouds a:nth-child(3){transform:translateY(-5px)}
+.boho-texture-clouds a:nth-child(4){transform:translateY(8px)}
+.boho-texture-clouds a:hover,.boho-texture-clouds a:focus-visible{filter:drop-shadow(0 8px 11px rgba(239,81,151,.48));outline:2px solid transparent}
+@media(max-width:760px){
+  .boho-texture-clouds{grid-template-columns:repeat(2,minmax(0,1fr));gap:0 4px;width:calc(100vw - 20px);max-width:430px;min-height:170px;margin-top:26px;padding:4px 0}
+  .boho-texture-clouds a{aspect-ratio:2.35/1;padding:9% 7% 3%;font-size:clamp(10px,2.75vw,12px);letter-spacing:-.025em}
+  .boho-texture-clouds a:nth-child(1){transform:translateY(-4px)}
+  .boho-texture-clouds a:nth-child(2){transform:translateY(5px)}
+  .boho-texture-clouds a:nth-child(3){transform:translateY(-3px)}
+  .boho-texture-clouds a:nth-child(4){transform:translateY(6px)}
 }
