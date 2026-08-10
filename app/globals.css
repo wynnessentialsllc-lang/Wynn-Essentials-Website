@@ -954,3 +954,28 @@
     letter-spacing:.08em;
   }
 }
+
+/* Give each linked texture cloud its own soft, staggered drift. */
+@keyframes boho-linked-cloud-float{
+  0%,100%{transform:translate3d(0,var(--cloud-offset,0),0)}
+  50%{transform:translate3d(var(--cloud-drift-x,0),calc(var(--cloud-offset,0px) - 9px),0)}
+}
+.boho-texture-clouds a{
+  --cloud-offset:0px;
+  --cloud-drift-x:3px;
+  animation:boho-linked-cloud-float 5.8s ease-in-out infinite;
+  will-change:transform;
+}
+.boho-texture-clouds a:nth-child(1){--cloud-offset:-7px;animation-delay:-.8s}
+.boho-texture-clouds a:nth-child(2){--cloud-offset:7px;--cloud-drift-x:-3px;animation-delay:-2.4s}
+.boho-texture-clouds a:nth-child(3){--cloud-offset:-5px;--cloud-drift-x:-2px;animation-delay:-3.7s}
+.boho-texture-clouds a:nth-child(4){--cloud-offset:8px;animation-delay:-1.6s}
+@media(max-width:760px){
+  .boho-texture-clouds a:nth-child(1){--cloud-offset:-4px}
+  .boho-texture-clouds a:nth-child(2){--cloud-offset:5px}
+  .boho-texture-clouds a:nth-child(3){--cloud-offset:-3px}
+  .boho-texture-clouds a:nth-child(4){--cloud-offset:6px}
+}
+@media(prefers-reduced-motion:reduce){
+  .boho-texture-clouds a{animation:none;transform:translateY(var(--cloud-offset,0))}
+}
