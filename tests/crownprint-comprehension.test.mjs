@@ -22,6 +22,14 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
 
 import CrownPrintExperience from "../app/shop-by-crownprint/CrownPrintExperience.tsx";
+import {
+  CAPABILITIES_NOT_EMITTABLE,
+  CAPABILITY_LABELS,
+  HWL_CANONICAL_CAPABILITY_KEYS,
+  capabilityLabel,
+  hasCapabilityLabel,
+  mechanicalFallbackLabel,
+} from "../lib/crownprint-capability-labels.ts";
 
 const URLS = { connect: "/c", create: "/cr", refresh: "/r", disconnect: "/d", productHub: null };
 
@@ -53,8 +61,8 @@ const REVAIVL = {
 };
 
 const COVERAGE = [
-  { functionKey: "cleanse_scalp", status: "covered", label: "Gentle cleansing", detail: "Our collection serves this.", qualifyingProducts: ["Lathyr"] },
-  { functionKey: "seal_moisture", status: "partial", label: "Moisture sealing", detail: "Supports slowing water loss; it does not deliver water into the fibre.", qualifyingProducts: ["Nourish"] },
+  { functionKey: "cleanse_scalp", status: "covered", label: "Gentle cleansing", detail: "This establishes cleansing capability, not chelation.", qualifyingProducts: [] },
+  { functionKey: "seal_moisture", status: "partial", label: "Moisture sealing", detail: "Supports slowing water loss; it does not deliver water into the fibre.", qualifyingProducts: [] },
   { functionKey: "heat_protection", status: "not_carried", label: "Heat protection", detail: "We don't make this.", qualifyingProducts: [] },
 ];
 
@@ -112,7 +120,12 @@ test("a matched product renders as a product card with class, need, function, ev
   assert.match(html, /Strong Match/i, "the match class renders");
   assert.match(html, /Supports:<\/b> Strength &amp; Protein Support/, "the CrownPrint need renders");
   assert.match(html, /CrownPrint function:<\/b> Temporarily reinforce the fibre/, "the function renders");
-  assert.match(html, /Rice protein provides the protein\/peptide capability/, "the evidence renders verbatim");
+  // Contract #642: the structured pair is the canonical explanation source,
+  // rendered as two labelled facts — the ingredient verbatim, the capability
+  // through Wynn's display map.
+  assert.match(html, /Evidence:<\/b> Rice protein/, "the ingredient renders verbatim");
+  assert.match(html, /Capability:<\/b> Protein &amp; peptides/, "the capability renders as a readable label");
+  assert.match(html, /Rice protein provides the protein\/peptide capability/, "and the Lab's statement follows verbatim");
   assert.match(html, /Boundary:<\/b> This recommendation addresses temporary fibre reinforcement/, "the limitation renders");
 
   // The things that make it a product: price, and a way to buy.
@@ -148,8 +161,11 @@ test("a covered function does NOT look like a direct match", () => {
   const html = render({ coverage: COVERAGE });
   const needs = section(html, "cp-otherneeds", ["cp-functions-inline", "cp-utility"]);
 
-  assert.match(needs, /Lathyr/, "the qualifying product is named as information…");
-  // …and carries none of the signals that mean "we chose this for you".
+  // No unauthorized product is NAMED here at all: the guidance layer strips a
+  // qualifying name unless that product is also an authorized match.
+  assert.equal(/Lathyr|Nourish/.test(needs), false, "an unauthorized product is not named in coverage");
+  assert.match(needs, /Gentle cleansing/, "the FUNCTION is still explained");
+  // And it carries none of the signals that mean "we chose this for you".
   assert.equal(/cp-card\b/.test(needs), false, "no product card");
   assert.equal(/Add to Cart/.test(needs), false, "no add-to-bag");
   assert.equal(/href="\/products\//.test(needs), false, "no product link");
@@ -235,9 +251,142 @@ test("a match with no evidence, function or limitation from HWL simply shows les
   const html = render({ products: [bare] });
 
   assert.match(html, /Revaivl/);
-  assert.equal(/Why it qualifies/.test(html), false, "no evidence line is invented");
+  assert.equal(/Evidence:/.test(html), false, "no evidence line is invented");
+  assert.equal(/Capability:/.test(html), false, "and no capability line is invented");
   assert.equal(/CrownPrint function:/.test(html), false, "no function is invented");
-  // The boundary still prints, because "this is not everything" is Wynn's own
-  // honest framing rather than a claim about chemistry.
-  assert.match(html, /Boundary:/);
+  // And no boundary is invented either. A boundary Wynn wrote itself would read
+  // as the Lab's verdict on what this product does not do.
+  assert.equal(/Boundary:/.test(html), false, "no limitation is invented");
+});
+
+// ---------------------------------------------------------------------------
+// No raw contract identifier reaches a customer.
+//
+// The payload keeps its machine identifiers — that is the contract, and an
+// audit needs them. They are simply not customer copy: "Capability:
+// proteins_peptides" is a database column on a product card, and it undermines
+// the care taken over every other line.
+// ---------------------------------------------------------------------------
+
+/** snake_case tokens — the shape every HWL identifier takes. */
+const SNAKE_CASE = /\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/g;
+
+test("no raw snake_case contract identifier appears anywhere in the rendered output", () => {
+  const html = render({
+    coverage: [
+      { functionKey: "cleanse_scalp", status: "covered", label: "Gentle cleansing", detail: "d", qualifyingProducts: [] },
+      // No functionLabel: the key must be humanized rather than printed raw.
+      { functionKey: "reduce_surface_friction", status: "partial", label: "Reduce surface friction", detail: "d", qualifyingProducts: [] },
+      { functionKey: "heat_protection", status: "not_carried", label: "Heat protection", detail: "d", qualifyingProducts: [] },
+    ],
+    accessories: [ACCESSORY],
+  });
+
+  // Attributes AND text: a key hidden in a data-* attribute is still shipped to
+  // the browser, and is one view-source away from a customer.
+  const leaks = [...new Set(html.match(SNAKE_CASE) ?? [])];
+  assert.deepEqual(leaks, [], `raw contract identifiers reached the page: ${leaks.join(", ")}`);
+});
+
+test("the visible text carries the label, and the key is nowhere on the page", () => {
+  const html = render();
+  const text = html.replace(/<[^>]+>/g, " ");
+
+  assert.match(text, /Capability:\s*Protein &amp; peptides/, "the readable label is what a customer sees");
+  assert.equal(/proteins_peptides/.test(html), false, "the raw key is not in the markup at all");
+});
+
+test("an unmapped capability key still never renders raw", () => {
+  const exotic = { ...REVAIVL, evidence: { ingredient: "Something new", capabilityKey: "humidity_resistance_barrier" } };
+  const html = render({ products: [exotic] });
+
+  assert.equal(/humidity_resistance_barrier/.test(html), false, "the raw key never reaches the page");
+  assert.match(html, /Capability:<\/b> Humidity resistance barrier/, "it degrades to a readable form");
+});
+
+// ---------------------------------------------------------------------------
+// CAPABILITY VOCABULARY — the complete HWL #642 set for wynn-product-profile-v1.
+//
+// The mechanical snake_case fallback is defensive handling for unexpected
+// input, NOT the production path. Every canonical key carries deliberate copy;
+// anything else announces itself rather than rendering almost-right forever.
+// ---------------------------------------------------------------------------
+
+test("1. the label map equals the canonical vocabulary in BOTH directions", () => {
+  assert.equal(HWL_CANONICAL_CAPABILITY_KEYS.length, 9, "the proven vocabulary is nine keys");
+
+  assert.deepEqual(
+    [...HWL_CANONICAL_CAPABILITY_KEYS].sort(),
+    Object.keys(CAPABILITY_LABELS).sort(),
+    "every canonical key has a label and every label has a canonical key",
+  );
+
+  // Capabilities HWL cannot emit for this catalog stay deliberately unlabelled,
+  // so a future one fails visibly instead of using copy somebody guessed at.
+  for (const key of CAPABILITIES_NOT_EMITTABLE) {
+    assert.equal(hasCapabilityLabel(key), false, `"${key}" must not be pre-labelled — it cannot be emitted yet`);
+  }
+});
+
+test("2. no canonical key relies on the mechanical fallback", () => {
+  for (const key of HWL_CANONICAL_CAPABILITY_KEYS) {
+    const label = capabilityLabel(key);
+    assert.ok(hasCapabilityLabel(key), `"${key}" has no deliberate copy`);
+    // The precise property: the label is NOT what the fallback would generate.
+    assert.notEqual(
+      label,
+      mechanicalFallbackLabel(key),
+      `"${key}" renders exactly what the mechanical fallback would produce`,
+    );
+    assert.equal(/_/.test(label), false, `"${key}" produced a label containing an underscore`);
+  }
+});
+
+test("3. unlabeledCapabilities is empty across the entire canonical vocabulary", () => {
+  // Mirrors what the audit computes for a payload using every canonical key.
+  const unlabeled = HWL_CANONICAL_CAPABILITY_KEYS.filter((k) => !hasCapabilityLabel(k));
+  assert.deepEqual(unlabeled, [], "no canonical capability is missing copy");
+});
+
+test("4. an unknown future key stays visible to the audit rather than being invented", () => {
+  // A capability HWL cannot emit today, and one that is simply unrecognized.
+  for (const unknown of ["chelators", "humidity_resistance_barrier"]) {
+    assert.equal(HWL_CANONICAL_CAPABILITY_KEYS.includes(unknown), false);
+    assert.equal(hasCapabilityLabel(unknown), false, `Wynn must not pretend to have copy for "${unknown}"`);
+  }
+
+  // It still cannot reach a customer raw — the fallback is the safety net.
+  const html = render({
+    products: [{ ...REVAIVL, evidence: { ingredient: "Something new", capabilityKey: "heat_protection_systems" } }],
+  });
+  assert.equal(/heat_protection_systems/.test(html), false, "the raw key never reaches the page");
+  assert.match(html, /Capability:<\/b> Heat protection systems/, "it degrades defensively");
+
+  // And the audit's filter — the same helper — names it.
+  const unlabeled = ["proteins_peptides", "heat_protection_systems"].filter((k) => !hasCapabilityLabel(k));
+  assert.deepEqual(unlabeled, ["heat_protection_systems"]);
+});
+
+test("5. no raw multi-word snake_case capability identifier reaches customer markup", () => {
+  for (const key of HWL_CANONICAL_CAPABILITY_KEYS) {
+    const html = render({
+      products: [{ ...REVAIVL, evidence: { ingredient: "Rice protein", capabilityKey: key } }],
+      coverage: [
+        { functionKey: "cleanse_scalp", status: "covered", label: "Gentle cleansing", detail: "d", qualifyingProducts: [] },
+        { functionKey: "reduce_surface_friction", status: "partial", label: "Reduce surface friction", detail: "d", qualifyingProducts: [] },
+        { functionKey: "heat_protection", status: "not_carried", label: "Heat protection", detail: "d", qualifyingProducts: [] },
+      ],
+      accessories: [ACCESSORY],
+    });
+
+    // Multi-word keys have a raw form distinguishable from English; single-word
+    // ones ("surfactants") legitimately appear inside their own label.
+    if (key.includes("_")) {
+      assert.equal(new RegExp(key).test(html), false, `"${key}" reached the page raw`);
+    }
+    assert.match(html, new RegExp(`Capability:</b> ${CAPABILITY_LABELS[key].replace(/&/g, "&amp;")}`));
+
+    const leaks = [...new Set(html.match(SNAKE_CASE) ?? [])];
+    assert.deepEqual(leaks, [], `raw identifiers reached the page for "${key}": ${leaks.join(", ")}`);
+  }
 });

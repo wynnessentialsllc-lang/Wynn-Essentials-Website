@@ -3,6 +3,7 @@ import { products } from "../../../data";
 import { readMatchSession } from "../../../../lib/crownprint";
 import { enforceMatchesOnly, selectGuidance } from "../../../../lib/crownprint-guidance";
 import { HWL_CANONICAL_PRODUCT_KEYS, resolveCatalogSlug } from "../../../../lib/crownprint-catalog-key";
+import { hasCapabilityLabel } from "../../../../lib/crownprint-capability-labels";
 import { adminTokenConfigured } from "../../../../lib/admin-auth";
 
 /**
@@ -44,6 +45,11 @@ import { adminTokenConfigured } from "../../../../lib/admin-auth";
  *   coverageKeys   string[]  — coverage functionKeys, to show they name no product
  *   subset         boolean   — renderedKeys ⊆ authorizedKeys
  *   violations     string[]  — rendered keys with no HWL verdict (always [] when healthy)
+ *   contract642    object    — whether the explanation fields actually arrived,
+ *                              per rendered match, plus the raw functionKey /
+ *                              capabilityKey and any capability with no curated
+ *                              Wynn label yet. `complete: true` means every
+ *                              rendered match carried the full explanation.
  *   bridge         object    — the HWL→Wynn identity bridge for ALL eleven
  *                              canonical keys, resolved against this
  *                              deployment's catalog. Needs no CrownPrint, so
@@ -125,6 +131,39 @@ export async function GET(request: Request) {
   });
   const bridgeUnresolved = bridge.filter((b) => !b.inCatalog).map((b) => b.key);
 
+  // CONTRACT #642 PRESENCE.
+  //
+  // Answers "has the explanation contract actually landed in production?"
+  // against the real payload, in one request. Without this the only way to know
+  // is to look at a card and notice a missing line, which is exactly how a
+  // half-shipped contract stays unnoticed.
+  //
+  // Booleans and identifiers only — the field VALUES are consumer-safe copy
+  // already visible on the page, so nothing new is disclosed by reporting
+  // whether they arrived.
+  const explanation = rendered.map((m) => ({
+    productKey: m.productKey,
+    needServed: Boolean(m.needServed),
+    functionServed: Boolean(m.functionServed),
+    functionKey: m.functionKey ?? null,
+    capabilityKey: m.evidence?.capabilityKey ?? null,
+    ingredient: Boolean(m.evidence?.ingredient),
+    statement: Boolean(m.evidence?.statement),
+    limitation: Boolean(m.limitation),
+  }));
+  const complete = explanation.length > 0 && explanation.every(
+    (e) => e.needServed && e.functionServed && e.capabilityKey && e.ingredient && e.limitation,
+  );
+  // Capability keys arriving with no curated Wynn label. These still render
+  // readably, but mechanically — this is the list to turn into real copy.
+  const unlabeledCapabilities = [
+    ...new Set(
+      rendered
+        .map((m) => m.evidence?.capabilityKey)
+        .filter((k): k is string => Boolean(k) && !hasCapabilityLabel(k)),
+    ),
+  ];
+
   return NextResponse.json(
     {
       app: "wynn-essentials",
@@ -135,6 +174,10 @@ export async function GET(request: Request) {
       renderedCatalogSlugs,
       unresolvedKeys,
       accessoryKeys: guidance.accessories.map((a) => a.productKey),
+      // Has HWL contract #642 actually landed here? Booleans plus the canonical
+      // machine identifiers, which live here rather than in the markup —
+      // customers see readable labels, audits see the keys.
+      contract642: { complete, unlabeledCapabilities, perMatch: explanation },
       coverageKeys: guidance.coverage.map((c) => c.functionKey),
       // The assertion itself. An unconnected session renders nothing, so the
       // empty set is trivially a subset — `connected` is what says whether this

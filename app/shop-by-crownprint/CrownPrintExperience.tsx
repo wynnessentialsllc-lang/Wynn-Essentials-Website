@@ -7,6 +7,7 @@ import type { ExperienceState, MatchClass, WhatToLookFor } from "../../lib/crown
 import type { LabelledPoint } from "../../lib/crownprint-fit";
 import type { AccessorySupport, CoveragePoint, CoverageStatus } from "../../lib/crownprint-guidance";
 import type { GuidanceSource, MatchRationale } from "../../lib/crownprint-match-intelligence";
+import { capabilityLabel } from "../../lib/crownprint-capability-labels";
 import { MatchLegend, MatchReasoning } from "../MatchIntelligence";
 
 // Coverage wording now lives in the OtherNeeds group headings, where each status
@@ -118,22 +119,39 @@ function MatchCard({ product, onAdd }: { product: CardProduct; onAdd: (p: CardPr
         {product.functionServed && (
           <p className="cp-card-function"><b>CrownPrint function:</b> {product.functionServed}</p>
         )}
-        {product.evidence && (
+        {/* EVIDENCE — HWL contract #642.
+            The structured pair is the canonical explanation source, rendered as
+            two labelled facts. The ingredient is the Lab's own word and prints
+            verbatim; the capability prints through Wynn's display map, because
+            `proteins_peptides` is a contract identifier and not customer copy.
+            The key itself is unchanged everywhere else — payload, session,
+            guidance, guard and audit all still carry it.
+            The Lab's statement follows verbatim. Wynn composes nothing around
+            either: writing "carries the X function" would be a formulation
+            claim of Wynn's own. */}
+        {product.evidence?.ingredient && (
+          <p className="cp-card-evidence"><b>Evidence:</b> {product.evidence.ingredient}</p>
+        )}
+        {/* The key is deliberately NOT emitted as a data attribute. "Internally"
+            means server-side — payload, session, guidance and the admin-gated
+            audit endpoint — not hidden in the markup, where it is one view-source
+            away from a customer and one careless selector away from being read
+            back as copy. */}
+        {product.evidence?.capabilityKey && capabilityLabel(product.evidence.capabilityKey) && (
           <p className="cp-card-evidence">
-            <b>Why it qualifies:</b>{" "}
-            {product.evidence.statement
-              ? product.evidence.statement
-              : `${product.evidence.ingredient ?? "This formulation"} carries the ${product.evidence.capabilityKey ?? "capability"} function your CrownPrint called for.`}
+            <b>Capability:</b> {capabilityLabel(product.evidence.capabilityKey)}
           </p>
         )}
+        {product.evidence?.statement && (
+          <p className="cp-card-evidence-statement">{product.evidence.statement}</p>
+        )}
         <MatchReasoning rationale={product.rationale} />
-        {/* The boundary is printed on the card, not tucked into a footnote. A
-            shopper who buys one product should know what it is not for. */}
-        <p className="cp-card-boundary">
-          <b>Boundary:</b>{" "}
-          {product.limitation ??
-            "This match addresses the need named above. It does not stand in for the other needs in your CrownPrint — see “Your other CrownPrint needs” below."}
-        </p>
+        {/* Printed on the card rather than tucked into a footnote — but only
+            when the Lab supplied one. A boundary Wynn wrote itself would read
+            as the Lab's verdict on what this product does not do. */}
+        {product.limitation && (
+          <p className="cp-card-boundary"><b>Boundary:</b> {product.limitation}</p>
+        )}
         {product.whenToUse && <p className="cp-card-usage"><b>When to use it:</b> {product.whenToUse}</p>}
         <div className="cp-card-actions">
           {product.simple && product.price != null ? (
@@ -179,6 +197,12 @@ function OtherNeeds({ coverage }: { coverage: CoveragePoint[] }) {
     },
   ];
 
+  // Status values are contract identifiers; CSS suffixes are Wynn's own. Mapped
+  // rather than interpolated so a snake_case key never lands in the markup.
+  const CLASS_SUFFIX: Record<CoverageStatus, string> = {
+    covered: "covered", partial: "partial", not_carried: "notcarried",
+  };
+
   return (
     <section className="cp-otherneeds" aria-labelledby="cp-otherneeds-heading">
       <h3 className="cp-section-heading" id="cp-otherneeds-heading">Your other CrownPrint needs</h3>
@@ -190,7 +214,7 @@ function OtherNeeds({ coverage }: { coverage: CoveragePoint[] }) {
         const rows = coverage.filter((c) => c.status === status);
         if (!rows.length) return null;
         return (
-          <div className={`cp-needgroup cp-needgroup-${status}`} key={status}>
+          <div className={`cp-needgroup cp-needgroup-${CLASS_SUFFIX[status]}`} key={status}>
             <h4>{heading}</h4>
             <p className="cp-fine">{blurb}</p>
             <ul>

@@ -332,6 +332,15 @@ function fromTrustedContext(context: TrustedContext, catalog: FitCatalogProduct[
 
   // 3. Coverage — descriptive only. Three outcomes get explained: covered,
   //    partially supported, not carried. No branch of this produces a product.
+  //
+  // Names of products that ARE authorized matches, in both vocabularies HWL
+  // might use for them: the catalog name Wynn renders, and the productName the
+  // Lab sent. Anything outside this set is not nameable in the coverage section.
+  const authorizedNames = new Set(
+    matches.flatMap((m) => [m.productName, context.matches.find((x) => x.productKey === m.productKey)?.productName])
+      .filter((n): n is string => Boolean(n))
+      .map((n) => n.trim().toLowerCase()),
+  );
   const coverage: CoveragePoint[] = (context.coverage ?? []).map((c) => ({
     functionKey: c.functionKey,
     status: c.status,
@@ -340,7 +349,14 @@ function fromTrustedContext(context: TrustedContext, catalog: FitCatalogProduct[
     // is ever compared, matched, or selected on.
     label: c.functionLabel?.trim() || humanizeFunctionKey(c.functionKey),
     detail: c.detail ?? COVERAGE_DETAIL[c.status],
-    qualifyingProducts: c.qualifyingProducts ?? [],
+    // A qualifying product is only NAMED if it is also an authorized match.
+    //
+    // Naming one that is not is how coverage starts reading as a recommendation:
+    // a shopper who sees "Wynn products in this function: Lathyr" has been shown
+    // a product CrownPrint did not choose for them, in a section they were told
+    // is not a recommendation. Filtered here on the server, so the UI cannot
+    // leak it and no future template edit can re-expose it.
+    qualifyingProducts: (c.qualifyingProducts ?? []).filter((name) => authorizedNames.has(name.trim().toLowerCase())),
   }));
 
   // 4. Gaps: what HWL determined Wynn doesn't carry — from `notCarried`, and
