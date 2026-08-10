@@ -936,7 +936,7 @@
   min-height:0;
   aspect-ratio:2.65/1;
   margin:0 auto;
-  padding:7% 14%;
+  padding:8% 14% 3%;
   background:url("/collections/boho-copy-cloud-v1.png") center/contain no-repeat;
   filter:drop-shadow(0 8px 12px rgba(25,68,105,.22));
   font-size:clamp(12px,1vw,16px);
@@ -949,7 +949,7 @@
   .boho-product-heading>.eyebrow{
     width:min(82vw,340px);
     aspect-ratio:2.55/1;
-    padding:8% 13%;
+    padding:9% 13% 3%;
     font-size:clamp(10px,3vw,13px);
     letter-spacing:.08em;
   }
