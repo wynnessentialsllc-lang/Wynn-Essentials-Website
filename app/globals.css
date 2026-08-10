@@ -873,3 +873,21 @@
   .boho-sky-plane{margin-inline:auto}
   .boho-intro .boho-lede,.boho-intro .boho-collection-link{margin-left:auto;margin-right:auto}
 }
+
+/* Final Boho typography pass: safer desktop spacing and crisp campaign labels. */
+@media(min-width:761px){
+  .boho-intro{box-sizing:border-box;padding-left:clamp(24px,3.5vw,58px);padding-right:clamp(72px,8vw,144px);overflow-x:clip}
+  .boho-intro h2{align-items:center;width:100%;max-width:100%;margin-inline:auto;text-align:center}
+  .boho-intro h2 span{max-width:100%;color:#2d211c;font-size:clamp(42px,4.7vw,74px);font-weight:900;letter-spacing:-.025em;line-height:.98;text-wrap:balance;text-shadow:0 2px 0 #fff,0 0 4px rgba(255,255,255,.95),0 5px 16px rgba(24,55,84,.38)}
+  .boho-intro h2 em{align-self:center;margin-right:0}
+  .boho-intro h2 strong{max-width:100%;font-size:clamp(62px,6.7vw,104px);letter-spacing:-.015em}
+  .boho-intro .boho-lede,.boho-intro .boho-collection-link{max-width:min(92%,560px);margin-left:auto;margin-right:auto}
+}
+.boho-product-heading>.eyebrow{display:table;margin-inline:auto;padding:9px 15px;background:rgba(255,255,255,.9);border:1px solid rgba(255,255,255,.96);border-radius:999px;box-shadow:0 4px 14px rgba(25,68,105,.22);color:#34231e;font-family:var(--font-sans),Arial,sans-serif;font-size:clamp(14px,1.25vw,18px);font-style:normal;font-weight:900;letter-spacing:.14em;line-height:1.25;text-shadow:none}
+.boho-product-heading>p:last-child{box-sizing:border-box;width:min(92%,920px);margin:42px auto 0;padding:14px 20px;background:rgba(255,255,255,.9);border:1px solid rgba(255,255,255,.96);border-radius:18px;box-shadow:0 6px 18px rgba(25,68,105,.22);color:#603452;font-family:var(--font-sans),Arial,sans-serif;font-size:clamp(16px,1.55vw,22px);font-style:normal;font-weight:850;letter-spacing:.015em;line-height:1.45;text-shadow:none;-webkit-text-stroke:0}
+.boho-product-heading>p:last-child span{color:#247dad;font-weight:900;-webkit-text-stroke:0}
+@media(max-width:760px){
+  .boho-intro h2 span{max-width:88vw;color:#2d211c;font-size:clamp(38px,10.8vw,49px);font-weight:900;letter-spacing:-.02em;line-height:1.07;text-wrap:balance;text-shadow:0 2px 0 #fff,0 0 4px #fff,0 5px 14px rgba(19,51,80,.44);-webkit-text-stroke:.35px rgba(255,255,255,.8)}
+  .boho-product-heading>.eyebrow{max-width:84vw;padding:10px 14px;font-size:14px;letter-spacing:.12em;white-space:normal}
+  .boho-product-heading>p:last-child{width:calc(100vw - 34px);max-width:560px;margin-top:36px;padding:14px 15px;font-size:clamp(14px,3.9vw,17px);font-weight:850;line-height:1.5;letter-spacing:0;white-space:normal}
+}
