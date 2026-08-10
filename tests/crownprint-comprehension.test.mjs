@@ -23,10 +23,12 @@ import { createElement } from "react";
 
 import CrownPrintExperience from "../app/shop-by-crownprint/CrownPrintExperience.tsx";
 import {
+  CAPABILITIES_NOT_EMITTABLE,
   CAPABILITY_LABELS,
   HWL_CANONICAL_CAPABILITY_KEYS,
   capabilityLabel,
   hasCapabilityLabel,
+  mechanicalFallbackLabel,
 } from "../lib/crownprint-capability-labels.ts";
 
 const URLS = { connect: "/c", create: "/cr", refresh: "/r", disconnect: "/d", productHub: null };
@@ -303,73 +305,69 @@ test("an unmapped capability key still never renders raw", () => {
 });
 
 // ---------------------------------------------------------------------------
-// CAPABILITY VOCABULARY.
+// CAPABILITY VOCABULARY — the complete HWL #642 set for wynn-product-profile-v1.
 //
 // The mechanical snake_case fallback is defensive handling for unexpected
 // input, NOT the production path. Every canonical key carries deliberate copy;
 // anything else announces itself rather than rendering almost-right forever.
 // ---------------------------------------------------------------------------
 
-test("1. every canonical capability key has an explicit readable label", () => {
-  assert.ok(HWL_CANONICAL_CAPABILITY_KEYS.length > 0, "the vocabulary is not empty");
+test("1. the label map equals the canonical vocabulary in BOTH directions", () => {
+  assert.equal(HWL_CANONICAL_CAPABILITY_KEYS.length, 9, "the proven vocabulary is nine keys");
 
+  assert.deepEqual(
+    [...HWL_CANONICAL_CAPABILITY_KEYS].sort(),
+    Object.keys(CAPABILITY_LABELS).sort(),
+    "every canonical key has a label and every label has a canonical key",
+  );
+
+  // Capabilities HWL cannot emit for this catalog stay deliberately unlabelled,
+  // so a future one fails visibly instead of using copy somebody guessed at.
+  for (const key of CAPABILITIES_NOT_EMITTABLE) {
+    assert.equal(hasCapabilityLabel(key), false, `"${key}" must not be pre-labelled — it cannot be emitted yet`);
+  }
+});
+
+test("2. no canonical key relies on the mechanical fallback", () => {
   for (const key of HWL_CANONICAL_CAPABILITY_KEYS) {
-    assert.ok(
-      hasCapabilityLabel(key),
-      `"${key}" has no deliberate label — it would fall through to the defensive fallback in production`,
-    );
     const label = capabilityLabel(key);
-    assert.notEqual(label, key, `"${key}" renders as itself`);
-    assert.equal(/_/.test(label), false, `"${key}" produced a label containing an underscore`);
-    // A label must be words, not a mechanical restatement of the key.
+    assert.ok(hasCapabilityLabel(key), `"${key}" has no deliberate copy`);
+    // The precise property: the label is NOT what the fallback would generate.
     assert.notEqual(
-      label.toLowerCase().replace(/[^a-z]/g, ""),
-      key.replace(/_/g, ""),
-      `"${key}" is only title-cased, not deliberate copy`,
+      label,
+      mechanicalFallbackLabel(key),
+      `"${key}" renders exactly what the mechanical fallback would produce`,
     );
-  }
-
-  // And no orphan labels: a label with no canonical key behind it is a guess.
-  const canonical = new Set(HWL_CANONICAL_CAPABILITY_KEYS);
-  for (const key of Object.keys(CAPABILITY_LABELS)) {
-    assert.ok(canonical.has(key), `"${key}" has a label but is not in the canonical vocabulary`);
+    assert.equal(/_/.test(label), false, `"${key}" produced a label containing an underscore`);
   }
 });
 
-test("2. no canonical capability key renders as raw snake_case", () => {
-  for (const key of HWL_CANONICAL_CAPABILITY_KEYS) {
-    const html = render({
-      products: [{ ...REVAIVL, evidence: { ingredient: "Rice protein", capabilityKey: key } }],
-    });
-    // Only multi-word keys have a "raw form" distinguishable from ordinary
-    // English: "surfactants" legitimately appears inside its own label
-    // ("Cleansing surfactants"), and asserting its absence would be asserting
-    // that the label is wrong.
-    if (key.includes("_")) {
-      assert.equal(new RegExp(key).test(html), false, `"${key}" reached the page raw`);
-    }
-    assert.match(html, new RegExp(`Capability:</b> ${CAPABILITY_LABELS[key].replace("&", "&amp;")}`));
+test("3. unlabeledCapabilities is empty across the entire canonical vocabulary", () => {
+  // Mirrors what the audit computes for a payload using every canonical key.
+  const unlabeled = HWL_CANONICAL_CAPABILITY_KEYS.filter((k) => !hasCapabilityLabel(k));
+  assert.deepEqual(unlabeled, [], "no canonical capability is missing copy");
+});
+
+test("4. an unknown future key stays visible to the audit rather than being invented", () => {
+  // A capability HWL cannot emit today, and one that is simply unrecognized.
+  for (const unknown of ["chelators", "humidity_resistance_barrier"]) {
+    assert.equal(HWL_CANONICAL_CAPABILITY_KEYS.includes(unknown), false);
+    assert.equal(hasCapabilityLabel(unknown), false, `Wynn must not pretend to have copy for "${unknown}"`);
   }
+
+  // It still cannot reach a customer raw — the fallback is the safety net.
+  const html = render({
+    products: [{ ...REVAIVL, evidence: { ingredient: "Something new", capabilityKey: "heat_protection_systems" } }],
+  });
+  assert.equal(/heat_protection_systems/.test(html), false, "the raw key never reaches the page");
+  assert.match(html, /Capability:<\/b> Heat protection systems/, "it degrades defensively");
+
+  // And the audit's filter — the same helper — names it.
+  const unlabeled = ["proteins_peptides", "heat_protection_systems"].filter((k) => !hasCapabilityLabel(k));
+  assert.deepEqual(unlabeled, ["heat_protection_systems"]);
 });
 
-test("3. an unknown key is not labelled by invention, and stays visible for reporting", () => {
-  // Deliberately non-canonical: this is the defensive path, not a real key.
-  const unknown = "humidity_resistance_barrier";
-  assert.equal(HWL_CANONICAL_CAPABILITY_KEYS.includes(unknown), false, "the fixture is genuinely unknown");
-  assert.equal(hasCapabilityLabel(unknown), false, "and Wynn does not pretend to have copy for it");
-
-  // It still cannot reach a customer raw...
-  const html = render({ products: [{ ...REVAIVL, evidence: { ingredient: "Something new", capabilityKey: unknown } }] });
-  assert.equal(new RegExp(unknown).test(html), false, "the raw key never reaches the page");
-  assert.match(html, /Capability:<\/b> Humidity resistance barrier/, "it degrades defensively");
-
-  // ...and hasCapabilityLabel is what the audit's unlabeledCapabilities uses, so
-  // an unknown key surfaces from production instead of being pre-empted.
-  const unlabeled = [unknown, "proteins_peptides"].filter((k) => !hasCapabilityLabel(k));
-  assert.deepEqual(unlabeled, [unknown]);
-});
-
-test("4. customer markup contains no raw snake_case identifier, across the whole vocabulary", () => {
+test("5. no raw multi-word snake_case capability identifier reaches customer markup", () => {
   for (const key of HWL_CANONICAL_CAPABILITY_KEYS) {
     const html = render({
       products: [{ ...REVAIVL, evidence: { ingredient: "Rice protein", capabilityKey: key } }],
@@ -380,6 +378,14 @@ test("4. customer markup contains no raw snake_case identifier, across the whole
       ],
       accessories: [ACCESSORY],
     });
+
+    // Multi-word keys have a raw form distinguishable from English; single-word
+    // ones ("surfactants") legitimately appear inside their own label.
+    if (key.includes("_")) {
+      assert.equal(new RegExp(key).test(html), false, `"${key}" reached the page raw`);
+    }
+    assert.match(html, new RegExp(`Capability:</b> ${CAPABILITY_LABELS[key].replace(/&/g, "&amp;")}`));
+
     const leaks = [...new Set(html.match(SNAKE_CASE) ?? [])];
     assert.deepEqual(leaks, [], `raw identifiers reached the page for "${key}": ${leaks.join(", ")}`);
   }

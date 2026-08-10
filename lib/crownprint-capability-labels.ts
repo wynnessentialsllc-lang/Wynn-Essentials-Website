@@ -17,20 +17,39 @@
 // ranks, or what is authorized — nothing here can affect which products appear.
 //
 // ---------------------------------------------------------------------------
-// PROVENANCE OF THIS VOCABULARY — read before adding to it.
+// PROVENANCE — read before adding to it.
 //
-// The complete HWL #642 capability vocabulary is NOT available in this
-// repository. There are no #642 fixtures, no contract dump, and no resolver
-// output here; the only `capabilityKey` values present anywhere in the tree are
-// Wynn's own test fixtures. The keys below are therefore the ones Wynn has been
-// told about explicitly, and nothing else.
+// These nine are the complete production-emittable capability vocabulary that
+// HWL proved for the current 9-product catalog (wynn-product-profile-v1, HWL
+// #642). Not a sample, and not inferred from fixtures: the full set.
 //
-// Do not extend this list by guessing at plausible formulation categories. A
-// wrong key never fires (so it is dead weight) and a plausible-but-wrong label
-// is worse than an honest gap: `unlabeledCapabilities` in the audit exists
-// precisely so an unknown key announces itself from production instead of being
-// pre-empted with an invention. Add an entry when HWL confirms the key.
+// HWL's evidence model also defines capabilities it CANNOT currently emit for
+// this catalog, because no Wynn product carries them:
+//
+//   chelators · heat_protection_systems · hold_polymers
+//   conditioning_polymers · film_formers · silicones
+//
+// They are deliberately UNLABELLED. Adding speculative copy for a key that
+// cannot arrive is dead weight that looks maintained, and it would defeat the
+// one signal that matters: if the catalog grows and HWL starts emitting one of
+// them, `unlabeledCapabilities` names it in the audit and it gets deliberate
+// copy then — rather than silently rendering a label somebody guessed at months
+// earlier. A new canonical key should fail visibly, not quietly.
 // ---------------------------------------------------------------------------
+
+/**
+ * Capabilities in HWL's evidence model that this catalog cannot currently
+ * produce. Recorded so the omission reads as a decision rather than an
+ * oversight; deliberately NOT given labels. See the note above.
+ */
+export const CAPABILITIES_NOT_EMITTABLE: readonly string[] = [
+  "chelators",
+  "heat_protection_systems",
+  "hold_polymers",
+  "conditioning_polymers",
+  "film_formers",
+  "silicones",
+];
 
 /**
  * Every capability identifier Wynn currently knows HWL can emit through
@@ -41,11 +60,15 @@
  * production, and a label with no canonical key is a guess. Tests enforce both.
  */
 export const HWL_CANONICAL_CAPABILITY_KEYS: readonly string[] = [
-  "proteins_peptides",
-  "cationic_conditioners",
-  "fatty_alcohols",
   "surfactants",
+  "cationic_conditioners",
+  "slip_agents",
   "humectants",
+  "occlusives",
+  "oils_lipids",
+  "proteins_peptides",
+  "fatty_alcohols",
+  "emollients",
 ];
 
 /**
@@ -58,11 +81,15 @@ export const HWL_CANONICAL_CAPABILITY_KEYS: readonly string[] = [
  * claims are not Wynn's to make.
  */
 export const CAPABILITY_LABELS: Record<string, string> = {
-  proteins_peptides: "Protein & peptides",
-  cationic_conditioners: "Conditioning & slip",
-  fatty_alcohols: "Softening fatty alcohols",
   surfactants: "Cleansing surfactants",
+  cationic_conditioners: "Conditioning & slip",
+  slip_agents: "Lubricity / slip agents",
   humectants: "Water-attracting humectants",
+  occlusives: "Moisture-loss barriers",
+  oils_lipids: "Oils & lipids",
+  proteins_peptides: "Protein & peptides",
+  fatty_alcohols: "Softening fatty alcohols",
+  emollients: "Softening emollients",
 };
 
 /**
@@ -74,7 +101,7 @@ export const CAPABILITY_LABELS: Record<string, string> = {
  * HWL or malformed, and both cases want a human's attention rather than a
  * silent mechanical rendering that reads almost-right forever.
  */
-const defensiveLabel = (key: string): string => {
+export const mechanicalFallbackLabel = (key: string): string => {
   const words = key.replace(/[_-]+/g, " ").trim();
   return words ? words.charAt(0).toUpperCase() + words.slice(1) : key;
 };
@@ -103,5 +130,5 @@ export function capabilityLabel(key: string | null | undefined): string | null {
     `[crownprint] capability "${raw}" has no customer-facing label; falling back to a generated one. ` +
       `Add deliberate copy to CAPABILITY_LABELS in lib/crownprint-capability-labels.ts.`,
   );
-  return defensiveLabel(raw);
+  return mechanicalFallbackLabel(raw);
 }
