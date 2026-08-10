@@ -845,3 +845,19 @@
 }
 @keyframes boho-portrait-hover-mobile{0%,100%{transform:translate3d(0,-8px,24px) rotateX(.8deg)}50%{transform:translate3d(0,-18px,32px) rotateX(.25deg)}}
 @media(max-width:760px) and (prefers-reduced-motion:reduce){.boho-portrait figure{animation:none;transform:translate3d(0,-10px,24px)}}
+
+/* Keep the two-column campaign contained and centered on smaller laptops. */
+@media(min-width:761px) and (max-width:1180px){
+  .boho-hair{max-width:100vw;overflow-x:clip}
+  .boho-editorial{width:auto;min-width:0;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .boho-editorial>*{box-sizing:border-box;min-width:0}
+  .boho-portrait{padding:60px clamp(26px,4vw,48px);overflow:visible}
+  .boho-portrait figure{box-sizing:border-box;width:min(100%,460px);margin-inline:auto;transform:translate3d(0,-10px,28px) rotateX(1deg) rotateY(-1.5deg) rotateZ(-.5deg)}
+  .boho-intro{align-items:center;padding:64px clamp(28px,4vw,54px);overflow-x:clip;text-align:center}
+  .boho-intro h2{align-items:center;width:100%;max-width:100%;margin-inline:auto}
+  .boho-intro h2 span{max-width:100%;font-size:clamp(44px,5.4vw,64px);line-height:.96;text-align:center}
+  .boho-intro h2 em{align-self:center;margin-right:0}
+  .boho-intro h2 strong{max-width:100%;font-size:clamp(62px,7.2vw,88px);letter-spacing:-.015em}
+  .boho-sky-plane{margin-inline:auto}
+  .boho-intro .boho-lede,.boho-intro .boho-collection-link{margin-left:auto;margin-right:auto}
+}
