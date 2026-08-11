@@ -26,6 +26,7 @@ import {
   resolveCatalogSlug,
 } from "../lib/crownprint-catalog-key.ts";
 import { HWL_CANONICAL_CAPABILITY_KEYS, capabilityLabel } from "../lib/crownprint-capability-labels.ts";
+import { auditRoutine } from "../lib/crownprint-audit.ts";
 import { products } from "../app/data.ts";
 import CrownPrintExperience from "../app/shop-by-crownprint/CrownPrintExperience.tsx";
 
@@ -88,6 +89,7 @@ function renderMarkup(context) {
       functions: guidance.functions, coverage: guidance.coverage, accessories: guidance.accessories,
       gaps: guidance.gaps, contextNotes: guidance.notes, noStrongMatch: guidance.noStrongMatch,
       unresolvedCount: Math.max(0, (context?.matches.length ?? 0) - catalogCards.length),
+      routineStatus: guidance.routineStatus, routine: guidance.routine,
       hasStrong: catalogCards.some((c) => c.matchClass === "strong"), products: catalogCards,
       urls: { connect: "/c", create: "/cr", refresh: "/r", disconnect: "/d", productHub: null },
     }),
@@ -409,4 +411,346 @@ test("F. routine stage never changes which products render", () => {
     const { keys } = renderPipeline(payload({ matches: [match(key, "strong")] }));
     assert.deepEqual(keys, [key], "routine grouping altered the authorized set");
   }
+});
+
+// ===========================================================================
+// G. ROUTINE — a separate authority from matches
+// ===========================================================================
+
+const routineStep = (order, productKey, over = {}) => ({
+  order, productKey,
+  slot: `Stage ${order}`,
+  routineRole: `Role ${order}`,
+  whenToUse: `When ${order}`,
+  frequency: `Frequency ${order}`,
+  why: `Why ${order}`,
+  ...over,
+});
+
+test("G. not_built never produces routine steps", () => {
+  const ctx = payload({
+    routineStatus: "not_built",
+    // A routine array sent alongside not_built must be ignored entirely.
+    routine: [routineStep(1, "lathyr"), routineStep(2, "revaivl")],
+    matches: [match("revaivl", "strong")],
+  });
+  const { guidance } = renderPipeline(ctx);
+  assert.equal(guidance.routineStatus, "not_built");
+  assert.deepEqual(guidance.routine, [], "not_built must yield no steps");
+
+  const html = renderMarkup(ctx);
+  assert.match(html, /Build your personalized routine/);
+  assert.match(html, /Complete the routine builder to organize compatible products into an ordered regimen/);
+  assert.equal(/Your CrownPrint routine/.test(html), false, "no built-routine heading");
+  // And the direct matches stay visible independently.
+  assert.match(html, /Revaivl/);
+  assert.match(html, /Your Wynn Essentials matches/);
+});
+
+test("G. a built routine renders in HWL order, never Wynn's", () => {
+  // Deliberately supplied out of order, and in an order that neither match
+  // class nor Wynn Method step would reproduce.
+  const ctx = payload({
+    routineStatus: "built",
+    routine: [routineStep(3, "lathyr"), routineStep(1, "nourishOil"), routineStep(2, "revaivl")],
+    matches: [match("revaivl", "conditional"), match("lathyr", "strong")],
+  });
+  const { guidance } = renderPipeline(ctx);
+
+  assert.deepEqual(guidance.routine.map((r) => r.productKey), ["nourishOil", "revaivl", "lathyr"]);
+  assert.deepEqual(guidance.routine.map((r) => r.order), [1, 2, 3]);
+
+  // Wynn Method order would be lathyr(1) → revaivl(3) → nourishOil(5).
+  // Match-class order would be lathyr(strong) → revaivl(conditional).
+  // Neither is what rendered.
+  assert.notDeepEqual(guidance.routine.map((r) => r.productKey), ["lathyr", "revaivl", "nourishOil"]);
+
+  // Scoped to the routine section: these product names also appear in the match
+  // cards above, so a whole-page index would measure the wrong thing.
+  const html = renderMarkup(ctx);
+  const start = html.indexOf('class="cp-routine-steps"');
+  const routineHtml = html.slice(start, html.indexOf("</ol>", start));
+  assert.ok(start > 0, "the routine section rendered");
+  const seq = ["Nourish", "Revaivl", "Lathyr"].map((n) => routineHtml.indexOf(`>${n}<`));
+  assert.ok(seq.every((i) => i >= 0), "all three steps rendered");
+  assert.ok(seq[0] < seq[1] && seq[1] < seq[2], `rendered order was not HWL's: ${JSON.stringify(seq)}`);
+  for (const field of ["Role:", "When:", "How often:"]) assert.ok(html.includes(field), `${field} renders`);
+  assert.match(html, /Stage 1/);
+});
+
+test("G. routine order never changes match rank", () => {
+  const matches = [match("revaivl", "strong"), match("lathyr", "good"), match("nourishOil", "conditional")];
+  const withoutRoutine = renderPipeline(payload({ matches })).keys;
+  const withRoutine = renderPipeline(payload({
+    matches,
+    routineStatus: "built",
+    // The exact reverse of the match order.
+    routine: [routineStep(1, "nourishOil"), routineStep(2, "lathyr"), routineStep(3, "revaivl")],
+  })).keys;
+
+  assert.deepEqual(withRoutine, withoutRoutine, "the routine re-ordered the matches");
+});
+
+test("G. match rank never changes routine order", () => {
+  const routine = [routineStep(1, "nourishOil"), routineStep(2, "lathyr"), routineStep(3, "revaivl")];
+  const asSent = ["nourishOil", "lathyr", "revaivl"];
+
+  for (const classes of [["strong", "good", "conditional"], ["conditional", "conditional", "strong"]]) {
+    const ctx = payload({
+      routineStatus: "built",
+      routine,
+      matches: [match("revaivl", classes[0]), match("lathyr", classes[1]), match("nourishOil", classes[2])],
+    });
+    assert.deepEqual(
+      renderPipeline(ctx).guidance.routine.map((r) => r.productKey),
+      asSent,
+      `match classes ${classes.join("/")} altered routine order`,
+    );
+  }
+});
+
+test("G. a product may be in matches without being in the routine, and vice versa", () => {
+  const ctx = payload({
+    routineStatus: "built",
+    routine: [routineStep(1, "lathyr")],            // not a match
+    matches: [match("revaivl", "strong")],          // not in the routine
+  });
+  const { guidance, keys } = renderPipeline(ctx);
+
+  assert.deepEqual(keys, ["revaivl"], "the match renders");
+  assert.deepEqual(guidance.routine.map((r) => r.productKey), ["lathyr"], "the routine step renders");
+  // The routine step did NOT become an authorized match.
+  assert.equal(keys.includes("lathyr"), false, "a routine step is not a product card");
+});
+
+test("G. a routine accessory never becomes a formulation match", () => {
+  const ctx = payload({
+    routineStatus: "built",
+    routine: [routineStep(1, "softLifeBonnet", { isAccessory: true }), routineStep(2, "revaivl")],
+    matches: [match("revaivl", "strong")],
+  });
+  const { guidance, keys } = renderPipeline(ctx);
+
+  assert.deepEqual(keys, ["revaivl"], "the bonnet is not an authorized match");
+  const bonnet = guidance.routine.find((r) => r.productKey === "softLifeBonnet");
+  assert.ok(bonnet, "it is a routine step");
+  assert.equal(bonnet.isAccessory, true);
+  assert.equal("matchClass" in bonnet, false, "a routine step carries no match class");
+  assert.equal("evidence" in bonnet, false, "and no formulation evidence");
+});
+
+test("G. a routine step carries no match class or evidence, even if HWL sends them", () => {
+  const ctx = payload({
+    routineStatus: "built",
+    routine: [{ order: 1, productKey: "revaivl", matchClass: "strong", evidence: { ingredient: "Rice protein" } }],
+    matches: [],
+  });
+  const step = renderPipeline(ctx).guidance.routine[0];
+  assert.equal("matchClass" in step, false);
+  assert.equal("evidence" in step, false);
+});
+
+test("G. an unavailable routine fails transparently and generates nothing", () => {
+  for (const status of ["unavailable", "error", "something_unrecognized"]) {
+    const ctx = payload({
+      routineStatus: status,
+      routine: [routineStep(1, "lathyr")],
+      matches: [match("revaivl", "strong")],
+    });
+    const { guidance, keys } = renderPipeline(ctx);
+    assert.equal(guidance.routineStatus, "unavailable", `"${status}" must resolve to unavailable`);
+    assert.deepEqual(guidance.routine, [], "no steps from an unavailable routine");
+    assert.deepEqual(keys, ["revaivl"], "matches are unaffected");
+
+    const html = renderMarkup(ctx);
+    assert.match(html, /couldn.t load your routine/i);
+    assert.equal(/Build your personalized routine/.test(html), false, "not the not_built CTA");
+    // No catalog-generated sequencing anywhere.
+    assert.equal(/cp-routine-steps/.test(html), false);
+  }
+});
+
+test("G. no routineStatus at all renders no routine section", () => {
+  const html = renderMarkup(payload({ matches: [match("revaivl", "strong")] }));
+  assert.equal(/Your CrownPrint routine/.test(html), false);
+  assert.equal(/Build your personalized routine/.test(html), false);
+});
+
+// ===========================================================================
+// H. ROUTINE AUDIT — observational only
+//
+// The audit's job is to SAY when the pipeline is wrong, never to correct it. So
+// each check is tested in both directions: it passes on a healthy pipeline, and
+// it FAILS when handed the shape of the corresponding defect. A verifier that
+// only ever returns true has verified nothing.
+// ===========================================================================
+
+const auditFor = (ctx) => {
+  const { guidance, keys } = renderPipeline(ctx);
+  return auditRoutine({
+    routineStatus: guidance.routineStatus,
+    sent: ctx.routine ?? [],
+    rendered: guidance.routine,
+    renderedMatchKeys: keys,
+    authorizedKeys: ctx.matches.map((m) => m.productKey),
+    catalog,
+  });
+};
+
+test("H. built — reports every routine field and passes every check", () => {
+  const ctx = payload({
+    routineStatus: "built",
+    routine: [routineStep(1, "lathyr"), routineStep(2, "revaivl"), routineStep(3, "nourishOil")],
+    matches: [match("revaivl", "strong")],
+  });
+  const a = auditFor(ctx);
+
+  assert.equal(a.routineStatus, "built");
+  assert.equal(a.routineStepCount, 3);
+  assert.deepEqual(a.routineProductKeys, ["lathyr", "revaivl", "nourishOil"]);
+  assert.deepEqual(a.routineCatalogSlugs, ["lathyr-shampoo", "revaivl-protein-conditioner", "nourish-oil"]);
+  assert.deepEqual(a.routineOrders, [1, 2, 3]);
+  assert.deepEqual(a.routineUnresolvedKeys, []);
+  assert.equal(a.ctaActive, false);
+
+  assert.deepEqual(a.checks, {
+    ordersPreserved: true,
+    allResolveThroughBridge: true,
+    noStepFromCoverage: true,
+    matchesUnaltered: true,
+  });
+});
+
+test("H. built — ordering is reported as preserved when HWL's sequence is unusual", () => {
+  // An order neither match class nor Wynn Method would produce.
+  const ctx = payload({
+    routineStatus: "built",
+    routine: [routineStep(1, "nourishOil"), routineStep(2, "revaivl"), routineStep(3, "lathyr")],
+    matches: [match("lathyr", "strong"), match("revaivl", "conditional")],
+  });
+  const a = auditFor(ctx);
+  assert.deepEqual(a.routineProductKeys, ["nourishOil", "revaivl", "lathyr"]);
+  assert.equal(a.checks.ordersPreserved, true);
+  assert.equal(a.checks.matchesUnaltered, true, "the routine did not add nourishOil to the cards");
+});
+
+test("H. not_built — zero steps, CTA state exposed, no checks", () => {
+  const ctx = payload({
+    routineStatus: "not_built",
+    routine: [routineStep(1, "lathyr")],
+    matches: [match("revaivl", "strong")],
+  });
+  const a = auditFor(ctx);
+
+  assert.equal(a.routineStatus, "not_built");
+  assert.equal(a.routineStepCount, 0, "not_built must render no steps");
+  assert.deepEqual(a.routineProductKeys, []);
+  assert.deepEqual(a.routineOrders, []);
+  assert.equal(a.ctaActive, true, "the builder CTA is on screen");
+  assert.equal(a.checks, null, "there is nothing to check without a built routine");
+});
+
+for (const status of ["unavailable", "error", "something_unrecognized"]) {
+  test(`H. ${status} — no routine steps render`, () => {
+    const ctx = payload({
+      routineStatus: status,
+      routine: [routineStep(1, "lathyr"), routineStep(2, "revaivl")],
+      matches: [match("revaivl", "strong")],
+    });
+    const a = auditFor(ctx);
+    assert.equal(a.routineStatus, "unavailable");
+    assert.equal(a.routineStepCount, 0);
+    assert.equal(a.ctaActive, false, "unavailable is not the CTA state");
+    assert.equal(a.checks, null);
+  });
+}
+
+test("H. unresolved routine identity is reported, not absorbed", () => {
+  const ctx = payload({
+    routineStatus: "built",
+    routine: [routineStep(1, "lathyr"), routineStep(2, "a-key-we-cannot-resolve"), routineStep(3, "revaivl")],
+    matches: [match("revaivl", "strong")],
+  });
+  const a = auditFor(ctx);
+
+  assert.deepEqual(a.routineUnresolvedKeys, ["a-key-we-cannot-resolve"]);
+  assert.equal(a.routineStepCount, 2, "the unresolvable step is not rendered");
+  // And the audit SAYS the sequence no longer matches what HWL sent, rather
+  // than quietly reporting the surviving two steps as healthy.
+  assert.equal(a.checks.ordersPreserved, false, "a dropped step is an order failure, not a rounding error");
+});
+
+// --- the checks must be able to fail -------------------------------------
+
+test("H. ordersPreserved fails on a re-sorted routine", () => {
+  const sent = [{ order: 1, productKey: "nourishOil" }, { order: 2, productKey: "revaivl" }];
+  const resorted = [
+    { order: 2, productKey: "revaivl", catalogSlug: "revaivl-protein-conditioner", productName: "Revaivl", isAccessory: false },
+    { order: 1, productKey: "nourishOil", catalogSlug: "nourish-oil", productName: "Nourish", isAccessory: false },
+  ];
+  const a = auditRoutine({
+    routineStatus: "built", sent, rendered: resorted,
+    renderedMatchKeys: [], authorizedKeys: [], catalog,
+  });
+  assert.equal(a.checks.ordersPreserved, false);
+});
+
+test("H. ordersPreserved fails on duplicate order values", () => {
+  const sent = [{ order: 1, productKey: "lathyr" }, { order: 1, productKey: "revaivl" }];
+  const rendered = [
+    { order: 1, productKey: "lathyr", catalogSlug: "lathyr-shampoo", productName: "Lathyr", isAccessory: false },
+    { order: 1, productKey: "revaivl", catalogSlug: "revaivl-protein-conditioner", productName: "Revaivl", isAccessory: false },
+  ];
+  const a = auditRoutine({ routineStatus: "built", sent, rendered, renderedMatchKeys: [], authorizedKeys: [], catalog });
+  assert.equal(a.checks.ordersPreserved, false, "equal orders are not strictly ascending");
+});
+
+test("H. allResolveThroughBridge fails on a slug the bridge did not produce", () => {
+  const a = auditRoutine({
+    routineStatus: "built",
+    sent: [{ order: 1, productKey: "revaivl" }],
+    rendered: [{ order: 1, productKey: "revaivl", catalogSlug: "lathyr-shampoo", productName: "Lathyr", isAccessory: false }],
+    renderedMatchKeys: [], authorizedKeys: [], catalog,
+  });
+  assert.equal(a.checks.allResolveThroughBridge, false);
+});
+
+test("H. noStepFromCoverage fails on a step HWL never sent", () => {
+  const a = auditRoutine({
+    routineStatus: "built",
+    sent: [{ order: 1, productKey: "revaivl" }],
+    rendered: [
+      { order: 1, productKey: "revaivl", catalogSlug: "revaivl-protein-conditioner", productName: "Revaivl", isAccessory: false },
+      { order: 2, productKey: "lathyr", catalogSlug: "lathyr-shampoo", productName: "Lathyr", isAccessory: false },
+    ],
+    renderedMatchKeys: [], authorizedKeys: [], catalog,
+  });
+  assert.equal(a.checks.noStepFromCoverage, false, "a manufactured step must be reported");
+});
+
+test("H. matchesUnaltered fails when a routine-only product reaches the cards", () => {
+  const a = auditRoutine({
+    routineStatus: "built",
+    sent: [{ order: 1, productKey: "lathyr" }],
+    rendered: [{ order: 1, productKey: "lathyr", catalogSlug: "lathyr-shampoo", productName: "Lathyr", isAccessory: false }],
+    // lathyr is in the routine and NOT authorized, yet appears as a card.
+    renderedMatchKeys: ["lathyr"],
+    authorizedKeys: ["revaivl"],
+    catalog,
+  });
+  assert.equal(a.checks.matchesUnaltered, false);
+});
+
+test("H. the audit never repairs what it finds", () => {
+  const sent = [{ order: 5, productKey: "revaivl" }, { order: 1, productKey: "lathyr" }];
+  const rendered = [
+    { order: 5, productKey: "revaivl", catalogSlug: "revaivl-protein-conditioner", productName: "Revaivl", isAccessory: false },
+    { order: 1, productKey: "lathyr", catalogSlug: "lathyr-shampoo", productName: "Lathyr", isAccessory: false },
+  ];
+  const a = auditRoutine({ routineStatus: "built", sent, rendered, renderedMatchKeys: [], authorizedKeys: [], catalog });
+
+  // Reported exactly as observed — not sorted, not corrected.
+  assert.deepEqual(a.routineOrders, [5, 1]);
+  assert.deepEqual(a.routineProductKeys, ["revaivl", "lathyr"]);
+  assert.equal(a.checks.ordersPreserved, false, "and the defect is reported");
 });

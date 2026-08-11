@@ -182,6 +182,25 @@ export type SafeCoverage = {
  */
 export type SafeAccessory = { productKey: string; why?: string };
 
+/** Whether the shopper has built a routine. "unavailable" fails transparently. */
+export type RoutineStatus = "built" | "not_built" | "unavailable";
+
+/**
+ * One ordered step in the routine the shopper built. A SEPARATE authority from
+ * `matches` — placement, not authorization. Deliberately carries no matchClass
+ * and no evidence: a routine step is not a formulation match.
+ */
+export type SafeRoutineStep = {
+  order: number;          // HWL's own sequence. Never re-sorted by Wynn.
+  productKey: string;     // resolved through the same identity bridge as matches
+  slot?: string;          // the stage this step occupies
+  routineRole?: string;   // what the step does in the regimen
+  whenToUse?: string;
+  frequency?: string;
+  why?: string;
+  isAccessory?: boolean;  // a tool in the regimen; never a formulation match
+};
+
 export type WynnMatchContext = {
   crownPrintPresent: boolean;                 // CrownPrint exists / missing
   crownState: { present: boolean; fresh: boolean; message?: string; summary?: string };
@@ -192,6 +211,8 @@ export type WynnMatchContext = {
   notCarried?: SafePoint[];                   // needs HWL resolved that Wynn doesn't carry
   coverage?: SafeCoverage[];                  // descriptive coverage only — never product cards
   accessories?: SafeAccessory[];              // separate accessory/tool support channel
+  routineStatus?: RoutineStatus;              // built / not_built / unavailable
+  routine?: SafeRoutineStep[];                // routine-placement authority, NOT authorization
   matches: SafeMatchProduct[];                // THE ONLY source of CrownPrint product cards
   noStrongMatch: boolean;                     // intentional no-strong-match outcome
   whatToLookFor?: WhatToLookFor;              // guidance for the no-match outcome

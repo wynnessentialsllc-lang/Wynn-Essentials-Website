@@ -4,6 +4,7 @@ import { readMatchSession } from "../../../../lib/crownprint";
 import { enforceMatchesOnly, selectGuidance } from "../../../../lib/crownprint-guidance";
 import { HWL_CANONICAL_PRODUCT_KEYS, resolveCatalogSlug } from "../../../../lib/crownprint-catalog-key";
 import { hasCapabilityLabel } from "../../../../lib/crownprint-capability-labels";
+import { auditRoutine } from "../../../../lib/crownprint-audit";
 import { adminTokenConfigured } from "../../../../lib/admin-auth";
 
 /**
@@ -50,6 +51,18 @@ import { adminTokenConfigured } from "../../../../lib/admin-auth";
  *                              capabilityKey and any capability with no curated
  *                              Wynn label yet. `complete: true` means every
  *                              rendered match carried the full explanation.
+ *   routineStatus  string    — built / not_built / unavailable, or null
+ *   routineStepCount number  — steps actually rendered
+ *   routineProductKeys / routineCatalogSlugs / routineOrders — what rendered
+ *   routineUnresolvedKeys string[] — sent by HWL but NOT rendered: a step the
+ *                              shopper built is missing from their own regimen
+ *   ctaActive      boolean   — true when not_built, i.e. the builder CTA is up
+ *   checks         object    — built routines only, else null:
+ *                              ordersPreserved (HWL sequence, strictly ascending)
+ *                              allResolveThroughBridge (canonical identity)
+ *                              noStepFromCoverage (nothing manufactured a step)
+ *                              matchesUnaltered (no routine-only product became
+ *                              a product card)
  *   bridge         object    — the HWL→Wynn identity bridge for ALL eleven
  *                              canonical keys, resolved against this
  *                              deployment's catalog. Needs no CrownPrint, so
@@ -164,6 +177,18 @@ export async function GET(request: Request) {
     ),
   ];
 
+  // ROUTINE — observational only. auditRoutine() compares what HWL sent against
+  // what the page produced; it never recomputes, repairs, re-orders or generates
+  // a routine. A verifier that fixes what it finds cannot detect anything.
+  const routine = auditRoutine({
+    routineStatus: guidance.routineStatus,
+    sent: context?.routine ?? [],
+    rendered: guidance.routine,
+    renderedMatchKeys: renderedKeys,
+    authorizedKeys,
+    catalog: products,
+  });
+
   return NextResponse.json(
     {
       app: "wynn-essentials",
@@ -184,6 +209,7 @@ export async function GET(request: Request) {
       // run actually exercised anything.
       subset: violations.length === 0,
       violations,
+      ...routine,
       // Independent of the session above: proves the HWL→Wynn identity bridge
       // against this deployment's own catalog, for all eleven canonical keys.
       bridge: {

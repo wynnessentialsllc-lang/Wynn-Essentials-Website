@@ -5,7 +5,7 @@ import Link from "next/link";
 import { trackAddToCart, trackCrownPrintEvent } from "../analytics";
 import type { ExperienceState, MatchClass, WhatToLookFor } from "../../lib/crownprint";
 import type { LabelledPoint } from "../../lib/crownprint-fit";
-import type { AccessorySupport, CoveragePoint, CoverageStatus } from "../../lib/crownprint-guidance";
+import type { AccessorySupport, CoveragePoint, CoverageStatus, RoutineStatus, RoutineStep } from "../../lib/crownprint-guidance";
 import type { GuidanceSource, MatchRationale } from "../../lib/crownprint-match-intelligence";
 import { capabilityLabel } from "../../lib/crownprint-capability-labels";
 import { MatchLegend, MatchReasoning } from "../MatchIntelligence";
@@ -98,7 +98,7 @@ function addToBag(slug: string) {
   } catch { /* storage unavailable — silently skip */ }
 }
 
-function MatchCard({ product, onAdd }: { product: CardProduct; onAdd: (p: CardProduct) => void }) {
+function MatchCard({ product, onAdd, suppressMethodStep }: { product: CardProduct; onAdd: (p: CardProduct) => void; suppressMethodStep?: boolean }) {
   return (
     <article className="cp-card">
       <Link
@@ -116,7 +116,7 @@ function MatchCard({ product, onAdd }: { product: CardProduct; onAdd: (p: CardPr
       </Link>
       <div className="cp-card-body">
         <p className="eyebrow">
-          {product.routineStep && product.routineStage
+          {!suppressMethodStep && product.routineStep && product.routineStage
             ? `THE WYNN METHOD · STEP ${product.routineStep} · ${product.routineStage.toUpperCase()}`
             : product.subtitle.toUpperCase()}
         </p>
@@ -250,13 +250,90 @@ function OtherNeeds({ coverage }: { coverage: CoveragePoint[] }) {
   );
 }
 
-function MatchGroup({ cls, cards, onAdd }: { cls: MatchClass; cards: CardProduct[]; onAdd: (p: CardProduct) => void }) {
+/**
+ * YOUR CROWNPRINT ROUTINE — a separate authority from the matches above.
+ *
+ * matches[] answers "which products did CrownPrint match to your current need?"
+ * routine[] answers "what regimen did you build, and in what order?"
+ *
+ * Rendered in HWL's own `order`, never re-sorted by match class or by Wynn's
+ * Method step. Steps carry no match class and no formulation evidence, because
+ * placing a product in a regimen is not the act that authorized it — and if the
+ * two sections looked alike, a shopper could not tell which question each one
+ * answered.
+ */
+function RoutineSection({ status, steps, urls }: { status?: RoutineStatus; steps: RoutineStep[]; urls: Urls }) {
+  if (!status) return null;
+
+  // Transparent failure. Never a Wynn-generated sequence in its place.
+  if (status === "unavailable") {
+    return (
+      <section className="cp-routine cp-routine-unavailable" aria-labelledby="cp-routine-heading">
+        <h3 className="cp-section-heading" id="cp-routine-heading">Your CrownPrint routine</h3>
+        <p>
+          We couldn&rsquo;t load your routine just now. Your matches above are unaffected — this is only the
+          ordered regimen. We&rsquo;d rather show you nothing here than assemble a sequence we can&rsquo;t stand
+          behind.
+        </p>
+      </section>
+    );
+  }
+
+  if (status === "not_built" || steps.length === 0) {
+    return (
+      <section className="cp-routine cp-routine-cta" aria-labelledby="cp-routine-heading">
+        <h3 className="cp-section-heading" id="cp-routine-heading">Build your personalized routine</h3>
+        <p>
+          Your CrownPrint matches are ready. Complete the routine builder to organize compatible products into an
+          ordered regimen.
+        </p>
+        <div className="actions">
+          <a className="button" href={urls.refresh} onClick={() => trackCrownPrintEvent("routine_builder_clicked")}>
+            Build My Routine
+          </a>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="cp-routine cp-routine-built" aria-labelledby="cp-routine-heading">
+      <h3 className="cp-section-heading" id="cp-routine-heading">Your CrownPrint routine</h3>
+      <p className="cp-routine-intro">
+        The regimen you built, in order. This is separate from your matches above: those are the products
+        CrownPrint matched to your current need, and this is how you chose to use them together.
+      </p>
+      <ol className="cp-routine-steps">
+        {steps.map((step) => (
+          <li key={`${step.order}-${step.productKey}`} className="cp-routine-step">
+            <p className="cp-routine-slot">
+              <span className="cp-routine-order" aria-hidden="true">{step.order}</span>
+              {step.slot ?? "Routine step"}
+              {step.isAccessory && <span className="cp-routine-tool"> · Tool</span>}
+            </p>
+            <h4><Link href={`/products/${step.catalogSlug}`}>{step.productName}</Link></h4>
+            {step.routineRole && <p className="cp-routine-role"><b>Role:</b> {step.routineRole}</p>}
+            {step.whenToUse && <p className="cp-routine-when"><b>When:</b> {step.whenToUse}</p>}
+            {step.frequency && <p className="cp-routine-freq"><b>How often:</b> {step.frequency}</p>}
+            {step.why && <p className="cp-routine-why">{step.why}</p>}
+          </li>
+        ))}
+      </ol>
+      <p className="cp-fine">
+        A step in your routine is not a CrownPrint formulation match. Being in your regimen says how you use a
+        product, not that CrownPrint matched it to a resolved need.
+      </p>
+    </section>
+  );
+}
+
+function MatchGroup({ cls, cards, onAdd, suppressMethodStep }: { cls: MatchClass; cards: CardProduct[]; onAdd: (p: CardProduct) => void; suppressMethodStep?: boolean }) {
   const group = cards.filter((c) => c.matchClass === cls);
   if (!group.length) return null;
   return (
     <div className="cp-group">
       <h3 className={`cp-group-heading cp-group-${cls}`}>{CLASS_LABEL[cls].toUpperCase()}</h3>
-      <div className="cp-grid">{group.map((c) => <MatchCard key={c.slug} product={c} onAdd={onAdd} />)}</div>
+      <div className="cp-grid">{group.map((c) => <MatchCard key={c.slug} product={c} onAdd={onAdd} suppressMethodStep={suppressMethodStep} />)}</div>
     </div>
   );
 }
@@ -551,6 +628,8 @@ export default function CrownPrintExperience({
   currentPriorityLabel,
   noStrongMatch,
   unresolvedCount,
+  routineStatus,
+  routine,
   whatToLookFor,
   hasStrong,
   products,
@@ -592,6 +671,10 @@ export default function CrownPrintExperience({
    * the first when the second is true is a lie about their own assessment.
    */
   unresolvedCount: number;
+  /** Routine build state from HWL. Undefined when HWL sent none. */
+  routineStatus?: RoutineStatus;
+  /** The built routine, in HWL's order. Never re-sorted, never generated. */
+  routine: RoutineStep[];
   whatToLookFor?: WhatToLookFor;
   hasStrong: boolean;
   products: CardProduct[];
@@ -772,9 +855,9 @@ export default function CrownPrintExperience({
           </div>
         )}
 
-        <MatchGroup cls="strong" cards={products} onAdd={onAdd} />
-        <MatchGroup cls="good" cards={products} onAdd={onAdd} />
-        <MatchGroup cls="conditional" cards={products} onAdd={onAdd} />
+        <MatchGroup cls="strong" cards={products} onAdd={onAdd} suppressMethodStep={routine.length > 0} />
+        <MatchGroup cls="good" cards={products} onAdd={onAdd} suppressMethodStep={routine.length > 0} />
+        <MatchGroup cls="conditional" cards={products} onAdd={onAdd} suppressMethodStep={routine.length > 0} />
 
         {/* WHY COVERAGE IS NOT A MATCH. Printed next to the cards, where the
             question actually occurs, rather than in a help page nobody opens. */}
@@ -785,6 +868,8 @@ export default function CrownPrintExperience({
             this recommendation set.
           </p>
         )}
+
+        <RoutineSection status={routineStatus} steps={routine} urls={urls} />
 
         {/* Accessories and tools. A SEPARATE support channel, explicitly sent by
             the Hair Wellness Lab — never a formulation match, never produced by

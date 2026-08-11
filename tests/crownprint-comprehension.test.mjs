@@ -90,6 +90,7 @@ const render = (over = {}) =>
       contextNotes: [],
       noStrongMatch: false,
       unresolvedCount: 0,
+      routine: [],
       hasStrong: true,
       products: [REVAIVL],
       urls: URLS,
