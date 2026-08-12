@@ -821,7 +821,6 @@
 .boho-sky-plane>.boho-sky-aircraft{position:absolute;z-index:1;right:-4%;top:-27%;width:52%;height:auto;object-fit:contain;transform:rotate(-7deg);filter:sepia(.48) saturate(.62) brightness(1.12) contrast(.92) drop-shadow(0 7px 7px rgba(20,55,84,.32));animation:boho-aircraft-bank 3.6s ease-in-out infinite;transform-origin:58% 55%}
 .boho-portrait>a{display:block;color:inherit;text-decoration:none;cursor:pointer}
 .boho-portrait>a:focus-visible{outline:4px solid #fff;outline-offset:8px}
-.boho-portrait>a:after{display:block;margin:14px auto 0;color:#fff;content:"*Model is wearing Deep Wave";font-size:clamp(11px,1vw,13px);font-style:italic;font-weight:500;letter-spacing:.025em;line-height:1.35;text-align:center;text-shadow:0 1px 5px rgba(25,69,102,.72)}
 .boho-vapor-mist,.boho-vapor-body,.boho-vapor-trail{fill:none;stroke:url(#bohoVaporFade);stroke-linecap:round}
 .boho-vapor-mist{stroke-width:20;opacity:.3;filter:url(#bohoVaporCloud);animation:boho-vapor-mist 4.8s ease-in-out infinite}
 .boho-vapor-body{stroke-width:11;opacity:.54;filter:blur(2.2px) drop-shadow(0 0 7px rgba(255,255,255,.72));animation:boho-vapor-body 4.8s ease-in-out infinite}
