@@ -56,6 +56,18 @@ export const subscribers = pgTable("subscribers", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   unsubscribedAt: timestamp("unsubscribed_at", { withTimezone: true }),
+  // Compliance record for the affirmative marketing consent behind the current
+  // subscription (0017_wynn_edit_consent.sql). `consentText` above stores the
+  // exact disclosure shown; these store when it was accepted, which version of
+  // that language was in force, and which form/placement captured it. The
+  // signup IP is deliberately not stored — see the migration for why.
+  consentAt: timestamp("consent_at", { withTimezone: true }),
+  consentVersion: text("consent_version"),
+  formId: text("form_id"),
+  // Send-once claim for The Wynn Edit welcome email. Stamped by a conditional
+  // update that only succeeds while it is NULL, so retries can never produce a
+  // second welcome; cleared on a genuine re-subscription after an unsubscribe.
+  welcomeSentAt: timestamp("welcome_sent_at", { withTimezone: true }),
 });
 
 export type Subscriber = typeof subscribers.$inferSelect;

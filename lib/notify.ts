@@ -19,7 +19,8 @@ const DEFAULT_FROM = "Wynn Essentials <onboarding@resend.dev>";
 // The Resend API key, read from the environment. RESEND_API_KEY is the standard
 // name; wynnessentials_site is also accepted so the Vercel variable can be named
 // either way. First match wins.
-import { unsubscribeUrl, listUnsubscribeHeaders } from "./unsubscribe";
+import { unsubscribeUrl, listUnsubscribeHeaders, canSignUnsubscribe } from "./unsubscribe";
+import { wynnEditWelcomeEmail } from "./wynn-edit-email";
 
 // Physical mailing address for the CAN-SPAM footer on every customer email.
 const BUSINESS_ADDRESS = "Wynn Essentials, LLC · 3680 Wilshire Blvd., Ste P04 A118, Los Angeles, CA 90010";
@@ -45,32 +46,58 @@ const money = (cents: number | null | undefined, currency = "usd") =>
  * when no API key is set). Never throws — safe to call from webhooks and
  * server actions without a surrounding try/catch.
  */
-export async function sendEmail({ to, subject, html, replyTo, headers }: { to: string; subject: string; html: string; replyTo?: string; headers?: Record<string, string> }): Promise<boolean> {
+export type EmailInput = { to: string; subject: string; html: string; text?: string; replyTo?: string; headers?: Record<string, string> };
+
+/**
+ * Outcome of one send attempt.
+ *
+ * `certainNotSent` is the honest half: true only when we KNOW nothing reached a
+ * mailbox — no API key, no recipient, or an explicit rejection from Resend. A
+ * thrown fetch (timeout, socket reset) leaves it false, because the request may
+ * well have been accepted before the connection died. Callers that hold a
+ * send-once claim use this to decide whether releasing that claim risks a
+ * duplicate: release only when the non-delivery is certain.
+ */
+export type EmailResult = { ok: boolean; certainNotSent: boolean };
+
+/** Sends via Resend and reports how it went. Never throws. */
+export async function deliverEmail({ to, subject, html, text, replyTo, headers }: EmailInput): Promise<EmailResult> {
   const apiKey = resendApiKey();
   if (!apiKey) {
     console.info(`Email skipped: no Resend API key set (${API_KEY_ENV.join(" or ")})`, { subject });
-    return false;
+    return { ok: false, certainNotSent: true };
   }
   if (!to) {
     console.info("Email skipped: no recipient", { subject });
-    return false;
+    return { ok: false, certainNotSent: true };
   }
   const from = process.env.NOTIFY_FROM || DEFAULT_FROM;
   try {
     const response = await fetch(RESEND_ENDPOINT, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from, to, subject, html, ...(replyTo ? { reply_to: replyTo } : {}), ...(headers ? { headers } : {}) }),
+      body: JSON.stringify({ from, to, subject, html, ...(text ? { text } : {}), ...(replyTo ? { reply_to: replyTo } : {}), ...(headers ? { headers } : {}) }),
     });
     if (!response.ok) {
       console.error("Email failed", { status: response.status, detail: await response.text().catch(() => "") });
-      return false;
+      // Resend answered and refused: the message was never queued.
+      return { ok: false, certainNotSent: true };
     }
-    return true;
+    return { ok: true, certainNotSent: false };
   } catch (error) {
+    // The request may or may not have been accepted before this threw.
     console.error("Email error", error instanceof Error ? error.message : "Unknown error");
-    return false;
+    return { ok: false, certainNotSent: false };
   }
+}
+
+/**
+ * Sends an email via Resend. Returns true on a 2xx, false otherwise (including
+ * when no API key is set). Never throws — safe to call from webhooks and
+ * server actions without a surrounding try/catch.
+ */
+export async function sendEmail(input: EmailInput): Promise<boolean> {
+  return (await deliverEmail(input)).ok;
 }
 
 /** Sends an owner-notification email to NOTIFY_TO (defaults to the business inbox). */
@@ -284,13 +311,38 @@ export async function notifySubscriberWelcome({ email, productName, promoCode, p
       headers: listUnsubscribeHeaders(email),
     });
   }
-  const body = `<p style="font-size:15px;line-height:1.6;margin:0">You'll receive routine guidance, ingredient education, new product releases, and early access — straight to your inbox. Welcome to the family.</p>
-    <p style="margin:22px 0 0"><a href="https://wynnessentialsllc.us/#shop" style="display:inline-block;background:#c8aa82;color:#111;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.06em;padding:14px 22px">SHOP THE ESSENTIALS</a></p>`;
-  return sendEmail({
+  // Plain newsletter signup: the branded Wynn Edit welcome owns this copy.
+  return (await notifyWynnEditWelcome({ email })).ok;
+}
+
+/**
+ * The Wynn Edit welcome — the branded marketing email for a newsletter
+ * subscriber, composed in lib/wynn-edit-email.ts.
+ *
+ * This is MARKETING mail and is treated as such: one-click unsubscribe headers,
+ * a visible unsubscribe link, the mailing address, a plain-text alternative,
+ * and a reply-to that reaches a human rather than a no-reply address.
+ *
+ * It refuses to send when no unsubscribe signing secret is configured, because
+ * the opt-out link in the footer would be dead — an email nobody can leave is
+ * worse than an email that was never sent. Returns true only when the provider
+ * accepted the send, so callers can avoid claiming an email is on its way when
+ * it is not.
+ */
+export async function notifyWynnEditWelcome({ email }: { email: string }): Promise<EmailResult> {
+  if (!email) return { ok: false, certainNotSent: true };
+  if (!canSignUnsubscribe()) {
+    console.error("The Wynn Edit welcome skipped: no unsubscribe signing secret set (UNSUBSCRIBE_SECRET), so the opt-out link would not work", { to: email });
+    return { ok: false, certainNotSent: true };
+  }
+  const { subject, html, text } = wynnEditWelcomeEmail({ email });
+  return deliverEmail({
     to: email,
-    subject: "Welcome to The Wynn Edit",
-    html: customerShell("Welcome to The Wynn Edit", "Thanks for joining — good hair information belongs in your inbox.", body, { unsubscribeEmail: email }),
-    headers: listUnsubscribeHeaders(email),
+    subject,
+    html,
+    text,
+    replyTo: DEFAULT_TO,
+    headers: listUnsubscribeHeaders(email, { oneClick: true }),
   });
 }
 

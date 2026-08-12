@@ -858,6 +858,72 @@ function RoutineFinder({ add, openProduct }: { add: (p: Product) => void; openPr
   </section>;
 }
 
+// The Wynn Edit signup. On a successful submission the form is REPLACED by a
+// branded confirmation rather than a toast, so the outcome is unmissable and
+// stays on screen.
+//
+// The three success states mirror what /api/subscribe is willing to say:
+//   subscribed — new (or genuinely returning) subscriber AND the email provider
+//                accepted the welcome, so we may say it is on its way;
+//   recorded   — consent is stored but no send was accepted, so we confirm the
+//                subscription and say nothing about an email;
+//   eligible   — nothing to do for this address. Worded so it neither confirms
+//                nor denies that the address is already on the list.
+type SignupState = "idle" | "sending" | "subscribed" | "recorded" | "eligible";
+
+const SIGNUP_CONFIRMATION: Record<"subscribed"|"recorded"|"eligible", { heading: string; body: string }> = {
+  subscribed: { heading: "You’re on the list.", body: "Good hair information is officially headed to your inbox." },
+  recorded: { heading: "You’re on the list.", body: "Your place on The Wynn Edit is saved. Look for the next edition at this address." },
+  eligible: { heading: "Thanks — you’re all set.", body: "If this email is eligible, you’ll receive the next edition." },
+};
+
+function WynnEditSignup() {
+  const [state,setState]=useState<SignupState>("idle");
+  const [error,setError]=useState("");
+  const [consent,setConsent]=useState(false);
+
+  const submit=async(e:FormEvent<HTMLFormElement>)=>{
+    e.preventDefault();
+    // A double-click, an impatient second tap on a slow connection, or a
+    // resubmitted form must not fire a second request.
+    if(state==="sending") return;
+    const data=new FormData(e.currentTarget);
+    const email=String(data.get("email")||"").trim();
+    const agreed=data.get("consent")==="on";
+    // Consent is enforced server-side too; checking here keeps a stray
+    // submission from making a pointless round trip.
+    if(!agreed){setError("Please agree to receive marketing emails to join.");return;}
+    setError("");setState("sending");
+    try{
+      const res=await fetch("/api/subscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,consent:agreed,source:"the-wynn-edit"})});
+      const result=await res.json() as {ok?:boolean;status?:string;error?:string};
+      if(!res.ok||!result.ok)throw new Error(result.error||"Signup is unavailable right now.");
+      setState(result.status==="subscribed"||result.status==="recorded"||result.status==="eligible"?result.status:"recorded");
+    }catch(err){
+      setState("idle");
+      setError(err instanceof Error?err.message:"Signup is unavailable right now. Please try again later.");
+    }
+  };
+
+  if(state==="subscribed"||state==="recorded"||state==="eligible"){
+    const {heading,body}=SIGNUP_CONFIRMATION[state];
+    return <div className="newsletter-done" role="status" aria-live="polite">
+      <p className="eyebrow">THE WYNN EDIT</p>
+      <h3>{heading}</h3>
+      <p>{body}</p>
+      <p className="newsletter-done-note">Healthy hair is a practice. You can unsubscribe at any time from the footer of any edition.</p>
+    </div>;
+  }
+
+  return <form onSubmit={submit} noValidate={false}>
+    <label>Email address<input name="email" required type="email" autoComplete="email" placeholder="you@example.com" disabled={state==="sending"}/></label>
+    <label className="consent"><input name="consent" required type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} disabled={state==="sending"}/> I agree to receive marketing emails.</label>
+    <button className="button" type="submit" disabled={state==="sending"}>{state==="sending"?"Joining…":"Join the List"}</button>
+    {error && <p className="newsletter-error" role="alert">{error}</p>}
+    <small>{brandConfig.consent}</small>
+  </form>;
+}
+
 export default function WynnShop() {
   const [invitation,setInvitation]=useState<false|"auto"|"manual">(false);
   // First-visit hero film: the Nourish clip plays inside the hero image panel,
@@ -1042,7 +1108,7 @@ export default function WynnShop() {
         <div className="founder-intro"><p className="eyebrow">WHY WYNN ESSENTIALS EXISTS</p><h2>Intentional care,<br />at every stage.</h2><p>Wynn Essentials was founded in 2020 from a shared belief that textured hair deserves thoughtful care at every stage of the routine. The collection brings cleansing, conditioning, moisture, scalp care, styling support, protective-style essentials, and premium hair together so customers can build a routine that feels clear, consistent, and made for them.</p><img className="founder-story-image" src="/wynn-essentials-scarf-story.jpeg" width="1206" height="1800" loading="lazy" alt="Pink Wynn Essentials scarf featuring the brand silhouette and established 2020 pattern"/></div>
         <div className="founders-panel"><p className="eyebrow">MEET THE FOUNDERS</p><h3>The Wynn Sisters</h3><p>Patricia Wynn, Karina Wynn, and Sheree Wynn are the three sisters behind Wynn Essentials. Together, they created a family-led brand that makes textured-hair care feel more intentional and less overwhelming. Their collection supports the full routine—from cleansing, conditioning, and daily moisture to scalp care, protective styling, and finishing—so every customer can care for her crown with confidence, consistency, and pride.</p><ul className="founders-list"><li>Patricia Wynn</li><li>Karina Wynn</li><li>Sheree Wynn</li></ul><ul className="founder-facts"><li>{brandConfig.founder.ownership}</li><li>{brandConfig.founder.established}</li><li>{brandConfig.founder.location}</li></ul><div className="founder-gallery"><img src="/collections/wynn-essentials-linen-bag.webp" alt="Wynn Essentials linen drawstring pouch in a kraft gift box" width="900" height="1200" loading="lazy"/><img src="/collections/wynn-essentials-oils-giftbox.webp" alt="Wynn Essentials gift box with Edge Control, Nourish, Relief, and Grow" width="900" height="1200" loading="lazy"/><img src="/collections/wynn-essentials-brand-bag.webp" alt="Wynn Essentials kraft shopping bag with Grow oil and a wooden brush on a table" width="900" height="1200" loading="lazy"/><img src="/collections/wynn-essentials-spa-shelf.webp" alt="Wynn Essentials Lathyr, Uplyft, and Revaivl styled on a spa bathroom shelf" width="900" height="1200" loading="lazy"/><img src="/collections/wynn-essentials-gold-editorial.webp" alt="Wynn Essentials Nourish oil in a gold editorial vanity flat lay" width="900" height="1200" loading="lazy"/><img src="/collections/wynn-essentials-natural-girlies.webp" alt="Wynn Essentials full collection in a basket beside a Natural Girlies magazine" width="900" height="1200" loading="lazy"/><img src="/collections/wynn-essentials-nourish-hair.webp" alt="Nourish oil bottles nestled in styled natural hair" width="900" height="1200" loading="lazy"/><img src="/collections/wynn-essentials-vending-machine.webp" alt="Wynn Essentials branded vending machine stocked with Hydrate on a Los Angeles street" width="900" height="1200" loading="lazy"/><img src="/collections/wynn-essentials-three-hands.webp" alt="Three hands reaching for Wynn Essentials Grow, Nourish, and Relief oils" width="900" height="1200" loading="lazy"/></div></div>
       </section>
-      <section className="newsletter"><div className="newsletter-gallery" aria-hidden="true">{[0,1,2,3,4].map(col=>{const picks=[0,1,2,3,4,5].map(k=>newsletterGallery[(col*2+k)%newsletterGallery.length]);const tiles=[...picks,...picks];return <div className="newsletter-col" key={col}>{tiles.map((ph,i)=><img key={i} src={ph.src} alt="" width={ph.w} height={ph.h} loading="lazy" decoding="async"/>)}</div>;})}</div><div className="newsletter-content"><p className="eyebrow">THE WYNN EDIT</p><h2>Good Hair Information<br />Belongs in Your Inbox.</h2><p>Receive routine guidance, ingredient education, product releases, and early access from Wynn Essentials.</p><form onSubmit={async (e:FormEvent<HTMLFormElement>)=>{e.preventDefault();const form=e.currentTarget;const data=new FormData(form);const email=String(data.get("email")||"").trim();const consent=data.get("consent")==="on";try{const res=await fetch("/api/subscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,consent})});const result=await res.json() as {ok?:boolean;error?:string};if(!res.ok||!result.ok)throw new Error(result.error||"Signup is unavailable right now.");setNotice("Thanks for joining The Wynn Edit. We'll be in touch soon.");form.reset();}catch(err){setNotice(err instanceof Error?err.message:"Signup is unavailable right now.");}}}><label>Email address<input name="email" required type="email" placeholder="you@example.com"/></label><label className="consent"><input name="consent" required type="checkbox"/> I agree to receive marketing emails.</label><button className="button">Join the List</button><small>{brandConfig.consent}</small></form></div></section>
+      <section className="newsletter"><div className="newsletter-gallery" aria-hidden="true">{[0,1,2,3,4].map(col=>{const picks=[0,1,2,3,4,5].map(k=>newsletterGallery[(col*2+k)%newsletterGallery.length]);const tiles=[...picks,...picks];return <div className="newsletter-col" key={col}>{tiles.map((ph,i)=><img key={i} src={ph.src} alt="" width={ph.w} height={ph.h} loading="lazy" decoding="async"/>)}</div>;})}</div><div className="newsletter-content"><p className="eyebrow">THE WYNN EDIT</p><h2>Good Hair Information<br />Belongs in Your Inbox.</h2><p>Receive routine guidance, ingredient education, product releases, and early access from Wynn Essentials.</p><WynnEditSignup /></div></section>
     </main>
     <footer id="footer">
       <div className="footer-brand"><span className="logo"><BrandLogo /></span><p>Healthy hair is a practice.</p><small>{brandConfig.founder.ownership}<br/>{brandConfig.founder.established}<br/>{brandConfig.founder.location}</small></div>

@@ -22,6 +22,16 @@ export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+/**
+ * Whether a signing secret is configured at all. Without one no unsubscribe
+ * link can be signed, so no marketing email may be sent — an opt-out that does
+ * not work is worse than no send (CAN-SPAM §7704(a)(3)). Marketing senders
+ * check this before composing.
+ */
+export function canSignUnsubscribe(): boolean {
+  return secret().length > 0;
+}
+
 export function unsubscribeToken(email: string): string {
   const key = secret();
   if (!key) return "";
@@ -43,9 +53,17 @@ export function unsubscribeUrl(email: string): string {
   return `${siteUrl()}/unsubscribe?e=${e}&t=${unsubscribeToken(email)}`;
 }
 
-// Header that lets Gmail/Apple Mail show a native "Unsubscribe" affordance.
-export function listUnsubscribeHeaders(email: string): Record<string, string> {
+// Headers that let Gmail/Apple Mail show a native "Unsubscribe" affordance.
+//
+// `oneClick` adds the RFC 8058 pairing: the mailbox provider POSTs
+// "List-Unsubscribe=One-Click" to the HTTPS URL and expects a 2xx, with no
+// confirmation step. /api/unsubscribe honours that shape (reading e/t from the
+// query string) and still shows the confirm-then-POST page to humans. Only set
+// it on true bulk marketing mail — one-click on a transactional message would
+// let a mailbox scanner opt someone out of nothing.
+export function listUnsubscribeHeaders(email: string, opts: { oneClick?: boolean } = {}): Record<string, string> {
   return {
     "List-Unsubscribe": `<${unsubscribeUrl(email)}>, <mailto:wynnessentialsllc@gmail.com?subject=Unsubscribe>`,
+    ...(opts.oneClick ? { "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } : {}),
   };
 }

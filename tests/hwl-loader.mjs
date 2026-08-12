@@ -15,6 +15,13 @@ const STUB = new URL("./next-headers-stub.mjs", import.meta.url).href;
 const SERVER_STUB = new URL("./next-server-stub.mjs", import.meta.url).href;
 const SESSION_STORE_STUB = new URL("./crownprint-session-store-stub.mjs", import.meta.url).href;
 const SESSION_STORE_IMPORTER = /\/lib\/crownprint\.ts$/;
+// The subscribe/unsubscribe routes are tested as the plain (Request) => Response
+// functions they are, against an in-memory subscribers table. That stub supplies
+// the database, the table definition, AND the drizzle predicate helpers, because
+// the three only make sense together: the route builds predicates out of the
+// schema's columns and the stub is what has to evaluate them.
+const SUBSCRIBERS_STORE_STUB = new URL("./subscribers-store-stub.mjs", import.meta.url).href;
+const SUBSCRIBERS_STORE_IMPORTER = /\/app\/api\/(un)?subscribe\/route\.ts$/;
 const LINK_STUB = new URL("./next-link-stub.mjs", import.meta.url).href;
 
 export async function resolve(specifier, context, nextResolve) {
@@ -25,6 +32,12 @@ export async function resolve(specifier, context, nextResolve) {
     SESSION_STORE_IMPORTER.test(context.parentURL ?? "")
   ) {
     return { url: SESSION_STORE_STUB, shortCircuit: true };
+  }
+  if (
+    (specifier === "../../../db" || specifier === "../../../db/schema" || specifier === "drizzle-orm") &&
+    SUBSCRIBERS_STORE_IMPORTER.test(context.parentURL ?? "")
+  ) {
+    return { url: SUBSCRIBERS_STORE_STUB, shortCircuit: true };
   }
   // next/link and next/image resolve to React internals that need a bundler.
   // The comprehension tests render real components, and a link is a link.
