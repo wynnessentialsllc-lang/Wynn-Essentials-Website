@@ -57,6 +57,27 @@ const join = (email, extra = {}) => post({ email, consent: true, source: "the-wy
 
 const welcomes = () => sent.filter(m => m.subject.includes("The Wynn Edit list"));
 
+// The complete public surface of one response: status line, headers, and body,
+// exactly as a caller probing for list membership would see them.
+async function surfaceOf(response) {
+  return {
+    status: response.status,
+    headers: [...response.headers].filter(([k]) => k !== "date").sort(),
+    body: await response.text(),
+  };
+}
+
+// Signs an address out of the list through the real signed link, the way the
+// email footer does.
+async function unsubscribeVia(email) {
+  const url = new URL(unsubscribeUrl(email));
+  return unsubscribe(new Request(url.href, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ e: email, t: url.searchParams.get("t") }),
+  }));
+}
+
 beforeEach(() => { store.reset(); installFakeResend(); clientIp = `203.0.113.${++ipCounter}`; });
 afterEach(() => { globalThis.fetch = realFetch; });
 
@@ -66,7 +87,7 @@ test("a valid new subscriber is stored with a full consent record and welcomed o
   const before = Date.now();
   const res = await join("New.Subscriber@Example.COM");
   assert.equal(res.status, 200);
-  assert.deepEqual(await res.json(), { ok: true, status: "subscribed" });
+  assert.deepEqual(await res.json(), { ok: true, status: "received" });
 
   // Normalised on the way in, so casing can never create a second row.
   const row = store.store.get("new.subscriber@example.com");
@@ -105,7 +126,7 @@ test("an already-active subscriber gets no second welcome and a non-enumerating 
   assert.equal(welcomes().length, 1);
 
   const second = await join("repeat@example.com");
-  assert.deepEqual(await second.json(), { ok: true, status: "eligible" });
+  assert.deepEqual(await second.json(), { ok: true, status: "received" });
   assert.equal(welcomes().length, 1, "still exactly one welcome");
 
   // The re-submission refreshes what she was shown, but the consent behind the
@@ -117,8 +138,9 @@ test("an already-active subscriber gets no second welcome and a non-enumerating 
 
 test("a form double-click produces one subscription and one welcome", async () => {
   const [a, b] = await Promise.all([join("fast-fingers@example.com"), join("fast-fingers@example.com")]);
-  const statuses = [(await a.json()).status, (await b.json()).status].sort();
-  assert.deepEqual(statuses, ["eligible", "subscribed"]);
+  // Both callers get the same answer; only the store shows which one won.
+  assert.deepEqual(await a.json(), { ok: true, status: "received" });
+  assert.deepEqual(await b.json(), { ok: true, status: "received" });
   assert.equal(welcomes().length, 1);
   assert.equal(store.store.size, 1);
 });
@@ -156,7 +178,7 @@ test("a legitimate resubscription with fresh consent is welcomed back exactly on
   assert.equal(welcomes().length, 1);
 
   const back = await join("returning@example.com");
-  assert.deepEqual(await back.json(), { ok: true, status: "subscribed" });
+  assert.deepEqual(await back.json(), { ok: true, status: "received" });
   const row = store.store.get("returning@example.com");
   assert.equal(row.marketingConsent, true);
   assert.equal(row.unsubscribedAt, null, "the suppression is lifted only by fresh affirmative consent");
@@ -165,6 +187,119 @@ test("a legitimate resubscription with fresh consent is welcomed back exactly on
   // ...and re-submitting after that does not welcome her a third time.
   await join("returning@example.com");
   assert.equal(welcomes().length, 2);
+});
+
+// --- the public response reveals nothing ------------------------------------
+
+test("every successful signup answers identically, whatever its subscription status", async () => {
+  // Six addresses in six genuinely different internal states, each set up
+  // through the real handlers rather than by poking the store.
+  const brandNew = "probe-new@example.com";
+
+  const active = "probe-active@example.com";
+  await join(active);                                   // now active and welcomed
+
+  const suppressed = "probe-suppressed@example.com";
+  await join(suppressed);
+  await unsubscribeVia(suppressed);                     // now suppressed
+
+  const returning = "probe-returning@example.com";
+  await join(returning);
+  await unsubscribeVia(returning);                      // will re-subscribe on probe
+
+  const waitlistOnly = "probe-waitlist@example.com";
+  await post({ email: waitlistOnly, consent: false, source: "waitlist:boho-deep-wave-18" });
+
+  const undelivered = "probe-undelivered@example.com";  // provider will refuse
+  providerBehaviour = "reject";
+  await join(undelivered);
+  providerBehaviour = "accept";
+
+  // Snapshot the six genuinely-different states before probing any of them.
+  const probes = [brandNew, active, suppressed, returning, waitlistOnly, undelivered];
+  const before = probes.map(address => {
+    const row = store.store.get(address);
+    return { address, exists: !!row, consent: row?.marketingConsent ?? null, suppressed: !!row?.unsubscribedAt, welcomed: !!row?.welcomeSentAt };
+  });
+  assert.deepEqual(before, [
+    { address: brandNew, exists: false, consent: null, suppressed: false, welcomed: false },
+    { address: active, exists: true, consent: true, suppressed: false, welcomed: true },
+    { address: suppressed, exists: true, consent: false, suppressed: true, welcomed: true },
+    { address: returning, exists: true, consent: false, suppressed: true, welcomed: true },
+    { address: waitlistOnly, exists: true, consent: false, suppressed: false, welcomed: false },
+    { address: undelivered, exists: true, consent: true, suppressed: false, welcomed: false },
+  ], "the six probes really are in six different internal states");
+
+  const welcomesBefore = welcomes().length;
+  const surfaces = [];
+  for (const address of probes) {
+    // Each probe comes from its own address, so the per-IP rate limiter — which
+    // the setup above has already spent — cannot mask the comparison.
+    clientIp = `198.51.100.${surfaces.length + 1}`;
+    surfaces.push({ address, surface: await surfaceOf(await join(address)) });
+  }
+
+  // Status code, headers and body are byte-identical across all six. Anything
+  // that varied here would be a membership oracle for a public form.
+  const [first, ...rest] = surfaces;
+  assert.equal(first.surface.status, 200);
+  assert.equal(first.surface.body, JSON.stringify({ ok: true, status: "received" }));
+  for (const { address, surface } of rest) {
+    assert.deepEqual(surface, first.surface, `response for ${address} differs from a brand-new address`);
+  }
+
+  // ...and behind those identical answers the handler did six different things.
+  // Without this, the assertion above would also pass on an endpoint that had
+  // simply stopped working.
+  assert.equal(welcomes().length - welcomesBefore, 5, "every probe except the already-welcomed active subscriber earned a send");
+  for (const address of [suppressed, returning]) {
+    assert.equal(store.store.get(address).unsubscribedAt, null, `${address} was re-subscribed only by fresh affirmative consent`);
+  }
+  assert.equal(store.store.get(waitlistOnly).marketingConsent, true, "the waitlist-only contact affirmatively opted in");
+  assert.equal(store.store.get(brandNew).marketingConsent, true);
+});
+
+test("a suppressed address that re-consents is welcomed, and one that does not is untouched — both invisibly", async () => {
+  const consenting = "quiet-return@example.com";
+  const silent = "quiet-stay-gone@example.com";
+  for (const address of [consenting, silent]) {
+    await join(address);
+    await unsubscribeVia(address);
+  }
+  assert.equal(welcomes().length, 2);
+
+  // Fresh affirmative consent: re-subscribed and welcomed back.
+  const returned = await surfaceOf(await join(consenting));
+  assert.equal(store.store.get(consenting).unsubscribedAt, null);
+  assert.equal(welcomes().length, 3);
+
+  // No consent: still suppressed, no email — and this one is a 400 because the
+  // checkbox was not ticked, which is a statement about the REQUEST, not about
+  // whether the address is on the list.
+  const refused = await post({ email: silent, consent: false, source: "the-wynn-edit" });
+  assert.equal(refused.status, 400);
+  assert.equal(store.store.get(silent).marketingConsent, false);
+  assert.ok(store.store.get(silent).unsubscribedAt instanceof Date);
+  assert.equal(welcomes().length, 3);
+
+  // The consenting return is indistinguishable from a first-time signup.
+  const firstTimer = await surfaceOf(await join("quiet-newcomer@example.com"));
+  assert.deepEqual(returned, firstTimer);
+});
+
+test("the rejection for a missing checkbox and for a bad address says nothing about membership", async () => {
+  const member = "known@example.com";
+  await join(member);
+  const stranger = "unknown@example.com";
+
+  // Same refusal for an address on the list and one that is not.
+  const a = await surfaceOf(await post({ email: member, consent: false, source: "the-wynn-edit" }));
+  const b = await surfaceOf(await post({ email: stranger, consent: false, source: "the-wynn-edit" }));
+  assert.deepEqual(a, b);
+
+  // And the invalid-address refusal never mentions a list at all.
+  const invalid = await post({ email: "nope", consent: true, source: "the-wynn-edit" });
+  assert.doesNotMatch(await invalid.text(), /subscrib|list|already|unsubscrib|suppress/i);
 });
 
 test("a waitlist signup records no marketing consent and never joins the marketing list", async () => {
@@ -181,7 +316,7 @@ test("a waitlist signup records no marketing consent and never joins the marketi
 test("a provider rejection subscribes her but never claims an email was sent, and stays retryable", async () => {
   providerBehaviour = "reject";
   const res = await join("provider-down@example.com");
-  assert.deepEqual(await res.json(), { ok: true, status: "recorded" });
+  assert.deepEqual(await res.json(), { ok: true, status: "received" });
 
   const row = store.store.get("provider-down@example.com");
   assert.equal(row.marketingConsent, true, "her consent is still on file");
@@ -190,19 +325,19 @@ test("a provider rejection subscribes her but never claims an email was sent, an
   // A later attempt, once the provider recovers, delivers exactly one welcome.
   providerBehaviour = "accept";
   const retry = await join("provider-down@example.com");
-  assert.deepEqual(await retry.json(), { ok: true, status: "subscribed" });
+  assert.deepEqual(await retry.json(), { ok: true, status: "received" });
   assert.equal(welcomes().length, 1);
 });
 
 test("an ambiguous provider failure keeps the claim, so a retry cannot duplicate a delivered email", async () => {
   providerBehaviour = "throw";
   const res = await join("timeout@example.com");
-  assert.deepEqual(await res.json(), { ok: true, status: "recorded" });
+  assert.deepEqual(await res.json(), { ok: true, status: "received" });
   assert.ok(store.store.get("timeout@example.com").welcomeSentAt instanceof Date, "the claim is held when delivery is unknown");
 
   providerBehaviour = "accept";
   const retry = await join("timeout@example.com");
-  assert.deepEqual(await retry.json(), { ok: true, status: "eligible" });
+  assert.deepEqual(await retry.json(), { ok: true, status: "received" });
   assert.equal(welcomes().length, 0, "no second copy is risked");
 });
 
@@ -387,13 +522,14 @@ test("the signup form replaces itself with a branded confirmation and never over
   const { readFile } = await import("node:fs/promises");
   const source = await readFile(new URL("../app/WynnShop.tsx", import.meta.url), "utf8");
 
-  // One confirmation per status the API is willing to return.
-  assert.match(source, /subscribed: \{ heading: "You’re on the list\.", body: "Good hair information is officially headed to your inbox\." \}/);
-  assert.match(source, /eligible: \{ heading: "[^"]+", body: "If this email is eligible, you’ll receive the next edition\." \}/);
-  // The "recorded" state confirms the subscription without asserting a send.
-  const recorded = /recorded: \{ heading: "([^"]+)", body: "([^"]+)" \}/.exec(source);
-  assert.ok(recorded, "a confirmation exists for a stored-but-not-emailed signup");
-  assert.doesNotMatch(recorded[2], /sent|on its way|check your inbox|headed to your inbox/i);
+  // Exactly ONE confirmation, shared by every outcome.
+  assert.match(source, /const SIGNUP_CONFIRMATION = \{\s*heading: "You’re all set\.",\s*body: "If this email is eligible, The Wynn Edit will be in touch\.",\s*\}/);
+  // It must not claim an email was sent, and must not name a subscription state.
+  assert.doesNotMatch(source, /body: "[^"]*(sent|on its way|check your inbox|headed to your inbox|already)[^"]*"/i);
+  // The component must not branch on anything in the response — that branch is
+  // how a per-status message would creep back in.
+  assert.doesNotMatch(source, /result\.status/);
+  assert.match(source, /const result=await res\.json\(\) as \{ok\?:boolean;error\?:string\}/);
 
   // A second click while the first request is in flight must not fire again.
   assert.match(source, /if\(state==="sending"\) return;/);

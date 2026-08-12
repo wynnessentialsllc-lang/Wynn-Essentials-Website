@@ -67,21 +67,31 @@ put a second copy in her inbox.
 
 ## What the storefront says
 
-`/api/subscribe` answers with one of three statuses, and the form is replaced by
-a matching confirmation:
+One message, for every outcome:
 
-| Status | Shown | Meaning |
-|---|---|---|
-| `subscribed` | "You're on the list." / "Good hair information is officially headed to your inbox." | Consent stored and Resend **accepted** the welcome. |
-| `recorded` | "You're on the list." / "Your place on The Wynn Edit is saved…" | Consent stored, no send accepted. Deliberately claims no email. |
-| `eligible` | "Thanks — you're all set." / "If this email is eligible, you'll receive the next edition." | Nothing to do. |
+> **You're all set.**
+> If this email is eligible, The Wynn Edit will be in touch.
 
-`eligible` is the answer for an already-active subscriber **and** for a
-suppressed address, so the two cannot be told apart. A `subscribed` response
-does confirm that one address was not previously active — the wording was
-specified — so if list-membership probing ever becomes a concern, collapse
-`subscribed` into `eligible` in `WynnEditSignup` and the endpoint becomes fully
-non-enumerating.
+`/api/subscribe` answers every successful signup with a byte-identical
+`200 {"ok":true,"status":"received"}` — brand new, already active, suppressed,
+genuinely re-subscribed, or stored-but-not-yet-emailed. The endpoint therefore
+cannot be used to test whether an address is on the list, or whether it once
+unsubscribed. `WynnEditSignup` reads nothing from the body beyond "accepted",
+and the confirmation promises nothing about an email having been sent, so it
+stays honest when the provider has not accepted anything.
+
+The 400 for a missing checkbox and the 400 for a malformed address are
+statements about the *request*, not about membership, and are identical for an
+address on the list and one that is not.
+
+Residual: the request **time** still differs, because a signup that owns the
+welcome waits on the provider and one that does not returns immediately.
+Closing that would mean answering before the send resolves, which would cost the
+release-the-claim-on-certain-failure behaviour that keeps this idempotent. The
+body, status code and headers carry no signal.
+
+What actually happened is recorded in the subscribers table and in the server
+log — never in the response.
 
 ## The email
 

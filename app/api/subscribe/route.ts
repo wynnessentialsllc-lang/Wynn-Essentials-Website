@@ -12,16 +12,21 @@ import { normalizeEmail } from "../../../lib/unsubscribe";
 const EMAIL = /^[^\s@,;<>"]+@[^\s@,;<>"]+\.[a-z]{2,}$/i;
 const attempts = new Map<string, { count: number; reset: number }>();
 
-// What the browser is told. Deliberately coarse: "subscribed" is the only state
-// that confirms a specific address is newly on the list, and it is reachable
-// only by someone who just supplied fresh affirmative consent for an address
-// that was not already active. Everything else — already subscribed, suppressed,
-// previously unsubscribed without new consent — collapses into "eligible", so
-// the endpoint cannot be used to test whether an address is on the list.
-type SignupStatus =
-  | "subscribed"   // new (or genuinely re-subscribed) AND the provider accepted the welcome
-  | "recorded"     // consent stored, but no welcome was accepted — never claim a send
-  | "eligible";    // nothing to do, said without confirming or denying membership
+// The ONE thing a successful signup is ever told, byte for byte, whatever
+// happened behind it: brand new, already active, suppressed, re-subscribed, or
+// stored-but-not-yet-emailed. The endpoint therefore cannot be used to test
+// whether an address is on the list, or whether it once unsubscribed.
+//
+// Nothing downstream may branch on this value — that is the point of it being a
+// constant. Outcomes that operations needs to see are logged server-side, and
+// the states that actually differ are visible in the subscribers table.
+//
+// Residual: the request TIME still differs, because a signup that owns the
+// welcome waits on the provider and one that does not returns immediately.
+// Closing that would mean answering before the send resolves, which would cost
+// the release-the-claim-on-certain-failure behaviour that keeps this idempotent.
+// The body, the status code and the headers carry no signal.
+const SIGNUP_ACCEPTED = { ok: true, status: "received" } as const;
 
 /**
  * Marketing-consent record written alongside every affirmative opt-in. `text`
@@ -92,7 +97,7 @@ export async function POST(request: Request) {
         email,
         productName: product ? `${product.name} ${product.subtitle}` : null,
       }).catch(() => {});
-      return NextResponse.json({ ok: true, status: "subscribed" satisfies SignupStatus });
+      return NextResponse.json(SIGNUP_ACCEPTED);
     }
 
     // ---- Marketing signup ----
@@ -149,7 +154,7 @@ export async function POST(request: Request) {
       await db.update(subscribers)
         .set({ consentText: brandConfig.consent, consentVersion: brandConfig.consentVersion, formId, source, updatedAt: new Date() })
         .where(eq(subscribers.email, email));
-      return NextResponse.json({ ok: true, status: "eligible" satisfies SignupStatus });
+      return NextResponse.json(SIGNUP_ACCEPTED);
     }
 
     // Owner alert on a genuinely new or returning subscriber. Best-effort;
@@ -167,18 +172,19 @@ export async function POST(request: Request) {
         }).then(ok => ({ ok, certainNotSent: !ok })).catch(() => ({ ok: false, certainNotSent: false }))
       : await notifyWynnEditWelcome({ email }).catch(() => ({ ok: false, certainNotSent: false }));
 
-    if (!delivery.ok) {
-      // Release the claim only when we KNOW nothing was transmitted, so a
-      // configuration problem or a provider rejection can be retried later
-      // without risking a second copy landing in her inbox.
-      if (delivery.certainNotSent) {
-        await db.update(subscribers).set({ welcomeSentAt: null }).where(eq(subscribers.email, email)).catch(() => {});
-      }
-      // She is subscribed either way — we just refuse to say an email is coming.
-      return NextResponse.json({ ok: true, status: "recorded" satisfies SignupStatus });
+    // Release the claim only when we KNOW nothing was transmitted, so a
+    // configuration problem or a provider rejection can be retried later
+    // without risking a second copy landing in her inbox.
+    if (!delivery.ok && delivery.certainNotSent) {
+      await db.update(subscribers).set({ welcomeSentAt: null }).where(eq(subscribers.email, email)).catch(() => {});
     }
+    // Delivery does not change the answer. The confirmation promises nothing
+    // about an email having been sent, so there is no outcome to disclose —
+    // and disclosing one would be exactly the enumeration signal this endpoint
+    // must not emit. Operations reads it from the log instead.
+    if (!delivery.ok) console.warn("Wynn Edit welcome not delivered", { source, certainNotSent: delivery.certainNotSent });
 
-    return NextResponse.json({ ok: true, status: "subscribed" satisfies SignupStatus });
+    return NextResponse.json(SIGNUP_ACCEPTED);
   } catch (error) {
     // A missing database connection string throws here; report it as unavailable
     // rather than leaking configuration detail to the client.

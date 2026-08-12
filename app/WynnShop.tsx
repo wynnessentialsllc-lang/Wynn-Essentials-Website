@@ -862,19 +862,20 @@ function RoutineFinder({ add, openProduct }: { add: (p: Product) => void; openPr
 // branded confirmation rather than a toast, so the outcome is unmissable and
 // stays on screen.
 //
-// The three success states mirror what /api/subscribe is willing to say:
-//   subscribed — new (or genuinely returning) subscriber AND the email provider
-//                accepted the welcome, so we may say it is on its way;
-//   recorded   — consent is stored but no send was accepted, so we confirm the
-//                subscription and say nothing about an email;
-//   eligible   — nothing to do for this address. Worded so it neither confirms
-//                nor denies that the address is already on the list.
-type SignupState = "idle" | "sending" | "subscribed" | "recorded" | "eligible";
+// There is exactly ONE success message, and it is the same whether the address
+// was brand new, already subscribed, or previously unsubscribed and therefore
+// suppressed. That is deliberate: any variation would let someone type an
+// address into a public form and learn whether it is on the list. It also
+// promises nothing about an email having been sent, so it stays honest when the
+// provider has not accepted anything.
+//
+// What actually happened is decided entirely server-side and recorded in the
+// subscribers table — never inferred here from the response.
+type SignupState = "idle" | "sending" | "done";
 
-const SIGNUP_CONFIRMATION: Record<"subscribed"|"recorded"|"eligible", { heading: string; body: string }> = {
-  subscribed: { heading: "You’re on the list.", body: "Good hair information is officially headed to your inbox." },
-  recorded: { heading: "You’re on the list.", body: "Your place on The Wynn Edit is saved. Look for the next edition at this address." },
-  eligible: { heading: "Thanks — you’re all set.", body: "If this email is eligible, you’ll receive the next edition." },
+const SIGNUP_CONFIRMATION = {
+  heading: "You’re all set.",
+  body: "If this email is eligible, The Wynn Edit will be in touch.",
 };
 
 function WynnEditSignup() {
@@ -896,21 +897,22 @@ function WynnEditSignup() {
     setError("");setState("sending");
     try{
       const res=await fetch("/api/subscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,consent:agreed,source:"the-wynn-edit"})});
-      const result=await res.json() as {ok?:boolean;status?:string;error?:string};
+      const result=await res.json() as {ok?:boolean;error?:string};
       if(!res.ok||!result.ok)throw new Error(result.error||"Signup is unavailable right now.");
-      setState(result.status==="subscribed"||result.status==="recorded"||result.status==="eligible"?result.status:"recorded");
+      // Nothing in the response is read beyond "accepted" — there is nothing
+      // else in it, by design.
+      setState("done");
     }catch(err){
       setState("idle");
       setError(err instanceof Error?err.message:"Signup is unavailable right now. Please try again later.");
     }
   };
 
-  if(state==="subscribed"||state==="recorded"||state==="eligible"){
-    const {heading,body}=SIGNUP_CONFIRMATION[state];
+  if(state==="done"){
     return <div className="newsletter-done" role="status" aria-live="polite">
       <p className="eyebrow">THE WYNN EDIT</p>
-      <h3>{heading}</h3>
-      <p>{body}</p>
+      <h3>{SIGNUP_CONFIRMATION.heading}</h3>
+      <p>{SIGNUP_CONFIRMATION.body}</p>
       <p className="newsletter-done-note">Healthy hair is a practice. You can unsubscribe at any time from the footer of any edition.</p>
     </div>;
   }
