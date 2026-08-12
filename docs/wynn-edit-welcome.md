@@ -114,7 +114,8 @@ There is no manage-preferences link because there is no preference centre —
 ## Previews
 
 ```bash
-npm run email:preview
+npm run email:preview:wynn-edit   # this email only
+npm run email:preview               # both customer emails
 ```
 
 Writes `build/email-previews/` (gitignored): the exact HTML, the plain text, and
@@ -139,7 +140,7 @@ signup — do it in a way that cannot reach a customer:
 5. Confirm: one email, correct subject, working unsubscribe link, and a second
    submission of the same address returns "you're all set" with no second email.
 
-To check rendering only, with no send at all, use `npm run email:preview`.
+To check rendering only, with no send at all, use `npm run email:preview:wynn-edit`.
 
 ## Deployment checklist
 

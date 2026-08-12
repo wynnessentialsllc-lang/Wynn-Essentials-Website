@@ -16,6 +16,16 @@
 //   * three images, all real Wynn Essentials photography already in public/,
 //     all absolute https URLs on the production origin, all with alt text;
 //   * a plain-text alternative that carries the same copy and the same links.
+//
+// The masthead uses public/email/wynn-essentials-logo.png — the same
+// email-optimised asset the order-confirmation email uses (33KB rather than the
+// 263KB storefront original), so the two messages share one mark.
+//
+// `emailOrigin()` below is deliberately a separate, slightly stricter copy of
+// the one in lib/order-confirmation-email.ts: it also refuses bare IPs and
+// .local hosts. Both belong in a shared lib/email-brand.ts eventually, together
+// with the BRAND tokens — a tidy-up worth doing on its own, not folded into
+// this change.
 
 import { unsubscribeUrl } from "./unsubscribe";
 
@@ -179,7 +189,7 @@ export function wynnEditWelcomeEmail({ email }: { email: string }): { subject: s
         <!-- Masthead -->
         <tr>
           <td align="center" class="pad" style="padding:34px 40px 26px;background-color:${C.card}">
-            <img src="${img("/wynn-essentials-logo-envelope.png")}" width="140" height="118" alt="Wynn Essentials" style="display:block;width:140px;height:118px;margin:0 auto;font-family:${SERIF};font-size:20px;color:${C.ink};text-align:center">
+            <a href="${origin}" style="text-decoration:none"><img src="${img("/email/wynn-essentials-logo.png")}" width="140" height="118" alt="Wynn Essentials" style="display:block;width:140px;height:118px;margin:0 auto;border:0;font-family:${SERIF};font-size:20px;color:${C.ink};text-align:center"></a>
           </td>
         </tr>
         <tr><td style="padding:0 0 0">${rule(C.gold)}</td></tr>
