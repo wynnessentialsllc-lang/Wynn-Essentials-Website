@@ -20,6 +20,12 @@ const DEFAULT_FROM = "Wynn Essentials <onboarding@resend.dev>";
 // name; wynnessentials_site is also accepted so the Vercel variable can be named
 // either way. First match wins.
 import { unsubscribeUrl, listUnsubscribeHeaders } from "./unsubscribe";
+import { renderOrderConfirmationEmail, type OrderEmailData } from "./order-confirmation-email";
+// Carrier tracking links live in their own module so the order-confirmation
+// renderer can use them without importing this one. Re-exported below because
+// /admin/orders has always imported trackingUrl from lib/notify.
+import { trackingUrl } from "./carrier-tracking";
+export { trackingUrl };
 
 // Physical mailing address for the CAN-SPAM footer on every customer email.
 const BUSINESS_ADDRESS = "Wynn Essentials, LLC · 3680 Wilshire Blvd., Ste P04 A118, Los Angeles, CA 90010";
@@ -45,7 +51,7 @@ const money = (cents: number | null | undefined, currency = "usd") =>
  * when no API key is set). Never throws — safe to call from webhooks and
  * server actions without a surrounding try/catch.
  */
-export async function sendEmail({ to, subject, html, replyTo, headers }: { to: string; subject: string; html: string; replyTo?: string; headers?: Record<string, string> }): Promise<boolean> {
+export async function sendEmail({ to, subject, html, text, replyTo, headers }: { to: string; subject: string; html: string; text?: string; replyTo?: string; headers?: Record<string, string> }): Promise<boolean> {
   const apiKey = resendApiKey();
   if (!apiKey) {
     console.info(`Email skipped: no Resend API key set (${API_KEY_ENV.join(" or ")})`, { subject });
@@ -60,7 +66,9 @@ export async function sendEmail({ to, subject, html, replyTo, headers }: { to: s
     const response = await fetch(RESEND_ENDPOINT, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from, to, subject, html, ...(replyTo ? { reply_to: replyTo } : {}), ...(headers ? { headers } : {}) }),
+      // Resend sends a multipart message when `text` is supplied, so a
+      // text-only client still gets a readable copy.
+      body: JSON.stringify({ from, to, subject, html, ...(text ? { text } : {}), ...(replyTo ? { reply_to: replyTo } : {}), ...(headers ? { headers } : {}) }),
     });
     if (!response.ok) {
       console.error("Email failed", { status: response.status, detail: await response.text().catch(() => "") });
@@ -201,20 +209,6 @@ export async function notifyNewSupportMessage(msg: SupportInfo): Promise<boolean
 // Like everything here, they are best-effort and never throw.
 // ---------------------------------------------------------------------------
 
-// Builds a carrier tracking URL from a tracking number. Falls back to null for
-// an unknown carrier, in which case the email shows the number without a link.
-export function trackingUrl(carrier: string | null | undefined, number: string | null | undefined): string | null {
-  if (!number) return null;
-  const n = encodeURIComponent(number);
-  switch ((carrier ?? "").toLowerCase()) {
-    case "usps": return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${n}`;
-    case "ups": return `https://www.ups.com/track?tracknum=${n}`;
-    case "fedex": return `https://www.fedex.com/fedextrack/?trknbr=${n}`;
-    case "dhl": return `https://www.dhl.com/us-en/home/tracking.html?tracking-id=${n}`;
-    default: return null;
-  }
-}
-
 const customerShell = (heading: string, intro: string, body: string, opts: { unsubscribeEmail?: string | null } = {}) => `
   <div style="font-family:Arial,Helvetica,sans-serif;color:#111;max-width:560px;margin:0 auto;padding:8px 0">
     <p style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#b39067;font-weight:700;margin:0 0 6px">Wynn Essentials</p>
@@ -227,30 +221,16 @@ const customerShell = (heading: string, intro: string, body: string, opts: { uns
     ${opts.unsubscribeEmail ? `<p style="font-size:11px;color:#9a938a;line-height:1.6;margin:6px 0 0">You're receiving this because you subscribed to Wynn Essentials emails. <a href="${unsubscribeUrl(opts.unsubscribeEmail)}" style="color:#846743">Unsubscribe</a> at any time.</p>` : ""}
   </div>`;
 
-const itemsTable = (items: OrderInfo["items"], currency: string) => {
-  const lines = (items ?? [])
-    .map((i) => `<tr><td style="padding:8px 0;border-bottom:1px solid #ece6dd">${esc(i.name ?? "Item")} × ${esc(i.quantity ?? 1)}</td><td style="padding:8px 0;border-bottom:1px solid #ece6dd;text-align:right;font-weight:600">${money(i.totalAmount, currency)}</td></tr>`)
-    .join("");
-  return `<table style="width:100%;border-collapse:collapse;font-size:14px">${lines}</table>`;
-};
-
-/** Order confirmation sent to the customer right after payment. */
-export async function notifyCustomerOrderConfirmation(order: OrderInfo): Promise<boolean> {
+/**
+ * Order confirmation sent to the customer right after payment. The design lives
+ * in lib/order-confirmation-email.ts; this function stays the single sending
+ * entry point, so the webhook's and the reconcile cron's once-only guarantees
+ * are untouched.
+ */
+export async function notifyCustomerOrderConfirmation(order: OrderEmailData & OrderInfo): Promise<boolean> {
   if (!order.customerEmail) return false;
-  const currency = order.currency ?? "usd";
-  const firstName = (order.customerName ?? "").trim().split(/\s+/)[0] || "there";
-  const body = `
-    ${itemsTable(order.items, currency)}
-    <table style="width:100%;border-collapse:collapse;font-size:15px;margin-top:6px">
-      <tr><td style="padding:10px 0;font-weight:700">Total paid</td><td style="padding:10px 0;text-align:right;font-weight:700">${money(order.totalAmount, currency)}</td></tr>
-    </table>
-    <p style="font-size:13px;color:#6d675f;margin:16px 0 0">Order reference: <strong>${esc(order.orderReference ?? "—")}</strong></p>
-    <p style="font-size:14px;line-height:1.6;margin:18px 0 0">We'll send a shipping confirmation with tracking as soon as your order is on its way. Orders typically process within 3 business days.</p>`;
-  return sendEmail({
-    to: order.customerEmail,
-    subject: `Your Wynn Essentials order is confirmed${order.orderReference ? ` — ${order.orderReference}` : ""}`,
-    html: customerShell("Thank you for your order!", `Hi ${esc(firstName)}, we've received your order and payment. Here's your confirmation:`, body),
-  });
+  const { subject, html, text } = renderOrderConfirmationEmail(order);
+  return sendEmail({ to: order.customerEmail, subject, html, text });
 }
 
 /**
