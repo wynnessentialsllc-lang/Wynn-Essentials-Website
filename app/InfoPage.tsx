@@ -23,7 +23,7 @@ export default function InfoPage({ title, updated, lead, children }: { title: st
         <p className="legal-contact">Questions? Email <a href="mailto:wynnessentialsllc@gmail.com">wynnessentialsllc@gmail.com</a>.</p>
       </main>
       <footer className="pdp-footer">
-        <p><Link href="/#shop">Browse all products</Link> · <Link href="/privacy">Privacy</Link> · <Link href="/terms">Terms</Link> · <Link href="/">Back to home</Link></p>
+        <p><Link href="/#shop">Browse all products</Link> · <Link href="/shipping">Shipping</Link> · <Link href="/refunds">Refunds</Link> · <Link href="/privacy">Privacy</Link> · <Link href="/terms">Terms</Link> · <Link href="/contact-information">Contact</Link> · <Link href="/">Back to home</Link></p>
         <small>© {new Date().getFullYear()} Wynn Essentials. All rights reserved.</small>
       </footer>
     </div>
