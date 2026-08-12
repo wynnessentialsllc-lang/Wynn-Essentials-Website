@@ -167,11 +167,11 @@ export function breadcrumbSchema(product: Product) {
 // FAQPage structured data so assistants can answer shipping, returns, and
 // product questions about Wynn Essentials directly.
 export const faqs: { q: string; a: string }[] = [
-  { q: "How long until my order ships?", a: "Orders may need up to 3 business days to process before shipment. When your order ships, tracking is emailed to the address used at checkout." },
+  { q: "How long until my order ships?", a: "Most orders require up to 3 business days for processing. Boho Hair orders require 3–7 business days for processing. Carrier transit time begins after processing is complete." },
   { q: "Where do you ship?", a: "We currently ship within the United States only. U.S. orders over $50 qualify for free standard shipping; standard and expedited rates are shown at checkout." },
   { q: "Can I change or cancel an order?", a: "Contact us immediately with your order number. Changes aren't guaranteed once processing or fulfillment begins." },
-  { q: "What is your return policy?", a: "Contact us before sending anything back. For hygiene and safety, opened or used hair-care products and bulk human hair may not be returnable. Report damaged, defective, or incorrect items within 5 calendar days of delivery." },
-  { q: "How are refunds issued?", a: "Approved refunds go back to your original payment method. Your bank's processing time may vary after we issue the refund." },
+  { q: "What is your return policy?", a: "All sales are final. Returns and exchanges are limited to merchandise damaged in transit or an incorrect item sent by Wynn Essentials. Contact us within 5 calendar days after delivery; eligible items must remain unused and in their original packaging." },
+  { q: "How are refunds issued?", a: "If a refund for transit damage is approved after inspection, it is issued to the original payment method. Bank processing time may vary." },
   { q: "Who are the products made for?", a: "Wynn Essentials supports textured-hair routines — curls, coils, braids, locs, twists, silk presses, wigs, weaves, and other protective styles." },
   { q: "How do I choose the right products?", a: "Use the on-site Routine Finder, or explore products by concern and by routine step in The Wynn Method." },
   { q: "Are your products safe for color-treated or sensitive scalps?", a: "Our formulas use familiar botanicals and purposeful oils, but everyone is different. Patch test first, review the ingredient list on each product page, and stop use if irritation occurs." },
