@@ -1,15 +1,52 @@
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, or } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { subscribers } from "../../../db/schema";
 import { brandConfig, products } from "../../data";
 import { commerceConfig } from "../../../lib/commerce-config";
-import { notifySubscriberWelcome, notifyNewSubscriber } from "../../../lib/notify";
+import { notifySubscriberWelcome, notifyNewSubscriber, notifyWynnEditWelcome } from "../../../lib/notify";
+import { normalizeEmail } from "../../../lib/unsubscribe";
 
 // Basic shape check only. Deliverability is confirmed by the email provider that
 // eventually consumes this table, not here.
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL = /^[^\s@,;<>"]+@[^\s@,;<>"]+\.[a-z]{2,}$/i;
 const attempts = new Map<string, { count: number; reset: number }>();
+
+// The ONE thing a successful signup is ever told, byte for byte, whatever
+// happened behind it: brand new, already active, suppressed, re-subscribed, or
+// stored-but-not-yet-emailed. The endpoint therefore cannot be used to test
+// whether an address is on the list, or whether it once unsubscribed.
+//
+// Nothing downstream may branch on this value — that is the point of it being a
+// constant. Outcomes that operations needs to see are logged server-side, and
+// the states that actually differ are visible in the subscribers table.
+//
+// Residual: the request TIME still differs, because a signup that owns the
+// welcome waits on the provider and one that does not returns immediately.
+// Closing that would mean answering before the send resolves, which would cost
+// the release-the-claim-on-certain-failure behaviour that keeps this idempotent.
+// The body, the status code and the headers carry no signal.
+const SIGNUP_ACCEPTED = { ok: true, status: "received" } as const;
+
+/**
+ * Marketing-consent record written alongside every affirmative opt-in. `text`
+ * is the exact disclosure rendered next to the checkbox, `version` pins the
+ * wording that was in force, `formId` names the placement, and `consentAt` is
+ * the moment she ticked the box.
+ *
+ * The signup IP is intentionally not part of this record — see
+ * drizzle/0017_wynn_edit_consent.sql.
+ */
+function consentRecord(source: string, formId: string) {
+  return {
+    marketingConsent: true,
+    consentText: brandConfig.consent,
+    consentVersion: brandConfig.consentVersion,
+    consentAt: new Date(),
+    formId,
+    source,
+  };
+}
 
 export async function POST(request: Request) {
   try {
@@ -24,7 +61,7 @@ export async function POST(request: Request) {
     if (origin && origin !== siteOrigin && !origin.includes("localhost")) return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
 
     const body = await request.json() as { email?: unknown; consent?: unknown; source?: unknown };
-    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+    const email = typeof body.email === "string" ? normalizeEmail(body.email) : "";
     const consent = body.consent === true;
     // Whitelisted so a signup can tag itself (e.g. a product restock waitlist)
     // without accepting arbitrary values.
@@ -37,16 +74,12 @@ export async function POST(request: Request) {
     if (!isWaitlist && !consent) return NextResponse.json({ error: "Please agree to receive marketing emails to join." }, { status: 400 });
 
     const db = getDb();
-    // Detect a genuinely new subscriber so the welcome email is sent once, not
-    // on every re-submission of an address already on the list.
-    const existing = await db.select({ email: subscribers.email }).from(subscribers).where(eq(subscribers.email, email)).limit(1);
-    const isNew = existing.length === 0;
 
+    // ---- Restock waitlist: transactional, unchanged, no marketing consent ----
     // Email is the primary key, so a repeat signup refreshes the same row rather
-    // than erroring or duplicating. The exact consent language shown is stored
-    // alongside the choice for a durable compliance record. A waitlist signup
-    // records NO marketing consent and, on an existing row, must never downgrade
-    // a marketing subscriber — so it only refreshes the source/timestamp.
+    // than erroring or duplicating. A waitlist signup records NO marketing
+    // consent and, on an existing row, must never upgrade or downgrade a
+    // marketing subscriber — so it only refreshes the source/timestamp.
     if (isWaitlist) {
       await db.insert(subscribers).values({
         email,
@@ -57,40 +90,101 @@ export async function POST(request: Request) {
         target: subscribers.email,
         set: { source, updatedAt: new Date() },
       });
-    } else {
-      await db.insert(subscribers).values({
-        email,
-        marketingConsent: consent,
-        consentText: brandConfig.consent,
-        source,
-      }).onConflictDoUpdate({
-        target: subscribers.email,
-        set: { marketingConsent: consent, consentText: brandConfig.consent, source, updatedAt: new Date() },
-      });
-    }
-
-    // Best-effort confirmation email. A waitlist signup ("waitlist:<slug>") gets
-    // the restock-confirmation copy for that product every time (it's a per-
-    // product request); a marketing signup gets the welcome copy once, and a
-    // first-order popup signup also gets the discount code.
-    if (isWaitlist || isNew) {
-      const slug = source.startsWith("waitlist:") ? source.slice("waitlist:".length) : null;
-      const product = slug ? products.find(p => p.slug === slug) : null;
+      const slug = source.slice("waitlist:".length);
+      const product = products.find(p => p.slug === slug);
+      // A per-product restock request is confirmed every time it is made.
       await notifySubscriberWelcome({
         email,
         productName: product ? `${product.name} ${product.subtitle}` : null,
-        promoCode: source === "first-order-popup" ? brandConfig.firstOrder.code : null,
-        promoLabel: source === "first-order-popup" ? brandConfig.firstOrder.discountLabel : null,
       }).catch(() => {});
+      return NextResponse.json(SIGNUP_ACCEPTED);
     }
 
-    // Best-effort owner alert on a genuinely new subscriber. A repeat signup that
-    // only refreshes an existing row doesn't re-notify. Never blocks the response.
-    if (isNew) {
-      await notifyNewSubscriber({ email, source }).catch(() => {});
+    // ---- Marketing signup ----
+    const formId = source === "first-order-popup" ? brandConfig.consentForms.firstOrderPopup : brandConfig.consentForms.newsletter;
+    const record = consentRecord(source, formId);
+
+    // Three mutually exclusive claims, tried in order. Each is a single
+    // statement whose WHERE clause is the claim itself, so two concurrent
+    // submissions of the same address — a double-click, a retried fetch, a
+    // replayed request — cannot both win. Whoever wins owns the one welcome
+    // email for this subscription event.
+
+    // 1. Brand-new subscriber. The insert is the claim: welcome_sent_at is
+    //    stamped in the same statement that creates the row, and a second
+    //    concurrent insert hits the conflict and returns nothing.
+    const created = await db.insert(subscribers).values({
+      email,
+      ...record,
+      welcomeSentAt: new Date(),
+    }).onConflictDoNothing({ target: subscribers.email }).returning({ email: subscribers.email });
+
+    // 2. Genuine re-subscription: the row exists but is NOT an active marketing
+    //    subscriber — she previously unsubscribed, or only ever gave a
+    //    transactional waitlist address. She has now affirmatively consented
+    //    again, which is the only thing that may bring her back. Re-subscribing
+    //    and re-claiming the welcome happen in one statement, so a previously
+    //    unsubscribed address can never be resurrected twice.
+    const resubscribed = created.length > 0 ? [] : await db.update(subscribers)
+      .set({ ...record, unsubscribedAt: null, welcomeSentAt: new Date(), updatedAt: new Date() })
+      .where(and(
+        eq(subscribers.email, email),
+        or(isNotNull(subscribers.unsubscribedAt), eq(subscribers.marketingConsent, false)),
+      ))
+      .returning({ email: subscribers.email });
+
+    // 3. An active subscriber who has never actually been welcomed. That covers
+    //    a contact imported from a previous platform, and a signup whose
+    //    welcome was definitively rejected by the provider and therefore
+    //    released its claim. She has just asked to join again, so honour it —
+    //    still exactly once, because this claim also only matches while
+    //    welcome_sent_at is NULL.
+    const unwelcomed = created.length > 0 || resubscribed.length > 0 ? [] : await db.update(subscribers)
+      .set({ consentText: brandConfig.consent, consentVersion: brandConfig.consentVersion, formId, source, welcomeSentAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(subscribers.email, email), isNull(subscribers.welcomeSentAt)))
+      .returning({ email: subscribers.email });
+
+    const claimedWelcome = created.length > 0 || resubscribed.length > 0 || unwelcomed.length > 0;
+
+    // 4. Already an active, already-welcomed subscriber. Re-submitting the form
+    //    is not a new subscription event: refresh the disclosure record so we
+    //    know what she was most recently shown, but do not touch consent_at
+    //    (the consent behind the live subscription) and do not send anything.
+    if (!claimedWelcome) {
+      await db.update(subscribers)
+        .set({ consentText: brandConfig.consent, consentVersion: brandConfig.consentVersion, formId, source, updatedAt: new Date() })
+        .where(eq(subscribers.email, email));
+      return NextResponse.json(SIGNUP_ACCEPTED);
     }
 
-    return NextResponse.json({ ok: true });
+    // Owner alert on a genuinely new or returning subscriber. Best-effort;
+    // never blocks the response.
+    await notifyNewSubscriber({ email, source }).catch(() => {});
+
+    // The first-order popup is its own established flow and carries the
+    // production welcome-offer code; The Wynn Edit gets the branded editorial
+    // welcome. Neither invents an incentive.
+    const delivery = source === "first-order-popup"
+      ? await notifySubscriberWelcome({
+          email,
+          promoCode: brandConfig.firstOrder.code,
+          promoLabel: brandConfig.firstOrder.discountLabel,
+        }).then(ok => ({ ok, certainNotSent: !ok })).catch(() => ({ ok: false, certainNotSent: false }))
+      : await notifyWynnEditWelcome({ email }).catch(() => ({ ok: false, certainNotSent: false }));
+
+    // Release the claim only when we KNOW nothing was transmitted, so a
+    // configuration problem or a provider rejection can be retried later
+    // without risking a second copy landing in her inbox.
+    if (!delivery.ok && delivery.certainNotSent) {
+      await db.update(subscribers).set({ welcomeSentAt: null }).where(eq(subscribers.email, email)).catch(() => {});
+    }
+    // Delivery does not change the answer. The confirmation promises nothing
+    // about an email having been sent, so there is no outcome to disclose —
+    // and disclosing one would be exactly the enumeration signal this endpoint
+    // must not emit. Operations reads it from the log instead.
+    if (!delivery.ok) console.warn("Wynn Edit welcome not delivered", { source, certainNotSent: delivery.certainNotSent });
+
+    return NextResponse.json(SIGNUP_ACCEPTED);
   } catch (error) {
     // A missing database connection string throws here; report it as unavailable
     // rather than leaking configuration detail to the client.

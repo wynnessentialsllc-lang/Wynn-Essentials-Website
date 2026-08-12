@@ -40,6 +40,8 @@ next-env.d.ts
 /.wrangler/
 /outputs/
 /work/
+# rendered email previews (npm run email:preview)
+/build/email-previews/
 
 # typescript incremental build artifact
 tsconfig.tsbuildinfo

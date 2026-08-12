@@ -148,6 +148,17 @@ export const brandConfig = {
   shippingThreshold: 50,
   founder: { name: "The Wynn Sisters — Patricia, Sheree, and Karina Wynn", ownership: "Black women-owned", established: "Established 2020", location: "Los Angeles, California" },
   consent: "By joining, you agree to receive Wynn Essentials marketing emails. Consent is optional and you can unsubscribe at any time.",
+  // Version stamp for the consent + privacy language above, recorded on every
+  // marketing consent so a stored record can be tied back to exactly what was
+  // shown. Bump this (and only this) whenever `consent` or the privacy notice's
+  // email section changes; it tracks the "Updated" date on /privacy.
+  consentVersion: "2026-08",
+  // Stable identifiers for each placement that can capture marketing consent,
+  // stored alongside the consent so a record names the form it came from.
+  consentForms: {
+    newsletter: "the-wynn-edit-newsletter-section",
+    firstOrderPopup: "first-order-welcome-popup",
+  },
   // Shown on restock-waitlist forms. Joining a waitlist is a one-time
   // transactional alert for a single product — not marketing consent.
   waitlistConsent: "We’ll email you once — when this item is back in stock. No marketing list, no obligation.",
