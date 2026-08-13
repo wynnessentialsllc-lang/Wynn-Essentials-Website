@@ -451,7 +451,7 @@ function FirstOrderOffer({ onClose, onContinue }: { onClose: () => void; onConti
         <h2>{brandConfig.firstOrder.discountLabel}<span>unlocked</span></h2>
         <p>Enter this code at checkout:</p>
         <p className="offer-code">{brandConfig.firstOrder.code}</p>
-        <p className="offer-fine">Enter it on the next screen. Eligibility and product restrictions may apply.</p>
+        <p className="offer-fine">Enter it on the next screen. Eligibility, availability, and product restrictions may apply.</p>
         <button className="button full" onClick={onContinue}>Continue to checkout</button>
       </div> : <form onSubmit={submit}>
         <p className="eyebrow">WELCOME TO WYNN ESSENTIALS</p>

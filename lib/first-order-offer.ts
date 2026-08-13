@@ -17,10 +17,10 @@
 //
 //   VERIFIABLE HERE   the code, the discount label, and whether a code can be
 //                     entered at checkout at all.
-//   VERIFIED BY HAND  the scope and expiration wording in verifiedTerms.
+//   VERIFIED BY HAND  the scope and offer wording in verifiedTerms.
 //   NEVER CLAIMED     first-time-customer eligibility, minimum purchase,
 //                     maximum redemptions, customer restrictions, product
-//                     restrictions. Not asserted to apply, and not asserted to
+//                     restrictions, continued availability. Not asserted to apply, and not asserted to
 //                     be absent — the disclaimer covers both.
 
 import { brandConfig } from "../app/data";
@@ -41,7 +41,15 @@ export type FirstOrderOffer = {
   label: string;
   /** e.g. "ONE ELIGIBLE ORDER" — the scope Stripe's duration licenses. */
   appliesTo: string;
-  /** e.g. "NO LISTED EXPIRATION", or null to show nothing about expiry. */
+  /**
+   * A REAL, verified expiry date ("EXPIRES 31 DECEMBER 2026"), or null to say
+   * nothing about expiry at all — which is what production does today.
+   *
+   * Never an absence claim. "No listed expiration" reads as a promise that the
+   * offer will still be there, and nothing verifies that: Stripe can deactivate
+   * or change the promotion at any time, and an email is read long after it is
+   * sent. Silence is honest; checkout is the source of truth.
+   */
   expiration: string | null;
   /** The one-sentence customer-facing offer statement. */
   offerLine: string;

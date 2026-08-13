@@ -12,7 +12,7 @@
  * never produce a working unsubscribe link, and NEXT_PUBLIC_SITE_URL is cleared
  * so image URLs resolve against production rather than a developer's localhost.
  */
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -25,6 +25,9 @@ delete process.env.NEXT_PUBLIC_SITE_URL;
 const { firstOrderWelcomeEmail } = await import(pathToFileURL(resolve(root, "lib/first-order-welcome-email.ts")).href);
 const { firstOrderFixtures } = await import(pathToFileURL(resolve(root, "lib/first-order-welcome-fixtures.ts")).href);
 
+// Wipe first: a renamed or removed fixture must not leave a stale preview
+// behind, or someone reviews copy that is no longer sent.
+rmSync(outDir, { recursive: true, force: true });
 mkdirSync(outDir, { recursive: true });
 
 const kb = (s) => `${(Buffer.byteLength(s, "utf8") / 1024).toFixed(1)}KB`;

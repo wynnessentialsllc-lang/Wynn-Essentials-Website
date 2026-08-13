@@ -195,8 +195,17 @@ if (key && !unconfigured.length) {
           if (/no minimum|unlimited|all products|every product/i.test(verified)) {
             block.push("brandConfig.firstOrder.verifiedTerms claims an absence of restrictions (no minimum / unlimited / all products). Stripe not setting a restriction is not a promise to the customer that none applies");
           }
-          if (/no listed expiration/i.test(verified) && (promo.expires_at || coupon.redeem_by)) {
-            block.push(`brandConfig.firstOrder.verifiedTerms says "no listed expiration", but Stripe now has one set for ${promoCode}`);
+          // Stripe showing no expiry today is not a promise the offer will
+          // still be there when the email is read, so no absence-of-expiry
+          // claim may be made at all — with or without an expiry set.
+          if (/no listed expiration|no expiration|never expires?|does not expire|always available|available indefinitely/i.test(verified)) {
+            block.push("brandConfig.firstOrder.verifiedTerms claims the offer has no expiration or is always available. Stripe can deactivate or change the promotion at any time — say nothing about expiry unless a real date is verified, and state it as that date");
+          }
+          // A real, verified date is the only expiry wording allowed, and it
+          // must match what Stripe actually has.
+          const dated = /expiration:\s*"([^"]+)"/.exec(verified)?.[1];
+          if (dated && !promo.expires_at && !coupon.redeem_by) {
+            block.push(`brandConfig.firstOrder.verifiedTerms states an expiry ("${dated}") that Stripe does not have set for ${promoCode}`);
           }
         }
       } catch (error) {

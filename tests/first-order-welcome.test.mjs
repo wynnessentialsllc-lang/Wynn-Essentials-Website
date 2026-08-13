@@ -235,9 +235,11 @@ test("the offer resolver is the single gate on advertising a code", async () => 
   assert.equal(live.code, "WELCOME15");
   assert.equal(live.label, "15% off");
   assert.equal(live.appliesTo, "ONE ELIGIBLE ORDER");
-  assert.equal(live.expiration, "NO LISTED EXPIRATION");
-  assert.equal(live.offerLine, "Use code WELCOME15 for 15% off one eligible order. No listed expiration.");
-  assert.equal(live.disclaimer, "Eligibility and product restrictions may apply. Enter WELCOME15 at checkout to confirm your order qualifies.");
+  // No expiry claim at all: "no expiration shown today" is not a promise the
+  // offer will still be available when the email is read.
+  assert.equal(live.expiration, null);
+  assert.equal(live.offerLine, "Use code WELCOME15 for 15% off one eligible order. Offer availability is confirmed at checkout.");
+  assert.equal(live.disclaimer, "Eligibility, availability, and product restrictions may apply. Enter WELCOME15 at checkout to confirm your order qualifies.");
 
   process.env.STRIPE_PROMOTION_CODES_ENABLED = "false";
   assert.equal(firstOrderOffer(), null);
@@ -352,12 +354,11 @@ test("the welcome carries the approved subject, preview text and copy as live te
     "WELCOME TO WYNN ESSENTIALS",
     "Welcome in.",
     "Thank you for joining us.",
-    "Use code WELCOME15 for 15% off one eligible order. No listed expiration.",
+    "Use code WELCOME15 for 15% off one eligible order. Offer availability is confirmed at checkout.",
     "15% OFF",
     "ONE ELIGIBLE ORDER",
     "CODE: WELCOME15",
-    "NO LISTED EXPIRATION",
-    "Eligibility and product restrictions may apply. Enter WELCOME15 at checkout to confirm your order qualifies.",
+    "Eligibility, availability, and product restrictions may apply. Enter WELCOME15 at checkout to confirm your order qualifies.",
     "SHOP THE ESSENTIALS",
     "Healthy hair is a practice.",
     "Explore intentional essentials for cleansing, conditioning, treating, moisturizing, sealing, and styling textured hair.",
@@ -365,7 +366,7 @@ test("the welcome carries the approved subject, preview text and copy as live te
   ]) {
     assert.ok(html.includes(copy), `HTML is missing approved copy: ${copy}`);
   }
-  for (const copy of ["WELCOME IN.", "CODE: WELCOME15", "NO LISTED EXPIRATION", "Use code WELCOME15 for 15% off one eligible order."]) {
+  for (const copy of ["WELCOME IN.", "CODE: WELCOME15", "Use code WELCOME15 for 15% off one eligible order. Offer availability is confirmed at checkout.", "Eligibility, availability, and product restrictions may apply."]) {
     assert.ok(text.includes(copy), `plain text is missing approved copy: ${copy}`);
   }
 });
@@ -390,12 +391,18 @@ test("the email never claims an absence of restrictions", () => {
     assert.doesNotMatch(body, /no minimum|without minimum|any order size/i);
     assert.doesNotMatch(body, /unlimited|as many times|no limit/i);
     assert.doesNotMatch(body, /all products|every product|sitewide|site-wide|everything/i);
-    assert.doesNotMatch(body, /never expires|no expiry|does not expire/i);
+    // Continued availability is unverified too: Stripe can deactivate or change
+    // the promotion at any time, and an email is read long after it is sent.
+    assert.doesNotMatch(body, /no listed expiration/i);
+    assert.doesNotMatch(body, /no expiration|never expires|no expiry|does not expire|won.t expire/i);
+    assert.doesNotMatch(body, /always available|still available|available indefinitely|ongoing offer|permanent/i);
     assert.doesNotMatch(body, /cannot be combined|excludes?\b/i);
   }
-  // What it does say instead, covering exactly those unverified restrictions.
-  assert.match(html, /Eligibility and product restrictions may apply\./);
-  assert.match(text, /Eligibility and product restrictions may apply\./);
+  // What it says instead, covering exactly those unverified restrictions.
+  assert.match(html, /Eligibility, availability, and product restrictions may apply\./);
+  assert.match(text, /Eligibility, availability, and product restrictions may apply\./);
+  assert.match(html, /Offer availability is confirmed at checkout\./);
+  assert.match(text, /Offer availability is confirmed at checkout\./);
 });
 
 test("internal Stripe configuration never reaches the customer", () => {
@@ -425,11 +432,15 @@ test("Stripe's \"duration: once\" is rendered as order scope, never as a global 
 
 test("an unverified or missing field is dropped, never upgraded into a stronger claim", () => {
   const { firstOrderWelcomeEmail: render } = { firstOrderWelcomeEmail };
-  // Expiry unknown: the line disappears rather than becoming "never expires".
+  // Production says nothing about expiry, and nothing fills the gap.
   const noExpiry = render({ email: "x@example.com", offer: { ...VERIFIED_OFFER, expiration: null } });
-  assert.doesNotMatch(noExpiry.html, /NO LISTED EXPIRATION/);
-  assert.doesNotMatch(noExpiry.html, /never expires|no expiry|does not expire/i);
-  assert.doesNotMatch(noExpiry.text, /NO LISTED EXPIRATION/);
+  assert.doesNotMatch(noExpiry.html, /expiration|expires|expiry/i);
+  assert.doesNotMatch(noExpiry.text, /expiration|expires|expiry/i);
+
+  // A REAL verified date still renders — the field is for a date, not an
+  // absence claim.
+  const dated = render({ email: "x@example.com", offer: { ...VERIFIED_OFFER, expiration: "EXPIRES 31 DECEMBER 2026" } });
+  assert.match(dated.html, /EXPIRES 31 DECEMBER 2026/);
 
   // Disclaimer removed: nothing takes its place.
   const noDisclaimer = render({ email: "x@example.com", offer: { ...VERIFIED_OFFER, disclaimer: null } });

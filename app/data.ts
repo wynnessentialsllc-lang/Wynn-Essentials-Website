@@ -180,6 +180,9 @@ export const brandConfig = {
     //   promotion code WELCOME15 exists · coupon valid · 15% off ·
     //   duration "once" · no expiration shown · 1 historical redemption
     //
+    // "No expiration shown" is a fact about the Dashboard on that date, NOT a
+    // guarantee of continued availability, so it is never said to a customer.
+    //
     // NOT verified, and therefore never claimed in either direction — we say
     // neither that these restrictions exist nor that they don't:
     //   first-time-customer restriction · minimum order amount ·
@@ -197,14 +200,20 @@ export const brandConfig = {
       // What the discount is, and what Stripe's "once" duration actually licenses
       // us to say about its scope.
       appliesTo: "ONE ELIGIBLE ORDER",
-      // Confirmed absent from the Dashboard today. Stripe can still deactivate
-      // or change the promotion later, which is why the sender re-resolves the
-      // offer on every send rather than trusting this at runtime.
-      expiration: "NO LISTED EXPIRATION",
-      offerLine: "Use code WELCOME15 for 15% off one eligible order. No listed expiration.",
-      // Covers the restrictions that were not verifiable, without asserting
-      // that any of them apply.
-      disclaimer: "Eligibility and product restrictions may apply. Enter WELCOME15 at checkout to confirm your order qualifies.",
+      // No expiry is stated at all. Stripe shows none TODAY, but an email is
+      // read weeks after it is sent, and "no listed expiration" reads as a
+      // promise the offer will still be there — which nothing verifies, since
+      // Stripe can deactivate or change the promotion at any time. Silence here
+      // is the honest position; checkout is the source of truth.
+      //
+      // This field exists for a REAL, verified expiry date ("Expires 31
+      // December 2026"), never for an absence claim.
+      expiration: null as string | null,
+      offerLine: "Use code WELCOME15 for 15% off one eligible order. Offer availability is confirmed at checkout.",
+      // Covers the restrictions that were not verifiable — including whether
+      // the offer is still available — without asserting that any of them
+      // apply.
+      disclaimer: "Eligibility, availability, and product restrictions may apply. Enter WELCOME15 at checkout to confirm your order qualifies.",
     },
   },
 };

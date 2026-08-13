@@ -13,7 +13,7 @@ Confirmed in the **live Stripe Dashboard**:
 | Coupon status | Valid |
 | Discount | 15% off |
 | Duration | `once` |
-| Expiration | None shown |
+| Expiration | None shown *(a fact about the Dashboard that day, not a guarantee of continued availability)* |
 | Historical redemptions | 1 — **internal only, never shown to a customer** |
 
 **Not verified, and therefore never claimed in either direction** — we say neither
@@ -24,12 +24,17 @@ that these apply nor that they don't:
 - maximum total redemptions
 - customer restriction
 - product restrictions
+- **continued availability** — Stripe can deactivate or change the promotion at
+  any time, and an email is read long after it is sent
 
 Two readings that would be wrong, recorded so they are not made again:
 
 - **`duration: once`** means the discount applies once *when redeemed*. It is
   **not** a cap of one redemption across all customers.
 - **"1 redemption"** is historical usage. It is **not** a maximum.
+- **No expiration shown** is not "never expires". Saying "no listed expiration"
+  reads as a promise the offer will still be there, so nothing is said about
+  expiry at all. Checkout is the source of truth.
 
 And the coupon is *named* "First order 15% off" in Stripe. **A name is not a
 rule.** No first-time-transaction restriction has been verified, so nothing
@@ -40,16 +45,23 @@ customer-facing says "your first order", "first-time customers", or
 
 Offer line, in the hero and the plain-text body:
 
-> Use code WELCOME15 for 15% off one eligible order. No listed expiration.
+> Use code WELCOME15 for 15% off one eligible order. Offer availability is
+> confirmed at checkout.
 
-Offer card:
+Offer card — three lines, no expiry claim:
 
-> **15% OFF** · ONE ELIGIBLE ORDER · **CODE: WELCOME15** · NO LISTED EXPIRATION
+> **15% OFF** · ONE ELIGIBLE ORDER · **CODE: WELCOME15**
 
-Disclaimer, covering exactly the restrictions that could not be verified:
+Disclaimer, covering exactly the restrictions that could not be verified,
+availability among them:
 
-> Eligibility and product restrictions may apply. Enter WELCOME15 at checkout to
-> confirm your order qualifies.
+> Eligibility, availability, and product restrictions may apply. Enter WELCOME15
+> at checkout to confirm your order qualifies.
+
+The `expiration` field still exists in the offer config, but only for a **real,
+verified date** ("EXPIRES 31 DECEMBER 2026") — never for an absence claim.
+`stripe:check` blocks if it is used either to claim no expiry or to state a date
+Stripe does not have.
 
 Subject: *A little something from Wynn Essentials* · Preview: *Your WELCOME15
 offer is inside.* Neither implies first-order eligibility.
@@ -154,9 +166,9 @@ nothing, signs with a throwaway secret, never uses a developer's
 `NEXT_PUBLIC_SITE_URL`.
 
 Fixtures live in `lib/first-order-welcome-fixtures.ts`. `verified-today` is
-exactly what production sends; `no-expiration-known` proves the card omits the
-expiry line rather than upgrading silence into "never expires"; `long-values`
-checks the card does not overflow with a longer code.
+exactly what production sends, with no expiry claim; `with-real-expiry` shows
+how a genuinely verified date would render; `long-values` checks the card does
+not overflow with a longer code.
 
 ## Why `app/api/cron/abandoned-carts/route.ts` changed
 
@@ -164,7 +176,7 @@ The abandoned-cart reminder advertises the same promotion, so it had the same tw
 problems: it mentioned the code unconditionally, and it said "on your first
 order". It now resolves the offer through `firstOrderOffer()` — so it stays
 silent about the code when there is no live offer — and says "on one eligible
-order".
+order. Offer availability is confirmed at checkout."
 
 Nothing else about that job moved. Content, eligibility (pending carts inside the
 window, skipping anyone who has since paid), timing (`ABANDON_AFTER_MS` 1h,
