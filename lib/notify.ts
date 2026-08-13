@@ -22,6 +22,8 @@ const DEFAULT_FROM = "Wynn Essentials <onboarding@resend.dev>";
 import { unsubscribeUrl, listUnsubscribeHeaders, canSignUnsubscribe } from "./unsubscribe";
 import { renderOrderConfirmationEmail, type OrderEmailData } from "./order-confirmation-email";
 import { wynnEditWelcomeEmail } from "./wynn-edit-email";
+import { firstOrderWelcomeEmail } from "./first-order-welcome-email";
+import type { FirstOrderOffer } from "./first-order-offer";
 // Carrier tracking links live in their own module so the order-confirmation
 // renderer can use them without importing this one. Re-exported below because
 // /admin/orders has always imported trackingUrl from lib/notify.
@@ -259,8 +261,12 @@ export async function notifyCustomerOrderConfirmation(order: OrderEmailData & Or
  * Welcome email for a brand-new subscriber. When productName is set, it's a
  * restock-waitlist signup and the copy confirms we'll notify them when that
  * product is back; otherwise it's a newsletter ("The Wynn Edit") welcome.
+ *
+ * The first-order offer no longer routes through here — it has its own branded
+ * message in notifyFirstOrderWelcome(), which is the only place a promotion
+ * code is ever put in front of a subscriber.
  */
-export async function notifySubscriberWelcome({ email, productName, promoCode, promoLabel }: { email: string; productName?: string | null; promoCode?: string | null; promoLabel?: string | null }): Promise<boolean> {
+export async function notifySubscriberWelcome({ email, productName }: { email: string; productName?: string | null }): Promise<boolean> {
   if (!email) return false;
   if (productName) {
     const body = `<p style="font-size:15px;line-height:1.6;margin:0">We'll email you the moment <strong>${esc(productName)}</strong> is back in stock. No need to check back — we've got you.</p>`;
@@ -270,24 +276,39 @@ export async function notifySubscriberWelcome({ email, productName, promoCode, p
       html: customerShell("You're on the list!", `Thanks for your interest in ${esc(productName)}.`, body),
     });
   }
-  // A first-order signup carries a discount code to feature prominently.
-  if (promoCode) {
-    const label = promoLabel || "a discount";
-    const codeBlock = `<div style="border:1px dashed #c8aa82;border-radius:8px;padding:18px;text-align:center;margin:0 0 6px">
-        <p style="margin:0 0 6px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#6d675f">Your code — ${esc(label)}</p>
-        <p style="margin:0;font-family:Georgia,serif;font-size:30px;letter-spacing:.06em">${esc(promoCode)}</p>
-      </div>
-      <p style="font-size:13px;color:#6d675f;margin:8px 0 0">Enter it at checkout to redeem. Valid on your first order.</p>
-      <p style="margin:22px 0 0"><a href="https://wynnessentialsllc.us/#shop" style="display:inline-block;background:#c8aa82;color:#111;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.06em;padding:14px 22px">SHOP THE ESSENTIALS</a></p>`;
-    return sendEmail({
-      to: email,
-      subject: `Here's your ${label} code`,
-      html: customerShell(`Welcome — here's ${label}`, "Thanks for joining Wynn Essentials. Your welcome offer is below.", codeBlock, { unsubscribeEmail: email }),
-      headers: listUnsubscribeHeaders(email),
-    });
-  }
   // Plain newsletter signup: the branded Wynn Edit welcome owns this copy.
   return (await notifyWynnEditWelcome({ email })).ok;
+}
+
+/**
+ * The first-order welcome — the branded marketing email for someone who opted
+ * in through the WELCOME15 popup, composed in lib/first-order-welcome-email.ts.
+ *
+ * Marketing mail, treated as such: one-click unsubscribe headers, a visible
+ * unsubscribe link, the mailing address, a plain-text alternative, and a
+ * reply-to that reaches a human.
+ *
+ * Like the Wynn Edit welcome it refuses to send when no unsubscribe signing
+ * secret is configured, because the opt-out link in the footer would be dead.
+ * It also requires a live offer: the caller resolves that from
+ * lib/first-order-offer.ts and falls back to the plain welcome rather than
+ * emailing a code the checkout cannot accept.
+ */
+export async function notifyFirstOrderWelcome({ email, offer }: { email: string; offer: FirstOrderOffer }): Promise<EmailResult> {
+  if (!email) return { ok: false, certainNotSent: true };
+  if (!canSignUnsubscribe()) {
+    console.error("First-order welcome skipped: no unsubscribe signing secret set (UNSUBSCRIBE_SECRET), so the opt-out link would not work", { to: email });
+    return { ok: false, certainNotSent: true };
+  }
+  const { subject, html, text } = firstOrderWelcomeEmail({ email, offer });
+  return deliverEmail({
+    to: email,
+    subject,
+    html,
+    text,
+    replyTo: DEFAULT_TO,
+    headers: listUnsubscribeHeaders(email, { oneClick: true }),
+  });
 }
 
 /**
@@ -334,7 +355,7 @@ export async function notifyAbandonedCart({ email, items, subtotal, promoCode, p
     .map(i => `<tr><td style="padding:8px 0;border-bottom:1px solid #ece6dd">${esc(i.name ?? "Item")} × ${esc(i.quantity ?? 1)}</td><td style="padding:8px 0;border-bottom:1px solid #ece6dd;text-align:right;font-weight:600">${i.price == null ? "" : money(Math.round(i.price * 100))}</td></tr>`)
     .join("");
   const codeLine = promoCode
-    ? `<p style="font-size:14px;margin:18px 0 0">Still deciding? Use <strong>${esc(promoCode)}</strong> for ${esc(promoLabel || "a discount")} on your first order.</p>`
+    ? `<p style="font-size:14px;margin:18px 0 0">Still deciding? Use <strong>${esc(promoCode)}</strong> for ${esc(promoLabel || "a discount")} on one eligible order. Offer availability is confirmed at checkout.</p>`
     : "";
   const body = `<table style="width:100%;border-collapse:collapse;font-size:14px">${rows}</table>
     ${subtotal != null ? `<p style="text-align:right;font-weight:700;margin:10px 0 0">Subtotal: ${money(subtotal)}</p>` : ""}

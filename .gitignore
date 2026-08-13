@@ -42,6 +42,7 @@ next-env.d.ts
 /work/
 # rendered email previews (npm run email:preview)
 /build/email-previews/
+/outputs/email-preview/
 
 # typescript incremental build artifact
 tsconfig.tsbuildinfo

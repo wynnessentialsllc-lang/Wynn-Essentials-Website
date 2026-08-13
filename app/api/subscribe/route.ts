@@ -4,8 +4,9 @@ import { getDb } from "../../../db";
 import { subscribers } from "../../../db/schema";
 import { brandConfig, products } from "../../data";
 import { commerceConfig } from "../../../lib/commerce-config";
-import { notifySubscriberWelcome, notifyNewSubscriber, notifyWynnEditWelcome } from "../../../lib/notify";
+import { notifySubscriberWelcome, notifyNewSubscriber, notifyWynnEditWelcome, notifyFirstOrderWelcome } from "../../../lib/notify";
 import { normalizeEmail } from "../../../lib/unsubscribe";
+import { firstOrderOffer } from "../../../lib/first-order-offer";
 
 // Basic shape check only. Deliverability is confirmed by the email provider that
 // eventually consumes this table, not here.
@@ -161,15 +162,23 @@ export async function POST(request: Request) {
     // never blocks the response.
     await notifyNewSubscriber({ email, source }).catch(() => {});
 
-    // The first-order popup is its own established flow and carries the
-    // production welcome-offer code; The Wynn Edit gets the branded editorial
-    // welcome. Neither invents an incentive.
-    const delivery = source === "first-order-popup"
-      ? await notifySubscriberWelcome({
-          email,
-          promoCode: brandConfig.firstOrder.code,
-          promoLabel: brandConfig.firstOrder.discountLabel,
-        }).then(ok => ({ ok, certainNotSent: !ok })).catch(() => ({ ok: false, certainNotSent: false }))
+    // Exactly ONE welcome per subscriber, whichever door she came through — the
+    // claim above is per-subscriber, not per-form, so signing up at both the
+    // newsletter section and the first-order popup cannot produce two
+    // near-identical welcomes. Which one she gets is decided by the door that
+    // won the claim.
+    //
+    // The popup's welcome carries the offer, and only when there is a live one
+    // to carry: with the promo-code field switched off at checkout the code
+    // could not be redeemed, so she gets the plain welcome instead of a promise
+    // the checkout would refuse. The popup still shows her the code on screen
+    // either way — that path is unchanged.
+    const offer = source === "first-order-popup" ? firstOrderOffer() : null;
+    if (source === "first-order-popup" && !offer) {
+      console.warn("First-order welcome fell back to the plain welcome: no live offer to advertise (STRIPE_PROMOTION_CODES_ENABLED, or an empty code/label)");
+    }
+    const delivery = offer
+      ? await notifyFirstOrderWelcome({ email, offer }).catch(() => ({ ok: false, certainNotSent: false }))
       : await notifyWynnEditWelcome({ email }).catch(() => ({ ok: false, certainNotSent: false }));
 
     // Release the claim only when we KNOW nothing was transmitted, so a

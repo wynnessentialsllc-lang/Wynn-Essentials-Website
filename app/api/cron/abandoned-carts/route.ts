@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { and, eq, gt, lt, gte } from "drizzle-orm";
 import { getDb } from "../../../../db";
 import { abandonedCarts, orders } from "../../../../db/schema";
-import { brandConfig } from "../../../data";
+import { firstOrderOffer } from "../../../../lib/first-order-offer";
 import { notifyAbandonedCart } from "../../../../lib/notify";
 
 // Scheduled by Vercel Cron (see vercel.json). Emails a one-time reminder for
@@ -58,12 +58,16 @@ export async function GET(request: Request) {
       }
 
       const items = (Array.isArray(cart.items) ? cart.items : []) as CartItem[];
+      // Mention the welcome code only while it is actually redeemable. With the
+      // promo-code field switched off at checkout the reminder still goes out,
+      // just without an offer it cannot honour.
+      const offer = firstOrderOffer();
       const sent = await notifyAbandonedCart({
         email: cart.email,
         items,
         subtotal: cart.subtotal,
-        promoCode: brandConfig.firstOrder.code,
-        promoLabel: brandConfig.firstOrder.discountLabel,
+        promoCode: offer?.code ?? null,
+        promoLabel: offer?.label ?? null,
       });
       // Mark emailed regardless so a send failure isn't retried forever.
       await db.update(abandonedCarts).set({ status: "emailed", emailedAt: new Date(), updatedAt: new Date() }).where(eq(abandonedCarts.email, cart.email));
