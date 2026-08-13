@@ -166,5 +166,21 @@ export const brandConfig = {
   // in the dashboard (a 15%-off coupon), and STRIPE_PROMOTION_CODES_ENABLED must
   // be "true" so the code field appears at checkout. Change the code/label here
   // and in Stripe together.
-  firstOrder: { code: "WELCOME15", discountLabel: "15% off", headline: "15% off your first order" },
+  firstOrder: {
+    code: "WELCOME15",
+    discountLabel: "15% off",
+    headline: "15% off your first order",
+    // Terms CONFIRMED against the live Stripe promotion, shown verbatim in the
+    // welcome email and nowhere else. Deliberately empty: the application
+    // cannot read Stripe's eligibility rules, exclusions, minimum purchase,
+    // expiry or redemption limits, and an unconfirmed term must never be
+    // printed as if it were policy.
+    //
+    // To populate: run `npm run stripe:check`, which prints the live
+    // promotion's real restrictions, then paste the ones worth telling her
+    // about — e.g. "First-time customers only.", "Expires 31 December 2026."
+    // The email renders each entry as its own line and shows none of this
+    // block when the list is empty.
+    verifiedTerms: [] as readonly string[],
+  },
 };

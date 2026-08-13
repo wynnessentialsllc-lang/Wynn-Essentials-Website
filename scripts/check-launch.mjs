@@ -108,6 +108,56 @@ if (key && !unconfigured.length) {
         if (!rate.active) warn.push(`${label} shipping rate ${id} is archived in Stripe`);
       } catch { block.push(`${label} shipping rate ${id} does not exist in this Stripe account`); }
     }
+    // ---------- Welcome promotion ----------
+    // The first-order welcome email advertises this code, so its real terms
+    // have to come from Stripe rather than from memory. Everything printed
+    // below is read from the live promotion; paste the terms worth telling a
+    // customer about into brandConfig.firstOrder.verifiedTerms, which is the
+    // only thing the email will state.
+    const promoCode = (src.match(/firstOrder:\s*\{[\s\S]*?code:\s*"([^"]+)"/) || [])[1];
+    if (!promoCode) {
+      warn.push("No first-order promotion code found in app/data.ts");
+    } else if (env.STRIPE_PROMOTION_CODES_ENABLED !== "true") {
+      warn.push(`STRIPE_PROMOTION_CODES_ENABLED is not "true" — the promo-code field is hidden at checkout, so ${promoCode} cannot be redeemed and the welcome email will omit the offer`);
+    } else {
+      try {
+        const found = await stripe.promotionCodes.list({ code: promoCode, limit: 1 });
+        const promo = found.data[0];
+        if (!promo) {
+          block.push(`Promotion code ${promoCode} does not exist in this Stripe account — the welcome email would advertise a code checkout rejects`);
+        } else if (!promo.active) {
+          block.push(`Promotion code ${promoCode} exists but is INACTIVE in Stripe`);
+        } else {
+          const coupon = promo.coupon || {};
+          const amount = coupon.percent_off != null
+            ? `${coupon.percent_off}% off`
+            : coupon.amount_off != null
+              ? `${(coupon.amount_off / 100).toFixed(2)} ${String(coupon.currency || "").toUpperCase()} off`
+              : "unknown discount";
+          pass.push(`Promotion ${promoCode} is active in Stripe (${amount})`);
+
+          // The exact fields the welcome email must not guess at.
+          const terms = [
+            `discount: ${amount}`,
+            `duration: ${coupon.duration ?? "unknown"}`,
+            `first-time customers only: ${promo.restrictions?.first_time_transaction ? "yes" : "no"}`,
+            `minimum purchase: ${promo.restrictions?.minimum_amount != null ? `${(promo.restrictions.minimum_amount / 100).toFixed(2)} ${String(promo.restrictions.minimum_amount_currency || "").toUpperCase()}` : "none"}`,
+            `expires: ${promo.expires_at ? new Date(promo.expires_at * 1000).toISOString().slice(0, 10) : "never"}`,
+            `max redemptions: ${promo.max_redemptions ?? "unlimited"} (used ${promo.times_redeemed ?? 0})`,
+            `coupon redeem-by: ${coupon.redeem_by ? new Date(coupon.redeem_by * 1000).toISOString().slice(0, 10) : "never"}`,
+            `applies to specific products: ${coupon.applies_to?.products?.length ? coupon.applies_to.products.join(", ") : "no — all products"}`,
+          ];
+          warn.push(`Confirm ${promoCode} terms shown in the welcome email match Stripe:\n      ${terms.join("\n      ")}`);
+
+          const label = (src.match(/firstOrder:\s*\{[\s\S]*?discountLabel:\s*"([^"]+)"/) || [])[1];
+          if (label && coupon.percent_off != null && !label.includes(String(coupon.percent_off))) {
+            block.push(`Site advertises "${label}" but Stripe's ${promoCode} gives ${coupon.percent_off}% off`);
+          }
+        }
+      } catch (error) {
+        warn.push(`Could not verify promotion ${promoCode}: ${error.message}`);
+      }
+    }
   } catch (error) {
     warn.push(`Could not reach Stripe to verify: ${error.message}`);
   }

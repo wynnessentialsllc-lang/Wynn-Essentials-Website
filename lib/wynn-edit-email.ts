@@ -18,32 +18,13 @@
 //   * a plain-text alternative that carries the same copy and the same links.
 //
 // The masthead uses public/email/wynn-essentials-logo.png — the same
-// email-optimised asset the order-confirmation email uses (33KB rather than the
-// 263KB storefront original), so the two messages share one mark.
-//
-// `emailOrigin()` below is deliberately a separate, slightly stricter copy of
-// the one in lib/order-confirmation-email.ts: it also refuses bare IPs and
-// .local hosts. Both belong in a shared lib/email-brand.ts eventually, together
-// with the BRAND tokens — a tidy-up worth doing on its own, not folded into
-// this change.
+// email-optimised asset every Wynn Essentials message uses, from the shared
+// lib/email-brand.ts.
 
 import { unsubscribeUrl } from "./unsubscribe";
+import { emailOrigin, LOGO } from "./email-brand";
 
-// Production origin for links and image sources. NEXT_PUBLIC_SITE_URL is only
-// trusted when it is a real https origin: it is "http://localhost:3000" in
-// development, and a localhost image in a delivered email is a broken image.
-const PRODUCTION_ORIGIN = "https://wynnessentialsllc.us";
-export function emailOrigin(): string {
-  const configured = (process.env.NEXT_PUBLIC_SITE_URL || "").replace(/\/+$/, "");
-  if (!configured.startsWith("https://")) return PRODUCTION_ORIGIN;
-  try {
-    const { hostname } = new URL(configured);
-    if (hostname === "localhost" || hostname.endsWith(".local") || /^\d+\.\d+\.\d+\.\d+$/.test(hostname)) return PRODUCTION_ORIGIN;
-    return configured;
-  } catch {
-    return PRODUCTION_ORIGIN;
-  }
-}
+export { emailOrigin };
 
 export const WYNN_EDIT_SUBJECT = "You’re officially on The Wynn Edit list";
 export const WYNN_EDIT_PREHEADER = "Good hair information is coming to your inbox.";
@@ -189,7 +170,7 @@ export function wynnEditWelcomeEmail({ email }: { email: string }): { subject: s
         <!-- Masthead -->
         <tr>
           <td align="center" class="pad" style="padding:34px 40px 26px;background-color:${C.card}">
-            <a href="${origin}" style="text-decoration:none"><img src="${img("/email/wynn-essentials-logo.png")}" width="140" height="118" alt="Wynn Essentials" style="display:block;width:140px;height:118px;margin:0 auto;border:0;font-family:${SERIF};font-size:20px;color:${C.ink};text-align:center"></a>
+            <a href="${origin}" style="text-decoration:none"><img src="${img(LOGO.src)}" width="140" height="118" alt="${escapeHtml(LOGO.alt)}" style="display:block;width:140px;height:118px;margin:0 auto;border:0;font-family:${SERIF};font-size:20px;color:${C.ink};text-align:center"></a>
           </td>
         </tr>
         <tr><td style="padding:0 0 0">${rule(C.gold)}</td></tr>

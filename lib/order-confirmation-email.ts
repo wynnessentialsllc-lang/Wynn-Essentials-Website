@@ -17,6 +17,7 @@
 //   * no JavaScript, forms, video, or positioned/floated layout.
 import { products, type Product } from "../app/data";
 import { trackingUrl } from "./carrier-tracking";
+import { BRAND, emailUrl, esc, eyebrow, heading, paragraph, button, SUPPORT_EMAIL, BUSINESS_ADDRESS, LOGO } from "./email-brand";
 
 // ---------------------------------------------------------------------------
 // Types — a superset of the row returned by orderRowFromSession(), so the
@@ -60,45 +61,14 @@ export type OrderEmailData = {
 // and the website cannot drift apart.
 // ---------------------------------------------------------------------------
 
-export const BRAND = {
-  sky: "#7bc8ef",        // .boho-editorial sky blue
-  pink: "#ff65a8",       // .boho-portrait accent pink
-  cream: "#f4eadc",      // .boho-hair warm cream
-  linen: "#ece6dd",      // --linen
-  black: "#111111",      // --black
-  white: "#ffffff",
-  muted: "#5c564d",      // --muted
-  line: "#e2dad0",
-  footerMuted: "#b8b0a5",
-  serif: "Georgia,'Times New Roman',Times,serif",   // --font-display
-  sans: "Arial,Helvetica,sans-serif",               // --font-sans
-} as const;
+// Brand tokens, origin/URL helpers and the escaping helper are shared by every
+// customer email and live in lib/email-brand.ts. Re-exported here because this
+// module has always been their public home.
+export { BRAND, emailOrigin, emailUrl, esc } from "./email-brand";
 
-const SUPPORT_EMAIL = "wynnessentialsllc@gmail.com";
-// Physical mailing address, required in the footer of every commercial email we
-// send and kept here so the confirmation carries it too.
-const BUSINESS_ADDRESS = "Wynn Essentials, LLC · 3680 Wilshire Blvd., Ste P04 A118, Los Angeles, CA 90010";
-
-// The canonical production origin. A transactional email is opened long after it
-// was sent, from anywhere, so its images and links must never resolve against a
-// localhost or preview origin — an explicitly configured https origin wins,
-// otherwise production does.
-const PRODUCTION_ORIGIN = "https://wynnessentialsllc.us";
-
-export function emailOrigin(): string {
-  const configured = (process.env.NEXT_PUBLIC_SITE_URL || "").trim().replace(/\/+$/, "");
-  if (/^https:\/\//i.test(configured) && !/localhost|127\.0\.0\.1/i.test(configured)) return configured;
-  return PRODUCTION_ORIGIN;
-}
-
-/** Absolute, publicly reachable URL for a site asset or page. */
-export function emailUrl(path: string): string {
-  if (/^https?:\/\//i.test(path)) return path;
-  return `${emailOrigin()}${path.startsWith("/") ? "" : "/"}${path}`;
-}
-
-// Editorial imagery, converted to email-safe JPEG/PNG from the storefront's own
-// photography (public/email/). Alt text describes the picture, never the order.
+// Editorial imagery for THIS message, converted to email-safe JPEG from the
+// storefront's own photography (public/email/). Alt text describes the picture,
+// never the order.
 const HERO = {
   src: "/email/order-confirmation-hero.jpg",
   alt: "A Wynn Essentials customer holding a stack of kraft Nourish Organic Oil Blend boxes against a bright blue sky",
@@ -107,21 +77,10 @@ const WASH_DAY = {
   src: "/email/wash-day-shelf.jpg",
   alt: "Lathyr shampoo, Uplyft and Revaivl conditioners on a warm stone bathroom shelf beside a lit candle",
 };
-const LOGO = { src: "/email/wynn-essentials-logo.png", alt: "Wynn Essentials" };
 
 // ---------------------------------------------------------------------------
 // Escaping and formatting
 // ---------------------------------------------------------------------------
-
-/** HTML-escapes any customer- or Stripe-supplied text before it reaches markup. */
-export function esc(value: unknown): string {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
 
 /** Minor units (cents) to a display string, in the order's own currency. */
 export function money(cents: number | null | undefined, currency = "usd"): string {
@@ -315,27 +274,6 @@ export function orderView(order: OrderEmailData): OrderView {
 // ---------------------------------------------------------------------------
 // HTML building blocks
 // ---------------------------------------------------------------------------
-
-const eyebrow = (text: string, color: string = BRAND.black) =>
-  `<p style="margin:0;font-family:${BRAND.sans};font-size:11px;line-height:16px;letter-spacing:.18em;text-transform:uppercase;font-weight:bold;color:${color}">${text}</p>`;
-
-const heading = (text: string, size: number, color: string = BRAND.black, extra = "") =>
-  `<h1 class="h-lg" style="margin:14px 0 0;font-family:${BRAND.serif};font-weight:normal;font-size:${size}px;line-height:1.06;letter-spacing:-.02em;color:${color};mso-line-height-rule:exactly;${extra}">${text}</h1>`;
-
-const paragraph = (html: string, extra = "") =>
-  `<p style="margin:18px 0 0;font-family:${BRAND.sans};font-size:15px;line-height:24px;color:${BRAND.black};${extra}">${html}</p>`;
-
-// A bulletproof-enough button: a single-cell table with generous padding, so the
-// tap target clears 44px on a phone and the link still looks like a button in
-// clients that drop background colours on <a>.
-const button = (label: string, url: string, align: "left" | "center" = "left") => `
-  <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="${align}" style="border-collapse:collapse;${align === "center" ? "margin:0 auto;" : ""}">
-    <tr>
-      <td bgcolor="${BRAND.black}" style="background-color:${BRAND.black};padding:16px 30px;text-align:center">
-        <a href="${esc(url)}" style="display:inline-block;font-family:${BRAND.sans};font-size:12px;line-height:16px;font-weight:bold;letter-spacing:.14em;text-transform:uppercase;color:${BRAND.white};text-decoration:none">${label}</a>
-      </td>
-    </tr>
-  </table>`;
 
 // One purchased line: photo, live-text name/options/quantity, line total.
 function lineRow(line: LineView): string {
