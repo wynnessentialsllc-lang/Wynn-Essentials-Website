@@ -451,12 +451,12 @@ function FirstOrderOffer({ onClose, onContinue }: { onClose: () => void; onConti
         <h2>{brandConfig.firstOrder.discountLabel}<span>unlocked</span></h2>
         <p>Enter this code at checkout:</p>
         <p className="offer-code">{brandConfig.firstOrder.code}</p>
-        <p className="offer-fine">We&rsquo;ve emailed it to you too. Enter it on the next screen.</p>
+        <p className="offer-fine">Enter it on the next screen. Eligibility and product restrictions may apply.</p>
         <button className="button full" onClick={onContinue}>Continue to checkout</button>
       </div> : <form onSubmit={submit}>
         <p className="eyebrow">WELCOME TO WYNN ESSENTIALS</p>
         <h2>{brandConfig.firstOrder.headline}</h2>
-        <p>Join The Wynn Edit for routine guidance and early access &mdash; and take {brandConfig.firstOrder.discountLabel} your first order.</p>
+        <p>Join The Wynn Edit for routine guidance and early access &mdash; and take {brandConfig.firstOrder.discountLabel} one eligible order.</p>
         <label>Email address<input type="email" required placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} /></label>
         <label className="offer-consent"><input type="checkbox" required checked={consent} onChange={e => setConsent(e.target.checked)} /> I agree to receive marketing emails.</label>
         <button className="button full" type="submit" disabled={state === "sending"}>{state === "sending" ? "Getting your code…" : `Get my ${brandConfig.firstOrder.discountLabel} code`}</button>

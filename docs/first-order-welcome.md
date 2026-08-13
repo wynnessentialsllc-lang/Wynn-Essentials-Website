@@ -3,47 +3,82 @@
 What the popup captures, what the email may say about the offer, and why there
 is never more than one welcome per subscriber.
 
-## The offer — what is verified and what is not
+## The offer — verified 2026-08-13
 
-The promotion lives in **Stripe**. This application has never held its rules.
-What it actually knows:
+Confirmed in the **live Stripe Dashboard**:
 
-| Fact | Source | Verified here? |
-|---|---|---|
-| Code string `WELCOME15` | `brandConfig.firstOrder.code` | Yes — it is what we display |
-| Discount label `15% off` | `brandConfig.firstOrder.discountLabel` | Yes — same |
-| Whether a code can be entered at checkout | `STRIPE_PROMOTION_CODES_ENABLED` → `allow_promotion_codes` | Yes |
-| Eligibility, exclusions, minimum purchase, expiry, redemption limit | Stripe dashboard | **No — not readable from the application** |
+| | |
+|---|---|
+| Promotion code | `WELCOME15` — exists |
+| Coupon status | Valid |
+| Discount | 15% off |
+| Duration | `once` |
+| Expiration | None shown |
+| Historical redemptions | 1 — **internal only, never shown to a customer** |
 
-`LAUNCH_CHECKLIST.md` *recommends* "first-time customers only, no
-total-redemption cap", but that is an instruction to whoever created the coupon,
-not a record of what exists. It is not treated as fact anywhere.
+**Not verified, and therefore never claimed in either direction** — we say neither
+that these apply nor that they don't:
 
-So the email states **only** the code, the discount label, and any terms a human
-has confirmed and recorded in `brandConfig.firstOrder.verifiedTerms` — empty by
-default. With none configured it prints one neutral line that is true of the
-checkout rather than of the offer:
+- first-time-customer restriction
+- minimum order amount
+- maximum total redemptions
+- customer restriction
+- product restrictions
 
-> Enter the code at checkout. Your order summary confirms the discount before you pay.
+Two readings that would be wrong, recorded so they are not made again:
 
-### Confirming the real terms
+- **`duration: once`** means the discount applies once *when redeemed*. It is
+  **not** a cap of one redemption across all customers.
+- **"1 redemption"** is historical usage. It is **not** a maximum.
+
+And the coupon is *named* "First order 15% off" in Stripe. **A name is not a
+rule.** No first-time-transaction restriction has been verified, so nothing
+customer-facing says "your first order", "first-time customers", or
+"15% off your first eligible order".
+
+### Exact customer-facing terms
+
+Offer line, in the hero and the plain-text body:
+
+> Use code WELCOME15 for 15% off one eligible order. No listed expiration.
+
+Offer card:
+
+> **15% OFF** · ONE ELIGIBLE ORDER · **CODE: WELCOME15** · NO LISTED EXPIRATION
+
+Disclaimer, covering exactly the restrictions that could not be verified:
+
+> Eligibility and product restrictions may apply. Enter WELCOME15 at checkout to
+> confirm your order qualifies.
+
+Subject: *A little something from Wynn Essentials* · Preview: *Your WELCOME15
+offer is inside.* Neither implies first-order eligibility.
+
+### Re-verifying
 
 ```bash
 npm run stripe:check
 ```
 
-Now reads the live promotion and prints its actual discount, duration,
-first-time-only restriction, minimum purchase, expiry, redemption limit and
-product scope. It **blocks** if the code is missing or inactive in Stripe, or if
-the site's advertised percentage disagrees with the coupon. Paste the terms
-worth telling a customer about into `verifiedTerms`; the email renders each on
-its own line and invents nothing.
+An **administrative launch/deploy check only** — nothing at website runtime calls
+Stripe to resolve the offer, and the secret key never enters the request path.
+It confirms the code exists in live mode, the promotion is active, the coupon is
+valid, the discount is exactly 15%, and the duration is `once`; **blocks** if any
+of those fail or if the promotion cannot be reached; and reports the first-time
+restriction, minimum purchase, expiration, maximum redemptions, customer
+restriction and product scope **without guessing**, keeping historical
+`times_redeemed` clearly apart from `max_redemptions`. It also blocks if
+`verifiedTerms` starts claiming first-order eligibility, an absence of
+restrictions, or "no listed expiration" after Stripe has set one.
 
 ## When the offer is not advertised
 
 `firstOrderOffer()` (`lib/first-order-offer.ts`) returns null when the
-promo-code field is switched off at checkout, or when the code or label is
-blank. In that case the popup signup still records consent in full and still
+promo-code field is switched off at checkout, or when any verified field — code,
+label, scope, or offer line — is missing. There is no partial state: either
+every verified field is present and the offer renders exactly as written, or
+nothing about it is said at all, so a half-configured entry can never degrade
+into a vaguer but stronger claim. In that case the popup signup still records consent in full and still
 sends a welcome — the plain Wynn Edit welcome, with no code in it. Emailing a
 code the checkout would refuse is worse than sending no offer.
 
@@ -118,7 +153,21 @@ fixture, plus desktop (640px), mobile (390px) and images-blocked renders. Sends
 nothing, signs with a throwaway secret, never uses a developer's
 `NEXT_PUBLIC_SITE_URL`.
 
-Fixtures live in `lib/first-order-welcome-fixtures.ts`. The terms in
-`with-verified-terms` are **illustrative samples**, not the live promotion's
-terms, and are labelled as such so they cannot be copied into production by
-mistake.
+Fixtures live in `lib/first-order-welcome-fixtures.ts`. `verified-today` is
+exactly what production sends; `no-expiration-known` proves the card omits the
+expiry line rather than upgrading silence into "never expires"; `long-values`
+checks the card does not overflow with a longer code.
+
+## Why `app/api/cron/abandoned-carts/route.ts` changed
+
+The abandoned-cart reminder advertises the same promotion, so it had the same two
+problems: it mentioned the code unconditionally, and it said "on your first
+order". It now resolves the offer through `firstOrderOffer()` — so it stays
+silent about the code when there is no live offer — and says "on one eligible
+order".
+
+Nothing else about that job moved. Content, eligibility (pending carts inside the
+window, skipping anyone who has since paid), timing (`ABANDON_AFTER_MS` 1h,
+`MAX_WINDOW_MS` 30d), one-reminder-per-cart behaviour, the mark-emailed-regardless
+rule, and the `CRON_SECRET` authorization are all unchanged, and a test pins each
+of them.

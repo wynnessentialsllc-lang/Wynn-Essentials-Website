@@ -109,53 +109,99 @@ if (key && !unconfigured.length) {
       } catch { block.push(`${label} shipping rate ${id} does not exist in this Stripe account`); }
     }
     // ---------- Welcome promotion ----------
-    // The first-order welcome email advertises this code, so its real terms
-    // have to come from Stripe rather than from memory. Everything printed
-    // below is read from the live promotion; paste the terms worth telling a
-    // customer about into brandConfig.firstOrder.verifiedTerms, which is the
-    // only thing the email will state.
+    // ADMINISTRATIVE CHECK ONLY. Nothing at website runtime calls Stripe to
+    // resolve the offer — the secret key stays out of the request path, and the
+    // email renders from terms a human recorded in app/data.ts. This is how
+    // those terms get verified before a deploy.
+    //
+    // It reports every restriction WITHOUT GUESSING, and it never treats a
+    // coupon's NAME as a rule: a coupon called "First order 15% off" proves
+    // nothing about first-time-transaction eligibility.
     const promoCode = (src.match(/firstOrder:\s*\{[\s\S]*?code:\s*"([^"]+)"/) || [])[1];
+    const promoLabel = (src.match(/firstOrder:\s*\{[\s\S]*?discountLabel:\s*"([^"]+)"/) || [])[1];
+
     if (!promoCode) {
-      warn.push("No first-order promotion code found in app/data.ts");
+      warn.push("No welcome promotion code found in app/data.ts");
     } else if (env.STRIPE_PROMOTION_CODES_ENABLED !== "true") {
-      warn.push(`STRIPE_PROMOTION_CODES_ENABLED is not "true" — the promo-code field is hidden at checkout, so ${promoCode} cannot be redeemed and the welcome email will omit the offer`);
+      warn.push(`STRIPE_PROMOTION_CODES_ENABLED is not "true" — the promo-code field is hidden at checkout, so ${promoCode} cannot be redeemed and the welcome email omits the offer entirely`);
     } else {
       try {
-        const found = await stripe.promotionCodes.list({ code: promoCode, limit: 1 });
-        const promo = found.data[0];
+        // 1. Exists in THIS account and mode. `live` is derived from the key
+        //    prefix above, so a test-mode key checking a live promotion is
+        //    reported as the mismatch it is.
+        const found = await stripe.promotionCodes.list({ code: promoCode, limit: 100 });
+        const promo = found.data.find(p => p.code === promoCode);
         if (!promo) {
-          block.push(`Promotion code ${promoCode} does not exist in this Stripe account — the welcome email would advertise a code checkout rejects`);
-        } else if (!promo.active) {
-          block.push(`Promotion code ${promoCode} exists but is INACTIVE in Stripe`);
+          block.push(`Promotion code ${promoCode} does not exist in this Stripe account (${live ? "LIVE" : "test"} mode) — the welcome email would advertise a code checkout rejects`);
         } else {
           const coupon = promo.coupon || {};
-          const amount = coupon.percent_off != null
-            ? `${coupon.percent_off}% off`
-            : coupon.amount_off != null
-              ? `${(coupon.amount_off / 100).toFixed(2)} ${String(coupon.currency || "").toUpperCase()} off`
-              : "unknown discount";
-          pass.push(`Promotion ${promoCode} is active in Stripe (${amount})`);
 
-          // The exact fields the welcome email must not guess at.
-          const terms = [
-            `discount: ${amount}`,
-            `duration: ${coupon.duration ?? "unknown"}`,
-            `first-time customers only: ${promo.restrictions?.first_time_transaction ? "yes" : "no"}`,
-            `minimum purchase: ${promo.restrictions?.minimum_amount != null ? `${(promo.restrictions.minimum_amount / 100).toFixed(2)} ${String(promo.restrictions.minimum_amount_currency || "").toUpperCase()}` : "none"}`,
-            `expires: ${promo.expires_at ? new Date(promo.expires_at * 1000).toISOString().slice(0, 10) : "never"}`,
-            `max redemptions: ${promo.max_redemptions ?? "unlimited"} (used ${promo.times_redeemed ?? 0})`,
-            `coupon redeem-by: ${coupon.redeem_by ? new Date(coupon.redeem_by * 1000).toISOString().slice(0, 10) : "never"}`,
-            `applies to specific products: ${coupon.applies_to?.products?.length ? coupon.applies_to.products.join(", ") : "no — all products"}`,
+          // 2 + 3. The promotion code and its coupon must BOTH be usable.
+          if (!promo.active) block.push(`Promotion code ${promoCode} exists but is INACTIVE in Stripe`);
+          if (coupon.valid === false) block.push(`The coupon behind ${promoCode} is INVALID in Stripe (expired, or its redemption limit is reached)`);
+
+          // 4. Exactly 15% — not "about", not a fixed amount.
+          if (coupon.percent_off == null) {
+            block.push(`${promoCode} is not a percentage coupon (${coupon.amount_off != null ? `${(coupon.amount_off / 100).toFixed(2)} ${String(coupon.currency || "").toUpperCase()} off` : "unknown discount"}) — the site advertises "${promoLabel ?? "a percentage"}"`);
+          } else if (coupon.percent_off !== 15) {
+            block.push(`${promoCode} gives ${coupon.percent_off}% off, but the site advertises "${promoLabel ?? "15% off"}"`);
+          }
+          if (promoLabel && coupon.percent_off != null && !promoLabel.includes(String(coupon.percent_off))) {
+            block.push(`Site advertises "${promoLabel}" but Stripe's ${promoCode} gives ${coupon.percent_off}% off`);
+          }
+
+          // 5. Duration. "once" means the discount applies once WHEN REDEEMED.
+          //    It is not a cap on how many customers may redeem it.
+          if (coupon.duration !== "once") {
+            block.push(`${promoCode} has duration "${coupon.duration}", not "once" — the email says the discount applies to one eligible order`);
+          }
+
+          if (promo.active && coupon.valid !== false && coupon.percent_off === 15 && coupon.duration === "once") {
+            pass.push(`Promotion ${promoCode} verified in Stripe: active, valid coupon, 15% off, duration once`);
+          }
+
+          // 6. Report the rest verbatim, distinguishing what IS configured from
+          //    what is simply not set. Nothing here is inferred.
+          const unset = "not set in Stripe — the email claims nothing either way";
+          const facts = [
+            `first-time transaction only: ${promo.restrictions?.first_time_transaction === true ? "YES — enforced by Stripe" : unset}`,
+            `minimum purchase: ${promo.restrictions?.minimum_amount != null ? `${(promo.restrictions.minimum_amount / 100).toFixed(2)} ${String(promo.restrictions.minimum_amount_currency || "").toUpperCase()} — enforced by Stripe` : unset}`,
+            `expiration: ${promo.expires_at ? `${new Date(promo.expires_at * 1000).toISOString().slice(0, 10)} — enforced by Stripe` : "none listed"}`,
+            `coupon redeem-by: ${coupon.redeem_by ? `${new Date(coupon.redeem_by * 1000).toISOString().slice(0, 10)} — enforced by Stripe` : "none listed"}`,
+            // These two are routinely confused. Keep them apart, always.
+            `MAX redemptions (a limit): ${promo.max_redemptions ?? unset}`,
+            `times redeemed (historical usage, NOT a limit, never shown to customers): ${promo.times_redeemed ?? 0}`,
+            `coupon max redemptions (a limit): ${coupon.max_redemptions ?? unset}`,
+            `restricted to one customer: ${promo.customer ? "YES — this code only works for one specific customer" : unset}`,
+            `product scope: ${coupon.applies_to?.products?.length ? `LIMITED to ${coupon.applies_to.products.length} product(s) — enforced by Stripe` : unset}`,
           ];
-          warn.push(`Confirm ${promoCode} terms shown in the welcome email match Stripe:\n      ${terms.join("\n      ")}`);
+          warn.push(`${promoCode} restrictions, as configured in Stripe. Only state these in customer-facing copy if they appear above as enforced:\n      ${facts.join("\n      ")}`);
 
-          const label = (src.match(/firstOrder:\s*\{[\s\S]*?discountLabel:\s*"([^"]+)"/) || [])[1];
-          if (label && coupon.percent_off != null && !label.includes(String(coupon.percent_off))) {
-            block.push(`Site advertises "${label}" but Stripe's ${promoCode} gives ${coupon.percent_off}% off`);
+          // A code locked to a single customer must never go out in a broadcast.
+          if (promo.customer) {
+            block.push(`${promoCode} is restricted to a single Stripe customer — it must not be emailed to subscribers`);
+          }
+          // A limit that is nearly spent will start failing at checkout.
+          const limit = promo.max_redemptions ?? coupon.max_redemptions;
+          if (limit != null && (promo.times_redeemed ?? 0) >= limit) {
+            block.push(`${promoCode} has reached its redemption limit (${promo.times_redeemed}/${limit}) — it can no longer be redeemed`);
+          }
+
+          // 8. Cross-check the copy the email will actually print.
+          const verified = (src.match(/verifiedTerms:\s*\{([\s\S]*?)\n    \}/) || [])[1] ?? "";
+          if (/first[- ]time|first order|your first/i.test(verified)) {
+            block.push(`brandConfig.firstOrder.verifiedTerms claims first-order eligibility, which Stripe ${promo.restrictions?.first_time_transaction === true ? "does enforce — but say so only in those words" : "does NOT enforce"}`);
+          }
+          if (/no minimum|unlimited|all products|every product/i.test(verified)) {
+            block.push("brandConfig.firstOrder.verifiedTerms claims an absence of restrictions (no minimum / unlimited / all products). Stripe not setting a restriction is not a promise to the customer that none applies");
+          }
+          if (/no listed expiration/i.test(verified) && (promo.expires_at || coupon.redeem_by)) {
+            block.push(`brandConfig.firstOrder.verifiedTerms says "no listed expiration", but Stripe now has one set for ${promoCode}`);
           }
         }
       } catch (error) {
-        warn.push(`Could not verify promotion ${promoCode}: ${error.message}`);
+        // 7. Never pass by accident: an unverifiable promotion blocks.
+        block.push(`Could not verify promotion ${promoCode} — treat as unverified: ${error.message}`);
       }
     }
   } catch (error) {

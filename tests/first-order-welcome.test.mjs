@@ -23,7 +23,7 @@ const store = await import("./subscribers-store-stub.mjs");
 const { POST: subscribe } = await import("../app/api/subscribe/route.ts");
 const { POST: unsubscribe } = await import("../app/api/unsubscribe/route.ts");
 const { firstOrderWelcomeEmail } = await import("../lib/first-order-welcome-email.ts");
-const { firstOrderFixtures, firstOrderFixtureByKey } = await import("../lib/first-order-welcome-fixtures.ts");
+const { firstOrderFixtures, firstOrderFixtureByKey, VERIFIED_OFFER } = await import("../lib/first-order-welcome-fixtures.ts");
 const { unsubscribeUrl } = await import("../lib/unsubscribe.ts");
 
 const SITE = "https://wynnessentialsllc.us";
@@ -60,7 +60,7 @@ const claimOffer = (email, extra = {}) => post({ email, consent: true, source: "
 /** A submission from The Wynn Edit newsletter section. */
 const joinEdit = (email) => post({ email, consent: true, source: "the-wynn-edit" });
 
-const offerEmails = () => sent.filter(m => m.subject === "A little something for your first Wynn Essentials order");
+const offerEmails = () => sent.filter(m => m.subject === "A little something from Wynn Essentials");
 const editEmails = () => sent.filter(m => m.subject.includes("The Wynn Edit list"));
 const welcomes = () => [...offerEmails(), ...editEmails()];
 
@@ -231,9 +231,13 @@ test("the offer resolver is the single gate on advertising a code", async () => 
   process.env.STRIPE_PROMOTION_CODES_ENABLED = "true";
   const live = firstOrderOffer();
   assert.ok(live, "an offer exists while the promo field is on");
+  // Exactly the terms verified in the live Stripe Dashboard on 2026-08-13.
   assert.equal(live.code, "WELCOME15");
   assert.equal(live.label, "15% off");
-  assert.deepEqual([...live.verifiedTerms], [], "no terms are claimed until a human confirms them against Stripe");
+  assert.equal(live.appliesTo, "ONE ELIGIBLE ORDER");
+  assert.equal(live.expiration, "NO LISTED EXPIRATION");
+  assert.equal(live.offerLine, "Use code WELCOME15 for 15% off one eligible order. No listed expiration.");
+  assert.equal(live.disclaimer, "Eligibility and product restrictions may apply. Enter WELCOME15 at checkout to confirm your order qualifies.");
 
   process.env.STRIPE_PROMOTION_CODES_ENABLED = "false";
   assert.equal(firstOrderOffer(), null);
@@ -333,60 +337,120 @@ test("every successful popup submission answers identically, whatever the addres
 
 // --- the email itself --------------------------------------------------------
 
-const built = (key = "default") => {
+const built = (key = "verified-today") => {
   const fixture = firstOrderFixtureByKey(key);
   return firstOrderWelcomeEmail({ email: fixture.email, offer: fixture.offer });
 };
 
 test("the welcome carries the approved subject, preview text and copy as live text", () => {
   const { subject, preheader, html, text } = built();
-  assert.equal(subject, "A little something for your first Wynn Essentials order");
-  assert.equal(preheader, "Welcome in. Your first-order offer is inside.");
-  assert.match(html, /Welcome in\. Your first-order offer is inside\./);
+  assert.equal(subject, "A little something from Wynn Essentials");
+  assert.equal(preheader, "Your WELCOME15 offer is inside.");
+  assert.match(html, /Your WELCOME15 offer is inside\./);
 
   for (const copy of [
     "WELCOME TO WYNN ESSENTIALS",
-    "Your practice",
-    "starts here.",
-    "Thank you for joining us. Use code",
-    "WELCOME15",
+    "Welcome in.",
+    "Thank you for joining us.",
+    "Use code WELCOME15 for 15% off one eligible order. No listed expiration.",
     "15% OFF",
-    "YOUR FIRST ELIGIBLE ORDER",
+    "ONE ELIGIBLE ORDER",
     "CODE: WELCOME15",
+    "NO LISTED EXPIRATION",
+    "Eligibility and product restrictions may apply. Enter WELCOME15 at checkout to confirm your order qualifies.",
     "SHOP THE ESSENTIALS",
     "Healthy hair is a practice.",
     "Explore intentional essentials for cleansing, conditioning, treating, moisturizing, sealing, and styling textured hair.",
     "Good hair information, thoughtful products, and early access are now headed your way.",
   ]) {
-    assert.ok(html.toUpperCase().includes(copy.toUpperCase()), `HTML is missing approved copy: ${copy}`);
+    assert.ok(html.includes(copy), `HTML is missing approved copy: ${copy}`);
   }
-  for (const copy of ["WELCOME TO WYNN ESSENTIALS", "YOUR PRACTICE STARTS HERE.", "CODE: WELCOME15", "Healthy hair is a practice."]) {
-    assert.ok(text.toUpperCase().includes(copy.toUpperCase()), `plain text is missing approved copy: ${copy}`);
+  for (const copy of ["WELCOME IN.", "CODE: WELCOME15", "NO LISTED EXPIRATION", "Use code WELCOME15 for 15% off one eligible order."]) {
+    assert.ok(text.includes(copy), `plain text is missing approved copy: ${copy}`);
   }
 });
 
-test("the email states no offer term that was not verified and recorded", () => {
-  const { html, text } = built("default");
+test("nothing in the email implies first-order or first-time-customer eligibility", () => {
+  // Stripe's coupon is NAMED "First order 15% off", but no first-time
+  // transaction restriction has been verified — so no surface may imply one.
+  const { subject, preheader, html, text } = built();
+  for (const [label, body] of Object.entries({ subject, preheader, html, text })) {
+    assert.doesNotMatch(body, /first[- ]order/i, `${label} implies first-order eligibility`);
+    assert.doesNotMatch(body, /first[- ]time/i, `${label} implies first-time-customer eligibility`);
+    assert.doesNotMatch(body, /your first\b/i, `${label} implies first-order eligibility`);
+    assert.doesNotMatch(body, /new customers? only/i, `${label} implies a customer restriction`);
+  }
+});
+
+test("the email never claims an absence of restrictions", () => {
+  const { html, text } = built();
   for (const body of [html, text]) {
-    // None of these appear unless a human puts them in verifiedTerms.
-    assert.doesNotMatch(body, /minimum (purchase|order|spend)/i);
-    assert.doesNotMatch(body, /expires?\b/i);
-    assert.doesNotMatch(body, /one per customer|single use|limited time|while supplies last/i);
+    // Stripe not setting a restriction is not a promise to the customer that
+    // none applies. None of these may be asserted.
+    assert.doesNotMatch(body, /no minimum|without minimum|any order size/i);
+    assert.doesNotMatch(body, /unlimited|as many times|no limit/i);
+    assert.doesNotMatch(body, /all products|every product|sitewide|site-wide|everything/i);
+    assert.doesNotMatch(body, /never expires|no expiry|does not expire/i);
     assert.doesNotMatch(body, /cannot be combined|excludes?\b/i);
   }
-  // With terms configured, they are rendered verbatim and nothing is added.
-  const withTerms = built("with-verified-terms");
-  for (const term of firstOrderFixtureByKey("with-verified-terms").offer.verifiedTerms) {
-    assert.ok(withTerms.html.includes(term), `configured term missing from HTML: ${term}`);
-    assert.ok(withTerms.text.includes(term), `configured term missing from text: ${term}`);
+  // What it does say instead, covering exactly those unverified restrictions.
+  assert.match(html, /Eligibility and product restrictions may apply\./);
+  assert.match(text, /Eligibility and product restrictions may apply\./);
+});
+
+test("internal Stripe configuration never reaches the customer", () => {
+  const { subject, preheader, html, text } = built();
+  for (const [label, body] of Object.entries({ subject, preheader, html, text })) {
+    // Redemption history is internal. "1 redemption" is historical usage, not a
+    // limit, and is not the customer's business either way.
+    assert.doesNotMatch(body, /redeemed|redemption/i, `${label} exposes redemption data`);
+    assert.doesNotMatch(body, /times_redeemed|max_redemptions/i, `${label} exposes a Stripe field name`);
+    // Stripe object ids.
+    assert.doesNotMatch(body, /\bpromo_[A-Za-z0-9]/, `${label} exposes a promotion id`);
+    assert.doesNotMatch(body, /\bcoupon_[A-Za-z0-9]|\bcus_[A-Za-z0-9]|\bprod_[A-Za-z0-9]|\bprice_[A-Za-z0-9]/, `${label} exposes a Stripe object id`);
+    assert.doesNotMatch(body, /sk_live|sk_test|STRIPE_/i, `${label} exposes configuration`);
   }
+});
+
+test("Stripe's \"duration: once\" is rendered as order scope, never as a global redemption cap", () => {
+  const { html, text } = built();
+  for (const body of [html, text]) {
+    assert.ok(body.includes("ONE ELIGIBLE ORDER") || body.includes("one eligible order"));
+    // "Once" describes the discount applying once when redeemed — it does not
+    // mean only one person may ever use the code.
+    assert.doesNotMatch(body, /only one customer|first \d+ customers|one use only|single use/i);
+    assert.doesNotMatch(body, /while (it lasts|supplies last)|limited time|hurry/i);
+  }
+});
+
+test("an unverified or missing field is dropped, never upgraded into a stronger claim", () => {
+  const { firstOrderWelcomeEmail: render } = { firstOrderWelcomeEmail };
+  // Expiry unknown: the line disappears rather than becoming "never expires".
+  const noExpiry = render({ email: "x@example.com", offer: { ...VERIFIED_OFFER, expiration: null } });
+  assert.doesNotMatch(noExpiry.html, /NO LISTED EXPIRATION/);
+  assert.doesNotMatch(noExpiry.html, /never expires|no expiry|does not expire/i);
+  assert.doesNotMatch(noExpiry.text, /NO LISTED EXPIRATION/);
+
+  // Disclaimer removed: nothing takes its place.
+  const noDisclaimer = render({ email: "x@example.com", offer: { ...VERIFIED_OFFER, disclaimer: null } });
+  assert.doesNotMatch(noDisclaimer.html, /Eligibility and product restrictions/);
+  assert.doesNotMatch(noDisclaimer.html, /no restrictions|no exclusions/i);
+
+  // And a half-configured entry produces NO offer at all rather than a vaguer one.
+  assert.match(noExpiry.html, /CODE: WELCOME15/, "the verified parts still render");
 });
 
 test("the discount shown is the one it was handed, never a hardcoded figure", () => {
-  const { html } = firstOrderWelcomeEmail({ email: "x@example.com", offer: { code: "TESTCODE", label: "$25 off", verifiedTerms: [] } });
+  const { html, preheader } = firstOrderWelcomeEmail({
+    email: "x@example.com",
+    offer: { ...VERIFIED_OFFER, code: "TESTCODE", label: "$25 off", offerLine: "Use code TESTCODE for $25 off one eligible order.", disclaimer: null },
+  });
   assert.match(html, /\$25 OFF/);
   assert.match(html, /CODE: TESTCODE/);
   assert.doesNotMatch(html, /15% ?off/i);
+  // Including the preview text, which is derived from the offer rather than
+  // hardcoded — otherwise it would keep naming a code the email no longer has.
+  assert.equal(preheader, "Your TESTCODE offer is inside.");
   assert.doesNotMatch(html, /WELCOME15/);
 });
 
@@ -468,7 +532,15 @@ test("a one-click unsubscribe POST is honoured with a plain 200, and a forged to
 test("a hostile address or code cannot break out of the markup", () => {
   const { html } = firstOrderWelcomeEmail({
     email: `"><script>alert('x')</script>@example.com`,
-    offer: { code: `<img src=x onerror=alert(1)>`, label: `"><b>50% off`, verifiedTerms: [`</td><script>bad()</script>`] },
+    offer: {
+      ...VERIFIED_OFFER,
+      code: `<img src=x onerror=alert(1)>`,
+      label: `"><b>50% off`,
+      appliesTo: `</td><script>bad()</script>`,
+      expiration: `"><i>forever`,
+      offerLine: `<script>steal()</script>`,
+      disclaimer: `</td><script>bad()</script>`,
+    },
   });
   // The payloads survive as inert TEXT — "onerror=" and "alert(" appear only
   // inside escaped entities, which is correct. What must never appear is an
@@ -509,4 +581,67 @@ test("the popup form requires an unchecked-by-default consent box and blocks dou
   // The response is read for success only — never for subscription status.
   assert.match(popup, /as \{ ok\?: boolean \}/);
   assert.doesNotMatch(popup, /result\.status/);
+});
+
+// --- the shared email-brand refactor changed nothing it touched --------------
+
+test("all three customer emails still render and share one brand shell", async () => {
+  const { renderOrderConfirmationEmail } = await import("../lib/order-confirmation-email.ts");
+  const { wynnEditWelcomeEmail } = await import("../lib/wynn-edit-email.ts");
+  const { orderEmailFixtures } = await import("../lib/order-confirmation-fixtures.ts");
+
+  const order = renderOrderConfirmationEmail(orderEmailFixtures[0].order);
+  const edit = wynnEditWelcomeEmail({ email: "reader@example.com" });
+  const welcome = built();
+
+  for (const [name, message] of Object.entries({ order, edit, welcome })) {
+    assert.ok(message.subject && message.subject.length > 8, `${name}: no subject`);
+    assert.match(message.html, /^<!doctype html>/i, `${name}: not a complete document`);
+    assert.ok(message.text && message.text.length > 400, `${name}: no plain-text alternative`);
+    // The shared foundation: one logo asset, one mailing address, one 600px shell.
+    assert.ok(message.html.includes("/email/wynn-essentials-logo.png"), `${name}: not using the shared logo`);
+    assert.match(message.html, /Wynn Essentials, LLC · 3680 Wilshire Blvd\., Ste P04 A118, Los Angeles, CA 90010/, `${name}: no mailing address`);
+    assert.match(message.html, /width="600"/, `${name}: not the 600px shell`);
+    assert.match(message.html, /@media only screen and \(max-width:620px\)/, `${name}: no mobile rules`);
+    assert.doesNotMatch(message.html, /localhost|127\.0\.0\.1|\.vercel\.app/i, `${name}: non-production URL`);
+  }
+
+  // The two marketing messages carry an opt-out; the transactional one does not
+  // pretend to be marketing.
+  assert.match(edit.html, /Unsubscribe/);
+  assert.match(welcome.html, /Unsubscribe/);
+  assert.match(order.html, /transactional message about your purchase/);
+});
+
+// --- the abandoned-cart reminder is untouched apart from the offer gate ------
+
+test("the abandoned-cart reminder keeps its content, eligibility, timing and sending behaviour", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const cron = await readFile(new URL("../app/api/cron/abandoned-carts/route.ts", import.meta.url), "utf8");
+
+  // Timing: unchanged.
+  assert.match(cron, /const ABANDON_AFTER_MS = 60 \* 60 \* 1000;/);
+  assert.match(cron, /const MAX_WINDOW_MS = 30 \* 24 \* 60 \* 60 \* 1000;/);
+  // Eligibility: still only "pending" carts inside the window, still skipping
+  // anyone who has since paid, still one reminder per cart.
+  assert.match(cron, /eq\(abandonedCarts\.status, "pending"\), lt\(abandonedCarts\.updatedAt, cutoff\), gt\(abandonedCarts\.updatedAt, floor\)/);
+  assert.match(cron, /eq\(orders\.customerEmail, cart\.email\), eq\(orders\.status, "paid"\)/);
+  assert.match(cron, /set\(\{ status: "recovered"/);
+  assert.match(cron, /set\(\{ status: "emailed", emailedAt: new Date\(\)/);
+  // Sending: still the same one call, still marked emailed regardless of outcome.
+  assert.match(cron, /const sent = await notifyAbandonedCart\(\{/);
+  assert.match(cron, /Mark emailed regardless so a send failure isn't retried forever\./);
+  // Authorization: unchanged.
+  assert.match(cron, /if \(!process\.env\.CRON_SECRET\) return NextResponse\.json\(\{ error: "CRON_SECRET is not set\." \}, \{ status: 503 \}\);/);
+
+  // THE ONLY BEHAVIOURAL CHANGE: the promo mention is gated on a live offer,
+  // and its wording no longer claims first-order eligibility.
+  assert.match(cron, /const offer = firstOrderOffer\(\);/);
+  assert.match(cron, /promoCode: offer\?\.code \?\? null/);
+  assert.match(cron, /promoLabel: offer\?\.label \?\? null/);
+
+  const notify = await readFile(new URL("../lib/notify.ts", import.meta.url), "utf8");
+  const body = notify.slice(notify.indexOf("export async function notifyAbandonedCart"));
+  assert.match(body, /on one eligible order/, "the reminder no longer says 'your first order'");
+  assert.doesNotMatch(body.slice(0, body.indexOf("export async function notifyCustomerRestock")), /first order|first-time/i);
 });

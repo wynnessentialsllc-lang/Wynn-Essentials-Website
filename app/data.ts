@@ -169,18 +169,42 @@ export const brandConfig = {
   firstOrder: {
     code: "WELCOME15",
     discountLabel: "15% off",
-    headline: "15% off your first order",
-    // Terms CONFIRMED against the live Stripe promotion, shown verbatim in the
-    // welcome email and nowhere else. Deliberately empty: the application
-    // cannot read Stripe's eligibility rules, exclusions, minimum purchase,
-    // expiry or redemption limits, and an unconfirmed term must never be
-    // printed as if it were policy.
+    // Says only what Stripe was confirmed to enforce. NOT "your first order":
+    // the coupon is *named* "First order 15% off", but a name is not a rule,
+    // and no first-time-transaction restriction has been verified.
+    headline: "15% off one eligible order",
+    // Terms CONFIRMED against the live Stripe Dashboard, and the only offer
+    // claims any customer-facing surface is allowed to make.
     //
-    // To populate: run `npm run stripe:check`, which prints the live
-    // promotion's real restrictions, then paste the ones worth telling her
-    // about — e.g. "First-time customers only.", "Expires 31 December 2026."
-    // The email renders each entry as its own line and shows none of this
-    // block when the list is empty.
-    verifiedTerms: [] as readonly string[],
+    // Verified 2026-08-13 from the live Dashboard:
+    //   promotion code WELCOME15 exists · coupon valid · 15% off ·
+    //   duration "once" · no expiration shown · 1 historical redemption
+    //
+    // NOT verified, and therefore never claimed in either direction — we say
+    // neither that these restrictions exist nor that they don't:
+    //   first-time-customer restriction · minimum order amount ·
+    //   maximum total redemptions · customer restriction · product restrictions
+    //
+    // Two readings that would be wrong, spelled out so they are not made again:
+    //   * duration "once" means the discount applies once when redeemed. It is
+    //     NOT a cap of one redemption across all customers.
+    //   * "1 redemption" is historical usage. It is NOT a maximum. It is also
+    //     internal, and never appears in a customer-facing surface.
+    //
+    // Re-verify with `npm run stripe:check` before changing any line below.
+    verifiedTerms: {
+      verifiedOn: "2026-08-13",
+      // What the discount is, and what Stripe's "once" duration actually licenses
+      // us to say about its scope.
+      appliesTo: "ONE ELIGIBLE ORDER",
+      // Confirmed absent from the Dashboard today. Stripe can still deactivate
+      // or change the promotion later, which is why the sender re-resolves the
+      // offer on every send rather than trusting this at runtime.
+      expiration: "NO LISTED EXPIRATION",
+      offerLine: "Use code WELCOME15 for 15% off one eligible order. No listed expiration.",
+      // Covers the restrictions that were not verifiable, without asserting
+      // that any of them apply.
+      disclaimer: "Eligibility and product restrictions may apply. Enter WELCOME15 at checkout to confirm your order qualifies.",
+    },
   },
 };

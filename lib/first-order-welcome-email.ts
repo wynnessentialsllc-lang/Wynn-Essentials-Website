@@ -8,10 +8,16 @@
 // (unsubscribe + mailing address), because unlike the order confirmation this
 // is commercial mail she asked for and can leave.
 //
-// THE OFFER IS NEVER INVENTED. This module renders the code and the discount
-// label it is handed, plus any terms a human confirmed against Stripe and
-// recorded in app/data.ts. It states no eligibility rule, exclusion, minimum,
-// expiry or redemption limit of its own — see lib/first-order-offer.ts.
+// THE OFFER IS NEVER INVENTED. This module renders only the verified fields it
+// is handed by lib/first-order-offer.ts: the discount, the scope, the code, the
+// expiry wording, and a disclaimer. It states no eligibility rule, exclusion,
+// minimum purchase, or redemption limit of its own, and it never implies
+// first-order eligibility — the Stripe coupon is *named* "First order 15% off",
+// but no first-time-transaction restriction has been verified, and a coupon
+// name is not a rule.
+//
+// Nothing internal reaches the recipient: no coupon id, no promotion id, no
+// redemption count.
 
 import { unsubscribeUrl } from "./unsubscribe";
 import type { FirstOrderOffer } from "./first-order-offer";
@@ -20,8 +26,14 @@ import {
   button, emailUrl, esc, eyebrow, heading, paragraph,
 } from "./email-brand";
 
-export const FIRST_ORDER_SUBJECT = "A little something for your first Wynn Essentials order";
-export const FIRST_ORDER_PREHEADER = "Welcome in. Your first-order offer is inside.";
+// Neither the subject nor the preview may imply first-order eligibility: no
+// first-time-customer restriction has been verified in Stripe.
+export const FIRST_ORDER_SUBJECT = "A little something from Wynn Essentials";
+
+// Derived from the offer rather than hardcoded, so the preview text cannot keep
+// naming a code the email no longer carries. For the live WELCOME15 offer this
+// renders exactly "Your WELCOME15 offer is inside."
+export const firstOrderPreheader = (offer: FirstOrderOffer) => `Your ${offer.code} offer is inside.`;
 
 // The storefront's own campaign photography, already email-safe (JPEG/PNG).
 const HERO = {
@@ -37,19 +49,22 @@ const METHOD_STEPS = ["Cleanse", "Condition", "Treat", "Moisturize", "Seal", "St
  * inbox most likely to be reading a code off a screen.
  */
 function offerCard(offer: FirstOrderOffer): string {
-  const terms = offer.verifiedTerms.length
-    ? offer.verifiedTerms
-        .map(term => `<p style="margin:6px 0 0;font-family:${BRAND.sans};font-size:12px;line-height:18px;color:${BRAND.muted}">${esc(term)}</p>`)
-        .join("")
-    // No confirmed terms to show. This says only what is true of the checkout
-    // itself — it is not a term, and it invents nothing.
-    : `<p style="margin:6px 0 0;font-family:${BRAND.sans};font-size:12px;line-height:18px;color:${BRAND.muted}">Enter the code at checkout. Your order summary confirms the discount before you pay.</p>`;
+  // Only verified facts reach this card: the discount, the scope Stripe's
+  // "once" duration licenses, the code, and the absence of a listed expiry.
+  // Redemption counts, coupon ids and promotion ids are internal and never
+  // appear here or anywhere else a customer can see.
+  const expiry = offer.expiration
+    ? `<p style="margin:14px 0 0;font-family:${BRAND.sans};font-size:11px;line-height:16px;letter-spacing:.18em;text-transform:uppercase;font-weight:bold;color:${BRAND.muted}">${esc(offer.expiration)}</p>`
+    : "";
+  const disclaimer = offer.disclaimer
+    ? `<p style="margin:14px 0 0;font-family:${BRAND.sans};font-size:12px;line-height:18px;color:${BRAND.muted}">${esc(offer.disclaimer)}</p>`
+    : "";
 
   return `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background-color:${BRAND.white};border:2px solid ${BRAND.black}">
     <tr>
       <td align="center" style="padding:30px 24px 28px;text-align:center">
         <p style="margin:0;font-family:${BRAND.serif};font-size:52px;line-height:1;letter-spacing:-.02em;color:${BRAND.black}">${esc(offer.label.toUpperCase())}</p>
-        <p style="margin:12px 0 0;font-family:${BRAND.sans};font-size:11px;line-height:16px;letter-spacing:.18em;text-transform:uppercase;font-weight:bold;color:${BRAND.muted}">Your first eligible order</p>
+        <p style="margin:12px 0 0;font-family:${BRAND.sans};font-size:11px;line-height:16px;letter-spacing:.18em;text-transform:uppercase;font-weight:bold;color:${BRAND.muted}">${esc(offer.appliesTo)}</p>
         <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="border-collapse:collapse;margin:22px auto 0">
           <tr>
             <td bgcolor="${BRAND.pink}" style="background-color:${BRAND.pink};padding:14px 26px;text-align:center">
@@ -57,7 +72,8 @@ function offerCard(offer: FirstOrderOffer): string {
             </td>
           </tr>
         </table>
-        ${terms}
+        ${expiry}
+        ${disclaimer}
       </td>
     </tr>
   </table>`;
@@ -71,6 +87,7 @@ function offerCard(offer: FirstOrderOffer): string {
  * no placeholder that can ship empty.
  */
 export function firstOrderWelcomeEmail({ email, offer }: { email: string; offer: FirstOrderOffer }): { subject: string; preheader: string; html: string; text: string } {
+  const preheader = firstOrderPreheader(offer);
   const shopUrl = emailUrl("/#shop");
   const methodUrl = emailUrl("/#the-wynn-method");
   const optOut = unsubscribeUrl(email);
@@ -89,7 +106,7 @@ export function firstOrderWelcomeEmail({ email, offer }: { email: string; offer:
 <style>${RESPONSIVE_STYLE}</style>
 </head>
 <body style="margin:0;padding:0;background-color:${BRAND.cream};">
-<div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all">${esc(FIRST_ORDER_PREHEADER)}</div>
+<div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all">${esc(preheader)}</div>
 <div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all">&#8199;&#847;&zwnj;&nbsp;&#8199;&#847;&zwnj;&nbsp;&#8199;&#847;&zwnj;&nbsp;&#8199;&#847;&zwnj;&nbsp;&#8199;&#847;&zwnj;&nbsp;&#8199;&#847;&zwnj;&nbsp;</div>
 <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background-color:${BRAND.cream}">
   <tr>
@@ -107,11 +124,11 @@ export function firstOrderWelcomeEmail({ email, offer }: { email: string; offer:
         <tr>
           <td class="px" bgcolor="${BRAND.sky}" style="background-color:${BRAND.sky};padding:34px 34px 38px">
             ${eyebrow("WELCOME TO WYNN ESSENTIALS")}
-            ${heading("Your practice<br>starts here.", 44)}
+            ${heading("Welcome in.", 44)}
             <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:20px">
               <tr><td width="216" height="9" bgcolor="${BRAND.pink}" style="width:216px;height:9px;background-color:${BRAND.pink};font-size:0;line-height:9px">&nbsp;</td></tr>
             </table>
-            ${paragraph(`Thank you for joining us. Use code <strong>${esc(offer.code)}</strong> to receive ${esc(offer.label)} your first eligible Wynn Essentials order.`, "margin-top:24px")}
+            ${paragraph(`Thank you for joining us. ${esc(offer.offerLine)}`, "margin-top:24px")}
           </td>
         </tr>
 
@@ -175,21 +192,18 @@ export function firstOrderWelcomeEmail({ email, offer }: { email: string; offer:
 </body>
 </html>`;
 
-  const termLines = offer.verifiedTerms.length
-    ? offer.verifiedTerms.map(term => `  ${term}`)
-    : ["  Enter the code at checkout. Your order summary confirms the discount before you pay."];
-
   const text = [
     "WELCOME TO WYNN ESSENTIALS",
     "",
-    "YOUR PRACTICE STARTS HERE.",
+    "WELCOME IN.",
     "",
-    `Thank you for joining us. Use code ${offer.code} to receive ${offer.label} your first eligible Wynn Essentials order.`,
+    `Thank you for joining us. ${offer.offerLine}`,
     "",
     "----------------------------------------",
-    `${offer.label.toUpperCase()} — YOUR FIRST ELIGIBLE ORDER`,
+    `${offer.label.toUpperCase()} — ${offer.appliesTo}`,
     `CODE: ${offer.code}`,
-    ...termLines,
+    ...(offer.expiration ? [offer.expiration] : []),
+    ...(offer.disclaimer ? ["", offer.disclaimer] : []),
     "",
     `Shop the essentials: ${shopUrl}`,
     "",
@@ -217,5 +231,5 @@ export function firstOrderWelcomeEmail({ email, offer }: { email: string; offer:
     "",
   ].join("\n");
 
-  return { subject: FIRST_ORDER_SUBJECT, preheader: FIRST_ORDER_PREHEADER, html, text };
+  return { subject: FIRST_ORDER_SUBJECT, preheader, html, text };
 }
