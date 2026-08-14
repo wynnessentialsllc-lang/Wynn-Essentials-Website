@@ -5,6 +5,7 @@ import { orders } from "../../../../db/schema";
 import { commerceConfig } from "../../../../lib/commerce-config";
 import { educationFor } from "../../../../lib/product-education";
 import { notifyProductEducation } from "../../../../lib/notify";
+import { envDays } from "../../../../lib/cron-timing";
 
 // Scheduled by Vercel Cron (see vercel.json). Sends each paid order one
 // education email — what every product in it is, what it does, and when to
@@ -17,21 +18,32 @@ export const dynamic = "force-dynamic";
 // Nothing in this system knows when a parcel was delivered: /admin/orders
 // records a tracking number and a shipped date, and lib/carrier-tracking.ts
 // only builds a link out of them — no carrier is ever polled for a delivery
-// event. So delivery is estimated, and the estimate is deliberately generous:
-// an email that lands a day late reads as thoughtful, one that lands while the
-// parcel is still in transit reads as automated.
+// event. So delivery is estimated, and the estimate is read off the promise we
+// already make at checkout rather than guessed at.
 //
-//   SHIPPED     five days after it shipped — roughly three days of domestic
-//               transit, plus the day or two of having it before it is useful
-//               to be told what it is.
-//   NOT SHIPPED ten days after the order, for orders that never get marked
-//               shipped in the admin.
+// The Stripe shipping rates (scripts/setup-stripe.mjs) advertise 3–7 BUSINESS
+// days for standard and free shipping. Business days are the trap: seven of
+// them is nine to eleven calendar days depending on which day of the week the
+// parcel goes out, and these constants are counted in calendar days.
 //
-// Both land before the review request (7 days after shipping, 14 after the
-// order), which is the right order: learn what you bought, then be asked what
-// you thought of it.
-const AFTER_SHIP_MS = 5 * 24 * 60 * 60 * 1000;
-const AFTER_ORDER_MS = 10 * 24 * 60 * 60 * 1000;
+//   SHIPPED     nine days. A typical five-business-day delivery is about seven
+//               calendar days, so this lands roughly two days after it arrives,
+//               and still inside the advertised window for almost everyone.
+//   NOT SHIPPED twelve days after the order, for orders that never get marked
+//               shipped in the admin — the same arithmetic with a couple of
+//               days of handling in front of it.
+//
+// Erring late is deliberate: an email that lands a day after she opened the box
+// reads as thoughtful, one that lands while the box is still on a truck reads
+// as automated. Both stay ahead of the review request (16 days after shipping,
+// 21 after the order), which is the order that makes sense — learn what you
+// bought, use it for a week, then be asked what you thought.
+//
+// Both are overridable from the environment so the numbers can be tuned against
+// real delivery times without a code change. A missing, unparseable, or
+// negative value falls back to the default rather than sending immediately.
+const AFTER_SHIP_MS = envDays("EDUCATION_AFTER_SHIP_DAYS", 9);
+const AFTER_ORDER_MS = envDays("EDUCATION_AFTER_ORDER_DAYS", 12);
 const BATCH = 50;
 
 function authorized(request: Request): boolean {
