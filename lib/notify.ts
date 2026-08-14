@@ -6,15 +6,18 @@
 // Configuration (all read from the environment, so no secret is ever in code):
 //   RESEND_API_KEY  - required to actually send. Without it, sends are skipped.
 //   NOTIFY_TO       - where owner alerts go. Defaults to the business inbox.
-//   NOTIFY_FROM     - the From address. Until the sending domain is verified in
+//   NOTIFY_FROM     - the From ADDRESS. Until the sending domain is verified in
 //                     Resend, this must stay "onboarding@resend.dev" and can
 //                     only deliver to the Resend account's own email. Once
 //                     wynnessentialsllc.us is verified, set this to something
 //                     like "Wynn Essentials <notifications@wynnessentialsllc.us>".
+//                     Only the address is used: each message supplies its own
+//                     display name (lib/email-sender.ts), so a confirmation and
+//                     a shipping notice are told apart in the inbox without
+//                     needing a second verified address.
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 const DEFAULT_TO = "wynnessentialsllc@gmail.com";
-const DEFAULT_FROM = "Wynn Essentials <onboarding@resend.dev>";
 
 // The Resend API key, read from the environment. RESEND_API_KEY is the standard
 // name; wynnessentials_site is also accepted so the Vercel variable can be named
@@ -30,6 +33,10 @@ import type { FirstOrderOffer } from "./first-order-offer";
 // /admin/orders has always imported trackingUrl from lib/notify.
 import { trackingUrl } from "./carrier-tracking";
 export { trackingUrl };
+// Which name each message arrives under. The address never changes — see
+// lib/email-sender.ts for why only the display name is per-message.
+import { SENDER, fromHeader } from "./email-sender";
+export { SENDER };
 
 // Physical mailing address for the CAN-SPAM footer on every customer email.
 const BUSINESS_ADDRESS = "Wynn Essentials, LLC · 3680 Wilshire Blvd., Ste P04 A118, Los Angeles, CA 90010";
@@ -50,7 +57,20 @@ function esc(value: unknown): string {
 const money = (cents: number | null | undefined, currency = "usd") =>
   cents == null ? "—" : new Intl.NumberFormat("en-US", { style: "currency", currency: currency.toUpperCase() }).format(cents / 100);
 
-export type EmailInput = { to: string; subject: string; html: string; text?: string; replyTo?: string; headers?: Record<string, string> };
+export type EmailInput = {
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
+  replyTo?: string;
+  headers?: Record<string, string>;
+  /**
+   * The sender display name for this message — one of SENDER. Omitted, the
+   * message goes out under whatever NOTIFY_FROM is configured with, which is
+   * what every message did before these existed.
+   */
+  fromName?: string;
+};
 
 /**
  * Outcome of one send attempt.
@@ -65,7 +85,7 @@ export type EmailInput = { to: string; subject: string; html: string; text?: str
 export type EmailResult = { ok: boolean; certainNotSent: boolean };
 
 /** Sends via Resend and reports how it went. Never throws. */
-export async function deliverEmail({ to, subject, html, text, replyTo, headers }: EmailInput): Promise<EmailResult> {
+export async function deliverEmail({ to, subject, html, text, replyTo, headers, fromName }: EmailInput): Promise<EmailResult> {
   const apiKey = resendApiKey();
   if (!apiKey) {
     console.info(`Email skipped: no Resend API key set (${API_KEY_ENV.join(" or ")})`, { subject });
@@ -75,7 +95,7 @@ export async function deliverEmail({ to, subject, html, text, replyTo, headers }
     console.info("Email skipped: no recipient", { subject });
     return { ok: false, certainNotSent: true };
   }
-  const from = process.env.NOTIFY_FROM || DEFAULT_FROM;
+  const from = fromHeader(fromName);
   try {
     const response = await fetch(RESEND_ENDPOINT, {
       method: "POST",
@@ -108,7 +128,7 @@ export async function sendEmail(input: EmailInput): Promise<boolean> {
 
 /** Sends an owner-notification email to NOTIFY_TO (defaults to the business inbox). */
 export function sendOwnerEmail({ subject, html }: { subject: string; html: string }): Promise<boolean> {
-  return sendEmail({ to: process.env.NOTIFY_TO || DEFAULT_TO, subject, html });
+  return sendEmail({ to: process.env.NOTIFY_TO || DEFAULT_TO, subject, html, fromName: SENDER.alerts });
 }
 
 const shell = (heading: string, rows: string) => `
@@ -225,6 +245,7 @@ export async function notifyNewSupportMessage(msg: SupportInfo): Promise<boolean
     subject: `New ${msg.topic} message — ${msg.name}`,
     html,
     replyTo: msg.email,
+    fromName: SENDER.alerts,
   });
 }
 
@@ -255,7 +276,7 @@ const customerShell = (heading: string, intro: string, body: string, opts: { uns
 export async function notifyCustomerOrderConfirmation(order: OrderEmailData & OrderInfo): Promise<boolean> {
   if (!order.customerEmail) return false;
   const { subject, html, text } = renderOrderConfirmationEmail(order);
-  return sendEmail({ to: order.customerEmail, subject, html, text });
+  return sendEmail({ to: order.customerEmail, subject, html, text, fromName: SENDER.confirmation });
 }
 
 /**
@@ -275,6 +296,7 @@ export async function notifySubscriberWelcome({ email, productName }: { email: s
       to: email,
       subject: `You're on the waitlist — ${productName}`,
       html: customerShell("You're on the list!", `Thanks for your interest in ${esc(productName)}.`, body),
+      fromName: SENDER.welcome,
     });
   }
   // Plain newsletter signup: the branded Wynn Edit welcome owns this copy.
@@ -308,6 +330,7 @@ export async function notifyFirstOrderWelcome({ email, offer }: { email: string;
     html,
     text,
     replyTo: DEFAULT_TO,
+    fromName: SENDER.welcome,
     headers: listUnsubscribeHeaders(email, { oneClick: true }),
   });
 }
@@ -339,6 +362,7 @@ export async function notifyWynnEditWelcome({ email }: { email: string }): Promi
     html,
     text,
     replyTo: DEFAULT_TO,
+    fromName: SENDER.welcome,
     headers: listUnsubscribeHeaders(email, { oneClick: true }),
   });
 }
@@ -366,6 +390,7 @@ export async function notifyAbandonedCart({ email, items, subtotal, promoCode, p
     to: email,
     subject: "You left something in your bag",
     html: customerShell("Your bag is waiting", "Your hair-care picks are still here whenever you're ready.", body, { unsubscribeEmail: email }),
+    fromName: SENDER.bag,
     headers: listUnsubscribeHeaders(email),
   });
 }
@@ -379,6 +404,7 @@ export async function notifyCustomerRestock({ email, productName, productUrl }: 
     to: email,
     subject: `${productName} is back in stock`,
     html: customerShell("It's back!", "Good news — the product you were waiting for is available again.", body),
+    fromName: SENDER.restock,
   });
 }
 
@@ -403,6 +429,7 @@ export async function notifyCustomerShipped(order: ShippedInfo): Promise<boolean
     to: order.customerEmail,
     subject: `Your Wynn Essentials order has shipped${order.orderReference ? ` — ${order.orderReference}` : ""}`,
     html: customerShell("Your order is on its way!", `Hi ${esc(firstName)}, good news — your order has shipped.`, body),
+    fromName: SENDER.shipping,
   });
 }
 
@@ -430,6 +457,7 @@ export async function notifyProductEducation(input: EducationEmailInput): Promis
     html,
     text,
     replyTo: DEFAULT_TO,
+    fromName: SENDER.care,
     ...(canSignUnsubscribe() ? { headers: listUnsubscribeHeaders(input.email) } : {}),
   });
 }
@@ -452,6 +480,7 @@ export async function notifyReviewRequest({ email, customerName, orderReference,
     to: email,
     subject: "How are you loving your Wynn Essentials?",
     html: customerShell("How&rsquo;s your hair loving it?", `Hi ${esc(firstName)}, it&rsquo;s been a little while since your order arrived — we&rsquo;d love to hear how it&rsquo;s working for you.`, body, { unsubscribeEmail: email }),
+    fromName: SENDER.review,
     headers: listUnsubscribeHeaders(email),
   });
 }
