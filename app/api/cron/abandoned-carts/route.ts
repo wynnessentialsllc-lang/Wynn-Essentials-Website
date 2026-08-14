@@ -15,7 +15,9 @@ const ABANDON_AFTER_MS = 60 * 60 * 1000;        // wait 1h before reminding
 const MAX_WINDOW_MS = 30 * 24 * 60 * 60 * 1000; // ignore carts older than 30d
 const BATCH = 200;
 
-type CartItem = { name?: string | null; quantity?: number | null; price?: number | null };
+// Shape written by /api/abandoned, which enriches the raw {slug, quantity}
+// lines from the catalog. `slug` is what finds the product photograph.
+type CartItem = { slug?: string | null; name?: string | null; quantity?: number | null; price?: number | null };
 
 function authorized(request: Request): boolean {
   const secret = process.env.CRON_SECRET;

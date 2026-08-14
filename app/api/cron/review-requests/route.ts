@@ -45,15 +45,15 @@ function authorized(request: Request): boolean {
 
 // Reduce an order's stored line items to the unique catalog products it can
 // review, with a friendly name and a link to that product's review form.
-function reviewable(items: OrderItem[]): { name: string; url: string }[] {
+function reviewable(items: OrderItem[]): { name: string; url: string; slug: string }[] {
   const seen = new Set<string>();
-  const out: { name: string; url: string }[] = [];
+  const out: { name: string; url: string; slug: string }[] = [];
   for (const item of items) {
     const product = products.find(p => p.stripeProductId && p.stripeProductId === item.productId);
     const slug = product?.slug;
     if (!slug || seen.has(slug)) continue;
     seen.add(slug);
-    out.push({ name: product?.name ?? item.name ?? "your order", url: `${commerceConfig.siteUrl}/#product-${slug}` });
+    out.push({ name: product?.name ?? item.name ?? "your order", url: `${commerceConfig.siteUrl}/products/${slug}`, slug });
   }
   return out;
 }

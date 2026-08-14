@@ -22,7 +22,7 @@ const DEFAULT_TO = "wynnessentialsllc@gmail.com";
 // The Resend API key, read from the environment. RESEND_API_KEY is the standard
 // name; wynnessentials_site is also accepted so the Vercel variable can be named
 // either way. First match wins.
-import { unsubscribeUrl, listUnsubscribeHeaders, canSignUnsubscribe } from "./unsubscribe";
+import { listUnsubscribeHeaders, canSignUnsubscribe } from "./unsubscribe";
 import { renderOrderConfirmationEmail, type OrderEmailData } from "./order-confirmation-email";
 import { wynnEditWelcomeEmail } from "./wynn-edit-email";
 import { firstOrderWelcomeEmail } from "./first-order-welcome-email";
@@ -37,9 +37,15 @@ export { trackingUrl };
 // lib/email-sender.ts for why only the display name is per-message.
 import { SENDER, fromHeader } from "./email-sender";
 export { SENDER };
+// The branded shell the shorter customer emails share with the receipt, the
+// welcomes, and the education email. Nothing customer-facing renders on the
+// plain block below any more — see lib/customer-email.ts.
+import { customerEmail, productLine, totalLine, detailRows, noteCard, mailableImage } from "./customer-email";
+import { BRAND, button, emailUrl } from "./email-brand";
 
-// Physical mailing address for the CAN-SPAM footer on every customer email.
-const BUSINESS_ADDRESS = "Wynn Essentials, LLC · 3680 Wilshire Blvd., Ste P04 A118, Los Angeles, CA 90010";
+// The mailing address and the opt-out link now live with the shells that render
+// them — lib/email-brand.ts and lib/customer-email.ts — so there is no second
+// copy here to drift out of step.
 
 const API_KEY_ENV = ["RESEND_API_KEY", "wynnessentials_site"];
 const resendApiKey = () => API_KEY_ENV.map(name => process.env[name]).find(Boolean);
@@ -255,18 +261,6 @@ export async function notifyNewSupportMessage(msg: SupportInfo): Promise<boolean
 // Like everything here, they are best-effort and never throw.
 // ---------------------------------------------------------------------------
 
-const customerShell = (heading: string, intro: string, body: string, opts: { unsubscribeEmail?: string | null } = {}) => `
-  <div style="font-family:Arial,Helvetica,sans-serif;color:#111;max-width:560px;margin:0 auto;padding:8px 0">
-    <p style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#b39067;font-weight:700;margin:0 0 6px">Wynn Essentials</p>
-    <h1 style="font-family:Georgia,serif;font-weight:400;font-size:28px;margin:0 0 14px">${heading}</h1>
-    <p style="font-size:15px;line-height:1.6;margin:0 0 20px">${intro}</p>
-    ${body}
-    <p style="font-size:13px;color:#6d675f;line-height:1.6;margin:26px 0 0">Questions? Just reply to this email or reach us at <a href="mailto:wynnessentialsllc@gmail.com" style="color:#b39067">wynnessentialsllc@gmail.com</a>.</p>
-    <p style="font-size:12px;color:#a98f72;margin:22px 0 0">Wynn Essentials · Healthy hair is a practice.</p>
-    <p style="font-size:11px;color:#9a938a;line-height:1.6;margin:10px 0 0">${BUSINESS_ADDRESS}</p>
-    ${opts.unsubscribeEmail ? `<p style="font-size:11px;color:#9a938a;line-height:1.6;margin:6px 0 0">You're receiving this because you subscribed to Wynn Essentials emails. <a href="${unsubscribeUrl(opts.unsubscribeEmail)}" style="color:#846743">Unsubscribe</a> at any time.</p>` : ""}
-  </div>`;
-
 /**
  * Order confirmation sent to the customer right after payment. The design lives
  * in lib/order-confirmation-email.ts; this function stays the single sending
@@ -291,13 +285,17 @@ export async function notifyCustomerOrderConfirmation(order: OrderEmailData & Or
 export async function notifySubscriberWelcome({ email, productName }: { email: string; productName?: string | null }): Promise<boolean> {
   if (!email) return false;
   if (productName) {
-    const body = `<p style="font-size:15px;line-height:1.6;margin:0">We'll email you the moment <strong>${esc(productName)}</strong> is back in stock. No need to check back — we've got you.</p>`;
-    return sendEmail({
-      to: email,
+    const message = customerEmail({
       subject: `You're on the waitlist — ${productName}`,
-      html: customerShell("You're on the list!", `Thanks for your interest in ${esc(productName)}.`, body),
-      fromName: SENDER.welcome,
+      preheader: `We'll email you the moment ${productName} is back.`,
+      eyebrow: "YOU'RE ON THE LIST",
+      heading: "We&rsquo;ll tell you<br>the moment it&rsquo;s back.",
+      intro: `Thanks for your interest in <strong>${esc(productName)}</strong>.`,
+      bodyHtml: noteCard(`We&rsquo;ll email you once &mdash; as soon as <strong>${esc(productName)}</strong> is back in stock. No need to check back, and nothing else is added to your inbox.`),
+      cta: { label: "Browse the essentials", url: emailUrl("/#shop") },
+      text: `We'll email you once — as soon as ${productName} is back in stock. No need to check back, and nothing else is added to your inbox.`,
     });
+    return sendEmail({ to: email, subject: message.subject, html: message.html, text: message.text, fromName: SENDER.welcome });
   }
   // Plain newsletter signup: the branded Wynn Edit welcome owns this copy.
   return (await notifyWynnEditWelcome({ email })).ok;
@@ -370,26 +368,42 @@ export async function notifyWynnEditWelcome({ email }: { email: string }): Promi
 /** Abandoned-cart reminder: the items left behind + a link back to the shop. */
 export async function notifyAbandonedCart({ email, items, subtotal, promoCode, promoLabel }: {
   email: string;
-  items: { name?: string | null; quantity?: number | null; price?: number | null }[];
+  /** `slug` is stored alongside the name by /api/abandoned, and is what finds the photograph. */
+  items: { slug?: string | null; name?: string | null; quantity?: number | null; price?: number | null }[];
   subtotal?: number | null;
   promoCode?: string | null;
   promoLabel?: string | null;
 }): Promise<boolean> {
   if (!email || !items?.length) return false;
-  const rows = items
-    .map(i => `<tr><td style="padding:8px 0;border-bottom:1px solid #ece6dd">${esc(i.name ?? "Item")} × ${esc(i.quantity ?? 1)}</td><td style="padding:8px 0;border-bottom:1px solid #ece6dd;text-align:right;font-weight:600">${i.price == null ? "" : money(Math.round(i.price * 100))}</td></tr>`)
-    .join("");
-  const codeLine = promoCode
-    ? `<p style="font-size:14px;margin:18px 0 0">Still deciding? Use <strong>${esc(promoCode)}</strong> for ${esc(promoLabel || "a discount")} on one eligible order. Offer availability is confirmed at checkout.</p>`
+  const lines = items.map(i => productLine({
+    name: i.name ?? "Item",
+    meta: `Qty ${i.quantity ?? 1}`,
+    amount: i.price == null ? null : money(Math.round(i.price * 100)),
+    image: mailableImage(i.slug),
+  })).join("");
+  const code = promoCode
+    ? noteCard(`Still deciding? Use <strong>${esc(promoCode)}</strong> for ${esc(promoLabel || "a discount")} on one eligible order. Offer availability is confirmed at checkout.`)
     : "";
-  const body = `<table style="width:100%;border-collapse:collapse;font-size:14px">${rows}</table>
-    ${subtotal != null ? `<p style="text-align:right;font-weight:700;margin:10px 0 0">Subtotal: ${money(subtotal)}</p>` : ""}
-    ${codeLine}
-    <p style="margin:22px 0 0"><a href="https://wynnessentialsllc.us/#shop" style="display:inline-block;background:#c8aa82;color:#111;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.06em;padding:14px 22px">RETURN TO YOUR BAG</a></p>`;
+  const message = customerEmail({
+    subject: "You left something in your bag",
+    preheader: "Your picks are still here whenever you're ready.",
+    eyebrow: "YOUR BAG IS WAITING",
+    heading: "Still here,<br>whenever you are.",
+    intro: "Nothing has moved &mdash; your hair-care picks are exactly where you left them.",
+    bodyHtml: `${lines}${subtotal != null ? totalLine("Subtotal", money(subtotal)) : ""}${code ? `<div style="margin-top:26px">${code}</div>` : ""}`,
+    cta: { label: "Return to your bag", url: emailUrl("/#shop") },
+    unsubscribeEmail: email,
+    text: [
+      ...items.map(i => `  · ${i.name ?? "Item"} × ${i.quantity ?? 1}${i.price == null ? "" : ` — ${money(Math.round(i.price * 100))}`}`),
+      ...(subtotal != null ? ["", `Subtotal: ${money(subtotal)}`] : []),
+      ...(promoCode ? ["", `Still deciding? Use ${promoCode} for ${promoLabel || "a discount"} on one eligible order. Offer availability is confirmed at checkout.`] : []),
+    ].join("\n"),
+  });
   return sendEmail({
     to: email,
-    subject: "You left something in your bag",
-    html: customerShell("Your bag is waiting", "Your hair-care picks are still here whenever you're ready.", body, { unsubscribeEmail: email }),
+    subject: message.subject,
+    html: message.html,
+    text: message.text,
     fromName: SENDER.bag,
     headers: listUnsubscribeHeaders(email),
   });
@@ -398,14 +412,18 @@ export async function notifyAbandonedCart({ email, items, subtotal, promoCode, p
 /** "Back in stock" email for a customer who joined a product's restock waitlist. */
 export async function notifyCustomerRestock({ email, productName, productUrl }: { email: string; productName: string; productUrl: string }): Promise<boolean> {
   if (!email) return false;
-  const body = `<p style="font-size:15px;line-height:1.6;margin:0"><strong>${esc(productName)}</strong> is back in stock — and since it sells out, we'd grab it soon.</p>
-    <p style="margin:22px 0 0"><a href="${esc(productUrl)}" style="display:inline-block;background:#c8aa82;color:#111;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.06em;padding:14px 22px">SHOP ${esc(productName.toUpperCase())}</a></p>`;
-  return sendEmail({
-    to: email,
+  const slug = productUrl.split("/").pop()?.replace(/[#?].*$/, "") ?? null;
+  const message = customerEmail({
     subject: `${productName} is back in stock`,
-    html: customerShell("It's back!", "Good news — the product you were waiting for is available again.", body),
-    fromName: SENDER.restock,
+    preheader: `${productName} is available again.`,
+    eyebrow: "BACK IN STOCK",
+    heading: "It&rsquo;s back.",
+    intro: `You asked us to tell you when <strong>${esc(productName)}</strong> returned. It has.`,
+    bodyHtml: productLine({ name: productName, meta: "Back in stock", image: mailableImage(slug) }),
+    cta: { label: `Shop ${productName}`, url: productUrl },
+    text: `${productName} is back in stock. You asked us to tell you when it returned — this is that one email.`,
   });
+  return sendEmail({ to: email, subject: message.subject, html: message.html, text: message.text, fromName: SENDER.restock });
 }
 
 type ShippedInfo = OrderInfo & { trackingNumber?: string | null; carrier?: string | null };
@@ -415,22 +433,27 @@ export async function notifyCustomerShipped(order: ShippedInfo): Promise<boolean
   if (!order.customerEmail) return false;
   const firstName = (order.customerName ?? "").trim().split(/\s+/)[0] || "there";
   const url = trackingUrl(order.carrier, order.trackingNumber);
-  const carrierLabel = order.carrier ? esc(order.carrier.toUpperCase()) : "Carrier";
-  const trackingLine = order.trackingNumber
-    ? `<table style="width:100%;border-collapse:collapse;font-size:15px">
-         <tr><td style="padding:8px 0;color:#6d675f;width:130px">Carrier</td><td style="padding:8px 0;font-weight:600">${carrierLabel}</td></tr>
-         <tr><td style="padding:8px 0;color:#6d675f">Tracking #</td><td style="padding:8px 0;font-weight:600">${esc(order.trackingNumber)}</td></tr>
-       </table>
-       ${url ? `<p style="margin:20px 0 0"><a href="${url}" style="display:inline-block;background:#c8aa82;color:#111;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.06em;padding:14px 22px">TRACK YOUR PACKAGE</a></p>` : ""}`
-    : `<p style="font-size:14px">Your order is on its way.</p>`;
-  const body = `${trackingLine}
-    <p style="font-size:13px;color:#6d675f;margin:20px 0 0">Order reference: <strong>${esc(order.orderReference ?? "—")}</strong></p>`;
-  return sendEmail({
-    to: order.customerEmail,
+  const rows: { label: string; value: string }[] = [];
+  if (order.trackingNumber) {
+    rows.push({ label: "Carrier", value: order.carrier ? order.carrier.toUpperCase() : "Carrier" });
+    rows.push({ label: "Tracking #", value: order.trackingNumber });
+  }
+  if (order.orderReference) rows.push({ label: "Order", value: order.orderReference });
+  const message = customerEmail({
     subject: `Your Wynn Essentials order has shipped${order.orderReference ? ` — ${order.orderReference}` : ""}`,
-    html: customerShell("Your order is on its way!", `Hi ${esc(firstName)}, good news — your order has shipped.`, body),
-    fromName: SENDER.shipping,
+    preheader: order.trackingNumber ? `Tracking ${order.trackingNumber} is on its way to you.` : "Your order is on its way.",
+    eyebrow: "ON ITS WAY",
+    heading: "It&rsquo;s out the door.",
+    intro: `Hi ${esc(firstName)} &mdash; your order has shipped.`,
+    bodyHtml: rows.length ? detailRows(rows) : "",
+    cta: url ? { label: "Track your package", url } : null,
+    closing: "Once it lands, we&rsquo;ll send you everything you need to know about what&rsquo;s inside.",
+    text: [
+      ...rows.map(r => `${r.label}: ${r.value}`),
+      ...(url ? ["", `Track your package: ${url}`] : []),
+    ].join("\n"),
   });
+  return sendEmail({ to: order.customerEmail, subject: message.subject, html: message.html, text: message.text, fromName: SENDER.shipping });
 }
 
 /**
@@ -466,20 +489,30 @@ export async function notifyProductEducation(input: EducationEmailInput): Promis
 // after an order, asking the customer to review what they bought. Each product
 // links to its storefront modal, which has the "Write a Review" form. URLs are
 // passed in (like the restock email) so this stays URL-agnostic.
-export async function notifyReviewRequest({ email, customerName, orderReference, products }: { email: string; customerName?: string | null; orderReference?: string | null; products: { name: string; url: string }[] }): Promise<boolean> {
+export async function notifyReviewRequest({ email, customerName, orderReference, products }: { email: string; customerName?: string | null; orderReference?: string | null; products: { name: string; url: string; slug?: string | null }[] }): Promise<boolean> {
   if (!email || products.length === 0) return false;
   const firstName = (customerName ?? "").trim().split(/\s+/)[0] || "there";
-  const rows = products.map(p => `<tr>
-      <td style="padding:12px 0;border-bottom:1px solid #ece6dd;font-weight:600;font-size:15px">${esc(p.name)}</td>
-      <td style="padding:12px 0;border-bottom:1px solid #ece6dd;text-align:right"><a href="${esc(p.url)}" style="display:inline-block;background:#c8aa82;color:#111;text-decoration:none;font-weight:700;font-size:12px;letter-spacing:.05em;padding:10px 16px">Leave a review</a></td>
-    </tr>`).join("");
-  const body = `<p style="font-size:15px;line-height:1.6;margin:0 0 16px">A quick, honest review helps other customers find what works for their hair — and it only takes a minute.</p>
-    <table style="width:100%;border-collapse:collapse">${rows}</table>
-    ${orderReference ? `<p style="font-size:13px;color:#6d675f;margin:20px 0 0">Order reference: <strong>${esc(orderReference)}</strong></p>` : ""}`;
+  const lines = products.map(p => `${productLine({
+    name: p.name,
+    meta: "How has it worked for your hair?",
+    image: mailableImage(p.slug),
+  })}<table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 8px"><tr><td>${button("LEAVE A REVIEW", p.url, "left", BRAND.cream, BRAND.black, BRAND.black)}</td></tr></table>`).join("");
+  const message = customerEmail({
+    subject: "How are you loving your Wynn Essentials?",
+    preheader: "A minute of your time helps someone else find what works.",
+    eyebrow: "A FEW WEEKS IN",
+    heading: "How&rsquo;s your hair<br>loving it?",
+    intro: `Hi ${esc(firstName)} &mdash; you&rsquo;ve had a little while with your order now. An honest word about how it went helps the next person find what works for their hair.`,
+    bodyHtml: lines,
+    ...(orderReference ? { closing: `Order reference: ${esc(orderReference)}` } : {}),
+    unsubscribeEmail: email,
+    text: products.map(p => `  · ${p.name} — leave a review: ${p.url}`).join("\n"),
+  });
   return sendEmail({
     to: email,
-    subject: "How are you loving your Wynn Essentials?",
-    html: customerShell("How&rsquo;s your hair loving it?", `Hi ${esc(firstName)}, it&rsquo;s been a little while since your order arrived — we&rsquo;d love to hear how it&rsquo;s working for you.`, body, { unsubscribeEmail: email }),
+    subject: message.subject,
+    html: message.html,
+    text: message.text,
     fromName: SENDER.review,
     headers: listUnsubscribeHeaders(email),
   });
