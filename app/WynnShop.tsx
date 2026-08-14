@@ -418,16 +418,97 @@ function Invitation({ manual, onDone }: { manual: boolean; onDone: () => void })
   </ModalShell>;
 }
 
-// First-order discount popup: captures an email in exchange
-// for the welcome code. On success it reveals the code on screen and the API
-// also emails it. `wynnOfferClaimed` prevents it from re-showing after a claim.
-// Shown when a shopper starts checkout: capture an email for the welcome code,
-// then proceed. `onClose` returns to the bag without checking out; `onContinue`
-// proceeds to Stripe (used after claiming the code or declining the offer).
-function FirstOrderOffer({ onClose, onContinue }: { onClose: () => void; onContinue: () => void }) {
+// The welcome-offer quiz: two questions, then the email field. Asking something
+// a shopper wants to answer before asking for her address is what earns the
+// popup its screen — and every answer here is a real catalog tag, so the reveal
+// can name a product that serves what she actually picked instead of a generic
+// best seller. The answers never leave the browser: they are not posted with
+// the signup and not stored, they only choose which product the last screen
+// shows.
+type OfferAnswer = { label: string; tag: string };
+const offerQuiz: { id: string; question: string; note: string; options: OfferAnswer[] }[] = [
+  {
+    id: "concern",
+    question: "What does your hair need most?",
+    note: "Pick the one that matters most right now.",
+    // Tags match the concern list on Shop by Concern, so a pick always has
+    // products behind it.
+    options: [
+      { label: "More moisture", tag: "Dryness" },
+      { label: "A healthier scalp", tag: "Scalp Care" },
+      { label: "Less breakage", tag: "Weakness and Breakage" },
+      { label: "Definition and hold", tag: "Definition and Styling" },
+      { label: "Protective style care", tag: "Protective Style Care" },
+    ],
+  },
+  {
+    id: "style",
+    question: "How are you wearing it right now?",
+    note: "So your match suits the style you’re actually in.",
+    options: [
+      { label: "Braids", tag: "Braids" },
+      { label: "Locs", tag: "Locs" },
+      { label: "Twists", tag: "Twists" },
+      { label: "Natural curls", tag: "Natural Curls" },
+      { label: "A silk press", tag: "Silk Press" },
+      { label: "Wigs or weaves", tag: "Wigs and Weaves" },
+    ],
+  },
+];
+
+// The product shown on the reveal: from the in-stock, purchasable pool the bag
+// already works from, the first item that serves her concern — preferring one
+// that also suits the style she picked. Null when nothing in the pool serves
+// it, and in that case the reveal is the code alone: a "match" that doesn't
+// match is worse than no match at all.
+function offerPick(pool: Product[], answers: OfferAnswer[]): Product | null {
+  const [need, style] = answers;
+  if (!need) return null;
+  const serves = pool.filter(p => p.concerns.includes(need.tag));
+  return (style ? serves.find(p => p.styles.includes(style.tag)) : null) ?? serves[0] ?? null;
+}
+
+// First-order discount popup: a two-question quiz, then an email in exchange
+// for the welcome code. On success it reveals the code on screen — alongside the
+// product her answers matched — and the API also emails it. `wynnOfferClaimed`
+// prevents it from re-showing after a claim.
+// Shown when a shopper starts checkout. `onClose` returns to the bag without
+// checking out; `onContinue` proceeds to Stripe (used after claiming the code or
+// declining the offer).
+function FirstOrderOffer({ onClose, onContinue, add, pool }: { onClose: () => void; onContinue: () => void; add: (p: Product) => void; pool: Product[] }) {
+  // step 0 and 1 are the quiz; step 2 is the email field.
+  const [step, setStep] = useState(0);
+  const [answers, setAnswers] = useState<OfferAnswer[]>([]);
+  const [picking, setPicking] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [consent, setConsent] = useState(false);
   const [state, setState] = useState<"idle" | "sending" | "done" | "err">("idle");
+  // The match is settled once, when the code is revealed, and then held. It is
+  // read off a pool that excludes what is already in the bag, so recomputing it
+  // after she adds it would swap the card for a different product under the
+  // "Added to your bag" she just pressed.
+  const [matched, setMatched] = useState<Product | null>(null);
+  const [added, setAdded] = useState(false);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const handoff = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (handoff.current) clearTimeout(handoff.current); }, []);
+  // Each screen replaces the one before it, so move focus onto the new heading:
+  // without this a screen reader stays on the button that was just pressed and
+  // never hears what is now being asked. Not on the first screen — ModalShell
+  // has already placed focus inside the dialog there.
+  useEffect(() => { if (step > 0 || state === "done") heading.current?.focus({ preventScroll: true }); }, [step, state]);
+  // A short beat between the tap and the next question, so the chosen answer is
+  // visibly chosen before the screen turns. A second tap during it is ignored
+  // rather than queued, which is what would otherwise skip a question.
+  const choose = (option: OfferAnswer) => {
+    if (picking) return;
+    setPicking(option.tag);
+    handoff.current = setTimeout(() => {
+      setAnswers(a => [...a.slice(0, step), option]);
+      setPicking(null);
+      setStep(s => s + 1);
+    }, 260);
+  };
   const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (state === "sending") return;
@@ -440,30 +521,77 @@ function FirstOrderOffer({ onClose, onContinue }: { onClose: () => void; onConti
       // Remember the email so checkout can snapshot the cart for abandoned-cart
       // recovery, and so the offer isn't shown again.
       try { localStorage.setItem("wynnOfferClaimed", "1"); localStorage.setItem("wynnEmail", email); } catch {}
+      setMatched(offerPick(pool, answers));
       setState("done");
     } catch { setState("err"); }
   };
+  const quiz = offerQuiz[step];
+  // Says only what the match was actually made on: the style half is named only
+  // when the product really carries that style.
+  const why = matched && answers[0]
+    ? `Chosen for ${answers[0].label.toLowerCase()}${answers[1] && matched.styles.includes(answers[1].tag) ? ` on ${answers[1].label.toLowerCase()}` : ""}.`
+    : "";
   return <ModalShell label="First-order offer" onClose={onClose} className="offer-shell">
-    <div className="offer-modal">
+    <div className={`offer-modal${state === "done" ? " is-revealed" : ""}`}>
       <button className="offer-close" onClick={onClose} aria-label="Close offer">Close</button>
       {state === "done" ? <div className="offer-done">
         <p className="eyebrow">YOUR CODE</p>
-        <h2>{brandConfig.firstOrder.discountLabel}<span>unlocked</span></h2>
+        <h2 ref={heading} tabIndex={-1}>{brandConfig.firstOrder.discountLabel}<span>unlocked</span></h2>
         <p>Enter this code at checkout:</p>
         <p className="offer-code">{brandConfig.firstOrder.code}</p>
         <p className="offer-fine">Enter it on the next screen. Eligibility, availability, and product restrictions may apply.</p>
+        {matched && <div className="offer-pick">
+          <p className="eyebrow">MATCHED TO YOUR ANSWERS</p>
+          <div className="offer-pick-card">
+            {matched.images?.[0] && <img src={matched.images[0].src} alt="" width="600" height="600" loading="lazy" />}
+            <div>
+              <b>{matched.name}</b>
+              <span>{matched.subtitle}</span>
+              <span className="offer-pick-why">{why}</span>
+              <strong>{money(matched.price)}</strong>
+            </div>
+          </div>
+          <button type="button" className="outline-button full" disabled={added} onClick={() => { add(matched); setAdded(true); }}>{added ? "Added to your bag" : "Add it to my bag"}</button>
+        </div>}
         <button className="button full" onClick={onContinue}>Continue to checkout</button>
-      </div> : <form onSubmit={submit}>
-        <p className="eyebrow">WELCOME TO WYNN ESSENTIALS</p>
-        <h2>{brandConfig.firstOrder.headline}</h2>
-        <p>Join The Wynn Edit for routine guidance and early access &mdash; and take {brandConfig.firstOrder.discountLabel} one eligible order.</p>
-        <label>Email address<input type="email" required placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} /></label>
-        <label className="offer-consent"><input type="checkbox" required checked={consent} onChange={e => setConsent(e.target.checked)} /> I agree to receive marketing emails.</label>
-        <button className="button full" type="submit" disabled={state === "sending"}>{state === "sending" ? "Getting your code…" : `Get my ${brandConfig.firstOrder.discountLabel} code`}</button>
-        {state === "err" && <p className="offer-err" role="alert">Please enter a valid email and agree to emails.</p>}
-        <small>{brandConfig.consent}</small>
-        <button type="button" className="text-button offer-decline" onClick={onContinue}>No thanks &mdash; continue to checkout</button>
-      </form>}
+      </div> : <>
+        <div className="offer-head">
+          <p className="eyebrow">WELCOME TO WYNN ESSENTIALS</p>
+          <h2 className="offer-headline">You&rsquo;ve got <em>{brandConfig.firstOrder.discountLabel}</em></h2>
+          <p className="offer-sub">{brandConfig.firstOrder.headline}. Two quick questions and your code is yours.</p>
+          <div className="offer-progress" aria-hidden="true"><span style={{ width: `${(step + 1) / 3 * 100}%` }} /></div>
+          <p className="offer-progress-label">Step {step + 1} of 3</p>
+        </div>
+        {quiz ? <div className="offer-step" key={quiz.id}>
+          <h3 ref={heading} tabIndex={-1}>{quiz.question}</h3>
+          <p className="offer-note">{quiz.note}</p>
+          <div className="offer-options">
+            {quiz.options.map((option, index) => <button
+              type="button"
+              key={option.tag}
+              className={`offer-option${picking === option.tag ? " is-picked" : ""}`}
+              style={{ animationDelay: `${70 + index * 55}ms` }}
+              onClick={() => choose(option)}
+            >{option.label}<span aria-hidden="true" className="offer-option-mark">→</span></button>)}
+          </div>
+          <div className="offer-step-foot">
+            {step > 0 && <button type="button" className="text-button offer-back" onClick={() => { if (!picking) setStep(s => Math.max(0, s - 1)); }}>&larr; Back</button>}
+            <button type="button" className="text-button offer-decline" onClick={onContinue}>No thanks &mdash; continue to checkout</button>
+          </div>
+        </div> : <form className="offer-step" key="email" onSubmit={submit}>
+          <h3 ref={heading} tabIndex={-1}>Last step &mdash; where should we send it?</h3>
+          <p className="offer-note">Join The Wynn Edit for routine guidance and early access &mdash; and take {brandConfig.firstOrder.discountLabel} one eligible order.</p>
+          <label>Email address<input type="email" required placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} /></label>
+          <label className="offer-consent"><input type="checkbox" required checked={consent} onChange={e => setConsent(e.target.checked)} /> I agree to receive marketing emails.</label>
+          <button className="button full" type="submit" disabled={state === "sending"}>{state === "sending" ? "Getting your code…" : `Get my ${brandConfig.firstOrder.discountLabel} code`}</button>
+          {state === "err" && <p className="offer-err" role="alert">Please enter a valid email and agree to emails.</p>}
+          <small>{brandConfig.consent}</small>
+          <div className="offer-step-foot">
+            <button type="button" className="text-button offer-back" onClick={() => setStep(s => Math.max(0, s - 1))}>&larr; Back</button>
+            <button type="button" className="text-button offer-decline" onClick={onContinue}>No thanks &mdash; continue to checkout</button>
+          </div>
+        </form>}
+      </>}
     </div>
   </ModalShell>;
 }
@@ -583,7 +711,7 @@ function Header({ count, wishCount, openCart, openSearch, openWishlist, viewInvi
   </>;
 }
 
-function Cart({ items, setItems, onClose, add, suggest }: { items: CartItem[]; setItems: (x: CartItem[]) => void; onClose: () => void; add: (p: Product) => void; suggest: Product[] }) {
+function Cart({ items, setItems, onClose, add, suggest, inStock }: { items: CartItem[]; setItems: (x: CartItem[]) => void; onClose: () => void; add: (p: Product) => void; suggest: Product[]; inStock: Product[] }) {
   const detailed = items.map(i => ({ ...i, product: products.find(p => p.slug === i.slug)! }));
   const unitPrice = (x: { product: Product; variantId?: string }) => x.product.variants?.find(v => v.id === x.variantId)?.price ?? x.product.price ?? null;
   const subtotal = detailed.reduce((sum, x) => sum + (unitPrice(x) ?? 0) * x.quantity, 0);
@@ -642,6 +770,10 @@ function Cart({ items, setItems, onClose, add, suggest }: { items: CartItem[]; s
       {checkoutError && <p role="alert">{checkoutError}</p>}
       <button className="button full" disabled={unknown || unconfigured} onClick={() => { if (offerShouldShow()) setShowOffer(true); else startCheckout(); }}>Checkout securely with Stripe</button>
       {showOffer && <FirstOrderOffer
+        add={add}
+        // The quiz only ever matches something she can actually buy and doesn't
+        // already have in the bag.
+        pool={inStock.filter(p => !items.some(i => i.slug === p.slug))}
         onClose={() => { markOfferSeen(); setShowOffer(false); }}
         onContinue={() => { markOfferSeen(); setShowOffer(false); startCheckout(); }}
       />}</>}
@@ -1030,6 +1162,10 @@ export default function WynnShop() {
     const score=(p:Product)=>{let s=p.featured?1:0;for(const st of steps){if(Math.abs(p.methodStep-st)===1)s+=2;}return s;};
     return products.filter(p=>!p.kind&&p.price!=null&&!inCart.has(p.slug)&&!soldOut(p)).sort((a,b)=>score(b)-score(a)).slice(0,3);
   };
+  // The pool the welcome-offer quiz matches against. Inventory-aware and
+  // priced, so a quiz answer can never hand back something that cannot be
+  // bought; bulk braiding hair is left out because it answers no routine need.
+  const offerPool=products.filter(p=>p.kind!=="hair"&&p.price!=null&&!soldOut(p));
   // Bulk hair has its own Premium Human Hair section below, so it is kept out of
   // the Shop the Essentials grid.
   // The ingredient library uses short names (e.g. "Jojoba Oil") while product
@@ -1120,7 +1256,7 @@ export default function WynnShop() {
       <div><h3>Legal</h3><Link className="footer-link" href="/privacy">Privacy</Link><Link className="footer-link" href="/terms">Terms</Link><Link className="footer-link" href="/refunds">Refund Policy</Link><Link className="footer-link" href="/contact-information">Contact Information</Link><Link className="footer-link" href="/cookies">Cookie Information</Link><Link className="footer-link" href="/privacy#rights">Your Privacy Choices</Link></div>
         <div className="footer-bottom"><button className="text-button" onClick={()=>setInvitation("manual")}>View Invitation</button><div><a href="https://www.instagram.com/wynnessentials/" target="_blank" rel="noreferrer">Instagram</a><a href="https://www.tiktok.com/@wynnessentials" target="_blank" rel="noreferrer">TikTok</a><a href="mailto:wynnessentialsllc@gmail.com">Email</a><a href="tel:+12132670825">Call</a></div><span>© {new Date().getFullYear()} Wynn Essentials. All rights reserved.</span></div>
     </footer>
-    {cartOpen&&<Cart items={cart} setItems={setCart} add={add} suggest={recommendFor(cart)} onClose={()=>setCartOpen(false)}/>}
+    {cartOpen&&<Cart items={cart} setItems={setCart} add={add} suggest={recommendFor(cart)} inStock={offerPool} onClose={()=>setCartOpen(false)}/>}
     {searchOpen&&<Search add={add} onClose={()=>setSearchOpen(false)} openProduct={openProduct}/>}
     {wishOpen&&<Wishlist slugs={wishlist} add={add} openProduct={openProduct} onToggle={toggleWish} onClose={()=>setWishOpen(false)}/>}
     {product&&<ProductDetail product={product} add={add} soldOut={soldOut(product)} submittedReviews={reviewsBySlug[product.slug] ?? []} wished={inWishlist(product.slug)} onToggleWish={()=>toggleWish(product.slug)} onClose={()=>{setProduct(null);history.replaceState(null,"",location.pathname)}}/>}
