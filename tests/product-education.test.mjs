@@ -226,17 +226,43 @@ test("the cron claims an order before it composes anything, and only releases a 
   assert.match(cron, /if \(delivery\.certainNotSent\) \{[\s\S]{0,200}educationSentAt: null/);
 });
 
-test("the timing lands after delivery is likely and before the review request", async () => {
+test("the timing clears the delivery window we advertise, and precedes the review request", async () => {
   const education = await readFile(new URL("../app/api/cron/product-education/route.ts", import.meta.url), "utf8");
   const reviews = await readFile(new URL("../app/api/cron/review-requests/route.ts", import.meta.url), "utf8");
-  const days = (source, name) => Number(source.match(new RegExp(`const ${name} = (\\d+) \\* 24 \\* 60 \\* 60 \\* 1000`))?.[1]);
+  const days = (source, name) => Number(source.match(new RegExp(`const ${name} = envDays\\("[A-Z_]+", (\\d+)\\)`))?.[1]);
 
   const eduShip = days(education, "AFTER_SHIP_MS"), eduOrder = days(education, "AFTER_ORDER_MS");
   const revShip = days(reviews, "AFTER_SHIP_MS"), revOrder = days(reviews, "AFTER_ORDER_MS");
+  for (const [name, value] of Object.entries({ eduShip, eduOrder, revShip, revOrder })) {
+    assert.ok(Number.isFinite(value), `${name}: could not read the default out of the cron`);
+  }
 
-  assert.ok(eduShip >= 3, "too early — the parcel may still be in transit");
+  // The standard and free Stripe shipping rates advertise 3–7 BUSINESS days
+  // (scripts/setup-stripe.mjs), which is 9–11 calendar days at the slow end and
+  // about 7 for a typical 5-business-day delivery. Anything under 8 calendar
+  // days starts landing while parcels are still moving.
+  assert.ok(eduShip >= 8, "too early — a standard-shipping parcel may still be in transit");
+  assert.ok(revShip >= 14, "the review request must clear the advertised window too");
+  // Learn what you bought, use it, then be asked what you thought.
   assert.ok(eduShip < revShip, "the education email must arrive before the review request");
   assert.ok(eduOrder < revOrder, "the unshipped fallback must also precede the review request");
+  assert.ok(revShip - eduShip >= 5, "leave at least a few days of use between being taught and being asked");
+});
+
+test("a broken timing override can never collapse into sending immediately", async () => {
+  const { envDays } = await import("../lib/cron-timing.ts");
+  const DAY = 24 * 60 * 60 * 1000;
+  const key = "TEST_TIMING_DAYS";
+  try {
+    for (const bad of [undefined, "", "   ", "soon", "0", "-3", "NaN", "Infinity"]) {
+      if (bad === undefined) delete process.env[key]; else process.env[key] = bad;
+      assert.equal(envDays(key, 9), 9 * DAY, `"${bad}" should have fallen back to the default`);
+    }
+    process.env[key] = "4";
+    assert.equal(envDays(key, 9), 4 * DAY, "a valid override should be honoured");
+  } finally {
+    delete process.env[key];
+  }
 });
 
 test("the education email is scheduled, and not at the same hour as the review request", async () => {
