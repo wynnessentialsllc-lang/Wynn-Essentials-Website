@@ -23,6 +23,7 @@ import { unsubscribeUrl, listUnsubscribeHeaders, canSignUnsubscribe } from "./un
 import { renderOrderConfirmationEmail, type OrderEmailData } from "./order-confirmation-email";
 import { wynnEditWelcomeEmail } from "./wynn-edit-email";
 import { firstOrderWelcomeEmail } from "./first-order-welcome-email";
+import { productEducationEmail, type EducationEmailInput } from "./product-education-email";
 import type { FirstOrderOffer } from "./first-order-offer";
 // Carrier tracking links live in their own module so the order-confirmation
 // renderer can use them without importing this one. Re-exported below because
@@ -402,6 +403,34 @@ export async function notifyCustomerShipped(order: ShippedInfo): Promise<boolean
     to: order.customerEmail,
     subject: `Your Wynn Essentials order has shipped${order.orderReference ? ` — ${order.orderReference}` : ""}`,
     html: customerShell("Your order is on its way!", `Hi ${esc(firstName)}, good news — your order has shipped.`, body),
+  });
+}
+
+/**
+ * The post-purchase education email — what each product in an order is, what it
+ * does, and when to use it — composed in lib/product-education-email.ts and
+ * sent by the product-education cron once the order has had time to arrive.
+ *
+ * It is about products the customer already owns and sells nothing, so unlike
+ * the two welcomes it does not refuse to send when no unsubscribe secret is
+ * configured; the renderer drops the opt-out line instead of printing a link
+ * that would not work. It still carries List-Unsubscribe headers whenever the
+ * link can be signed, and the mailing address either way.
+ *
+ * Not one-click: RFC 8058 one-click belongs on bulk marketing, and a mailbox
+ * scanner should not be able to opt someone out by opening a message about the
+ * order they just received.
+ */
+export async function notifyProductEducation(input: EducationEmailInput): Promise<EmailResult> {
+  if (!input.email || input.cards.length === 0) return { ok: false, certainNotSent: true };
+  const { subject, html, text } = productEducationEmail(input);
+  return deliverEmail({
+    to: input.email,
+    subject,
+    html,
+    text,
+    replyTo: DEFAULT_TO,
+    ...(canSignUnsubscribe() ? { headers: listUnsubscribeHeaders(input.email) } : {}),
   });
 }
 
