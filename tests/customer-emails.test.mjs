@@ -84,19 +84,53 @@ test("without a signing secret the opt-out is dropped rather than rendered dead"
 
 // --- the blocks --------------------------------------------------------------
 
-test("only JPEG and PNG photography is mailed, since WebP breaks in Outlook", () => {
+test("every product has a photograph an email client can actually render", async () => {
+  // Outlook for Windows renders neither WebP nor AVIF, and six of the catalog's
+  // products are shot only in those, so `npm run email:images` builds a JPEG per
+  // product. If this fails, that command has not been re-run since the catalog
+  // changed — and those products would mail an empty square.
+  const { existsSync, statSync } = await import("node:fs");
   for (const product of products) {
     const image = mailableImage(product.slug);
-    if (image) assert.match(image.src, /\.(jpe?g|png)$/i, `${product.slug} would mail an unsupported image`);
+    assert.ok(image, `${product.slug} has no email photograph at all`);
+    assert.equal(image.src, `/email/products/${product.slug}.jpg`);
+    assert.ok(image.alt.length > 5, `${product.slug}: the photograph has no useful alt text`);
+    const file = new URL(`../public${image.src}`, import.meta.url);
+    assert.ok(existsSync(file), `${product.slug}: ${image.src} is referenced but not built — run npm run email:images`);
+    // Small enough to sit in an inbox; big enough to be a photograph.
+    const bytes = statSync(file).size;
+    assert.ok(bytes > 2_000, `${product.slug}: ${image.src} is only ${bytes}b`);
+    assert.ok(bytes < 80_000, `${product.slug}: ${image.src} is ${Math.round(bytes / 1024)}KB — too heavy for an email row`);
   }
   assert.equal(mailableImage("not-a-product"), null);
   assert.equal(mailableImage(null), null);
 });
 
-test("a line with no photograph still renders, and never as a broken image", () => {
+test("the education email uses the same built photographs", async () => {
+  const { educationFor } = await import("../lib/product-education.ts");
+  const { existsSync } = await import("node:fs");
+  const cards = educationFor(products.map(p => ({ productId: p.stripeProductId ?? null })), "https://wynnessentialsllc.us");
+  assert.ok(cards.length >= 12);
+  for (const card of cards) {
+    assert.ok(card.image, `${card.slug} has no photograph in its education section`);
+    assert.equal(card.image.src, `/email/products/${card.slug}.jpg`);
+    assert.ok(existsSync(new URL(`../public${card.image.src}`, import.meta.url)), `${card.slug}: photograph not built`);
+  }
+});
+
+test("a WebP-only product still mails a photograph, and no format Outlook rejects", () => {
+  // The Soft Life Bonnet is photographed only in WebP. Before the email build it
+  // rendered as an empty square.
   const html = productLine({ name: "Soft Life Bonnet", meta: "Qty 1", amount: "$19.99", image: mailableImage("soft-life-bonnet") });
   assert.ok(html.includes("Soft Life Bonnet"));
+  assert.match(html, /<img[^>]+\/email\/products\/soft-life-bonnet\.jpg/);
   assert.doesNotMatch(html, /<img[^>]+\.(webp|avif)/i);
+});
+
+test("a line with no photograph at all still renders", () => {
+  const html = productLine({ name: "Something", meta: "Qty 1", image: null });
+  assert.ok(html.includes("Something"));
+  assert.doesNotMatch(html, /<img/i);
 });
 
 test("customer- and catalog-supplied text cannot inject markup", () => {
@@ -148,4 +182,31 @@ test("the slug the photographs need is carried all the way from storage", async 
   assert.match(cart, /type CartItem = \{ slug\?: string \| null;/, "the cron drops the slug before the email sees it");
   const reviews = await readFile(new URL("../app/api/cron/review-requests/route.ts", import.meta.url), "utf8");
   assert.match(reviews, /url: `\$\{commerceConfig\.siteUrl\}\/products\/\$\{slug\}`, slug \}/, "the review request has no slug for its photographs");
+});
+
+test("a preview deployment never becomes the origin an email's images point at", async () => {
+  // Preview URLs are https and parse fine, but Vercel protects them: a mail
+  // client fetching an image gets a login page, and every photograph breaks.
+  const { execFileSync } = await import("node:child_process");
+  const loader = new URL("./hwl-loader-register.mjs", import.meta.url).href;
+  const mod = new URL("../lib/email-brand.ts", import.meta.url).href;
+  const script = `
+    const results = {};
+    for (const origin of ["https://wynn-essentials-website-abc123.vercel.app", "http://localhost:3000", "https://192.168.1.5", "https://wynnessentialsllc.us", ""]) {
+      process.env.NEXT_PUBLIC_SITE_URL = origin;
+      const { emailOrigin } = await import(${JSON.stringify(mod)} + "?v=" + encodeURIComponent(origin));
+      results[origin || "(unset)"] = emailOrigin();
+    }
+    console.log(JSON.stringify(results));
+  `;
+  const out = execFileSync(process.execPath, ["--experimental-strip-types", "--import", loader, "--input-type=module", "--eval", script], {
+    cwd: new URL("..", import.meta.url), encoding: "utf8", stdio: ["ignore", "pipe", "ignore"],
+  });
+  const resolved = JSON.parse(out.trim().split("\n").pop());
+  assert.equal(resolved["https://wynn-essentials-website-abc123.vercel.app"], "https://wynnessentialsllc.us", "a preview URL became the image origin");
+  assert.equal(resolved["http://localhost:3000"], "https://wynnessentialsllc.us");
+  assert.equal(resolved["https://192.168.1.5"], "https://wynnessentialsllc.us");
+  assert.equal(resolved["(unset)"], "https://wynnessentialsllc.us");
+  // A real configured origin is still honoured.
+  assert.equal(resolved["https://wynnessentialsllc.us"], "https://wynnessentialsllc.us");
 });

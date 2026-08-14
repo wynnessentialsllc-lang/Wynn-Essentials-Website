@@ -54,6 +54,12 @@ export function emailOrigin(): string {
     if (/^(localhost|127\.0\.0\.1|\[?::1\]?)$/i.test(hostname)) return PRODUCTION_ORIGIN;
     if (hostname.endsWith(".local")) return PRODUCTION_ORIGIN;
     if (/^\d+\.\d+\.\d+\.\d+$/.test(hostname)) return PRODUCTION_ORIGIN;
+    // A Vercel preview deployment is https and looks perfectly valid, but it is
+    // protected by default: a mail client fetching an image from one is answered
+    // with a login page, so every photograph in the message silently fails to
+    // load. If NEXT_PUBLIC_SITE_URL is a preview URL — which it is on every
+    // preview build — production is the honest origin for an email.
+    if (/\.vercel\.app$/i.test(hostname)) return PRODUCTION_ORIGIN;
     return configured;
   } catch {
     return PRODUCTION_ORIGIN;

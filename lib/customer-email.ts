@@ -23,16 +23,24 @@ import {
   button, emailUrl, esc, eyebrow as eyebrowTag, heading as headingTag, paragraph,
 } from "./email-brand";
 
-// WebP and AVIF break in Outlook for Windows and half the catalog's photography
-// is WebP, so a line simply goes without a picture rather than shipping a broken
-// one — the same rule the education email follows.
-const MAILABLE_IMAGE = /\.(jpe?g|png)$/i;
-
-/** The first mailable photograph for a catalog slug, or null. */
+/**
+ * The photograph to put in an email for a catalog slug.
+ *
+ * Outlook for Windows renders neither WebP nor AVIF, and six of the catalog's
+ * products are photographed only in those formats — so every product has a JPEG
+ * built for email at public/email/products/<slug>.jpg (npm run email:images),
+ * and that is what is used. It is 256px wide for a row that displays at 64,
+ * rather than a full-size storefront photograph sent to an inbox.
+ *
+ * The catalog is still the source of the alt text, and still decides whether a
+ * product has photography at all.
+ */
 export function mailableImage(slug: string | null | undefined): { src: string; alt: string } | null {
   if (!slug) return null;
   const product: Product | undefined = products.find(p => p.slug === slug);
-  return product?.images?.find(i => MAILABLE_IMAGE.test(i.src)) ?? null;
+  const first = product?.images?.[0];
+  if (!product || !first) return null;
+  return { src: `/email/products/${product.slug}.jpg`, alt: first.alt };
 }
 
 // ---------------------------------------------------------------------------
