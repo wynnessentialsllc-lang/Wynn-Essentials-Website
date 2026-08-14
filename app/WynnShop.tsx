@@ -456,6 +456,47 @@ const offerQuiz: { id: string; question: string; note: string; options: OfferAns
   },
 ];
 
+// The picture beside the quiz. It answers back: each screen carries the
+// editorial shot for what she just picked, so the popup responds to her instead
+// of sitting still behind a form. Stills, not film, for the questions — these
+// are 150–250KB and are on screen before she can read the question, where a
+// background video would spend a megabyte of someone's data mid-checkout to say
+// the same thing. The reveal is where motion is worth it (see below).
+// `focus` is what stays in frame: the panel is a tall column on desktop and a
+// shallow band on a phone, and a centred crop of a portrait puts the band across
+// a shoulder. Each one names the height of its own subject instead.
+const offerScene: Record<string, { src: string; width: number; height: number; focus: string }> = {
+  default: { src: "/editorial/wellness-ritual.jpeg", width: 1206, height: 2134, focus: "center 42%" },
+  "Dryness": { src: "/editorial/uplyft-model.jpeg", width: 1206, height: 2510, focus: "center 30%" },
+  "Scalp Care": { src: "/shoppable/lathyr-pour.jpeg", width: 1206, height: 1809, focus: "center 38%" },
+  "Weakness and Breakage": { src: "/shoppable/grow-sleek.jpeg", width: 1206, height: 1809, focus: "center 35%" },
+  "Definition and Styling": { src: "/shoppable/edge-control-model.jpeg", width: 1206, height: 1809, focus: "center 26%" },
+  "Protective Style Care": { src: "/editorial/relief-braids.jpeg", width: 1206, height: 1809, focus: "center 40%" },
+};
+
+/**
+ * The most video the reveal may fetch, in bytes. The catalog's product films run
+ * from 0.6MB to 3.7MB, and the heavy end is not something to put on a shopper's
+ * connection for a background — those products keep their still.
+ *
+ * Checked against the file itself rather than a list of slugs, so re-cutting a
+ * clip cannot quietly reintroduce a 4MB background nobody meant to ship.
+ */
+const OFFER_FILM_BUDGET = 1_500_000;
+
+/**
+ * Whether this visitor's connection should be asked to carry the reveal's film
+ * at all. This popup sits in the middle of a checkout — the one place where
+ * spending someone's data on decoration is least excusable — so: not on
+ * Save-Data, and not on a connection the browser calls 2g. Browsers without the
+ * Network Information API are given the benefit of the doubt; the size check
+ * below still applies to them.
+ */
+function meteredConnection() {
+  const link = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+  return Boolean(link?.saveData) || /2g/.test(link?.effectiveType ?? "");
+}
+
 // The product shown on the reveal: from the in-stock, purchasable pool the bag
 // already works from, the first item that serves her concern — preferring one
 // that also suits the style she picked. Null when nothing in the pool serves
@@ -488,6 +529,7 @@ function FirstOrderOffer({ onClose, onContinue, add, pool }: { onClose: () => vo
   // after she adds it would swap the card for a different product under the
   // "Added to your bag" she just pressed.
   const [matched, setMatched] = useState<Product | null>(null);
+  const [film, setFilm] = useState<Product | null>(null);
   const [added, setAdded] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const handoff = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -497,6 +539,22 @@ function FirstOrderOffer({ onClose, onContinue, add, pool }: { onClose: () => vo
   // never hears what is now being asked. Not on the first screen — ModalShell
   // has already placed focus inside the dialog there.
   useEffect(() => { if (step > 0 || state === "done") heading.current?.focus({ preventScroll: true }); }, [step, state]);
+  // The matched product's own film, and only on the reveal: by then she has a
+  // code and a product in front of her, which is the one moment in this popup
+  // worth the bytes. Weighed before it is fetched — a HEAD carries no body — and
+  // played over the still, so a clip that is too heavy, too slow, or blocked
+  // from auto-playing costs nothing and shows as the still it replaced.
+  useEffect(() => {
+    if (state !== "done" || !matched?.video || meteredConnection()) return;
+    let live = true;
+    fetch(matched.video, { method: "HEAD" })
+      .then(r => {
+        const bytes = Number(r.headers.get("content-length") ?? 0);
+        if (live && bytes > 0 && bytes <= OFFER_FILM_BUDGET) setFilm(matched);
+      })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [state, matched]);
   // A short beat between the tap and the next question, so the chosen answer is
   // visibly chosen before the screen turns. A second tap during it is ignored
   // rather than queued, which is what would otherwise skip a question.
@@ -531,9 +589,11 @@ function FirstOrderOffer({ onClose, onContinue, add, pool }: { onClose: () => vo
   const why = matched && answers[0]
     ? `Chosen for ${answers[0].label.toLowerCase()}${answers[1] && matched.styles.includes(answers[1].tag) ? ` on ${answers[1].label.toLowerCase()}` : ""}.`
     : "";
+  const scene = offerScene[answers[0]?.tag ?? ""] ?? offerScene.default;
   return <ModalShell label="First-order offer" onClose={onClose} className="offer-shell">
     <div className={`offer-modal${state === "done" ? " is-revealed" : ""}`}>
       <button className="offer-close" onClick={onClose} aria-label="Close offer">Close</button>
+      <div className="offer-body">
       {state === "done" ? <div className="offer-done">
         <p className="eyebrow">YOUR CODE</p>
         <h2 ref={heading} tabIndex={-1}>{brandConfig.firstOrder.discountLabel}<span>unlocked</span></h2>
@@ -592,6 +652,14 @@ function FirstOrderOffer({ onClose, onContinue, add, pool }: { onClose: () => vo
           </div>
         </form>}
       </>}
+      </div>
+      {/* Last in the source, first in the layout: the panel is placed by grid,
+          so the reading and tab order still start at the copy. */}
+      <div className="offer-scene">
+        <img className="offer-scene-still" key={scene.src} src={scene.src} alt="" width={scene.width} height={scene.height} style={{ objectPosition: scene.focus }} />
+        {film && <QuietVideo src={film.video!} className="offer-scene-film" ariaLabel={`${film.name} ${film.subtitle}`} autoPlay loop preload="auto" />}
+        <span className="offer-scene-veil" aria-hidden="true" />
+      </div>
     </div>
   </ModalShell>;
 }
