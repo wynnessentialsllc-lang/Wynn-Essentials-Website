@@ -37,6 +37,10 @@ export const orders = pgTable("orders", {
   // Set by the review-requests cron once the post-purchase review email has been
   // sent, so each customer is asked at most once.
   reviewRequestedAt: timestamp("review_requested_at", { withTimezone: true }),
+  // Set by the product-education cron when it claims an order for the "how to
+  // use what you bought" email. Claimed by a conditional update that only
+  // matches while this is NULL, so the email is sent at most once per order.
+  educationSentAt: timestamp("education_sent_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
