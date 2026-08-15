@@ -58,36 +58,46 @@ The asymmetry to preserve, enforced by tests in
 
 ## How a signup is stored
 
-There is no separate waitlist table. A signup is a row in `subscribers` whose
-`source` column names the product, and that column carries the whole state
-machine:
+A membership is a relationship between an address and a product, so it is a row
+of its own in **`product_waitlist`** (`drizzle/0019_product_waitlist.sql`):
 
-| `source` | Meaning |
+| Column | Meaning |
 |---|---|
-| `waitlist:<slug>` | Waiting to hear that `<slug>` is back |
-| `waitlist-notified:<slug>` | Already told, this restock cycle |
-| anything else | Not on any waitlist |
+| `email` + `slug` | Composite primary key. One row per address per product, so a repeat join upserts rather than duplicating. |
+| `joined_at` | When she asked. Refreshed on a re-join. |
+| `notified_at` | `NULL` while she is waiting; stamped when the back-in-stock email goes out. |
 
-After the back-in-stock email is sent, the addresses that were emailed are moved
-to `waitlist-notified:<slug>`, so the next sell-out/restock cycle starts a fresh
-list and nobody is told twice about the same return. Someone who joins again
-after that resets her source back to `waitlist:<slug>`.
+**An address can wait on as many products as it likes.** Joining a second
+product's waitlist adds a row; it does not disturb the first.
 
-The move is scoped to the addresses actually read, not re-run against the
-source predicate — otherwise a shopper who joins while the sends are in flight
-would be marked served without ever being emailed.
+After the back-in-stock email is sent, the addresses that were emailed get
+`notified_at` stamped, so the next sell-out/restock cycle notifies a fresh list
+and nobody is told twice about the same return. Someone who joins again after
+that has `notified_at` cleared, which puts her back in line.
 
-### Known limitation: one waitlist per address
+Two scoping rules make that safe, both pinned by tests:
 
-`email` is the primary key of `subscribers` and `source` is a single column, so
-**one address can sit on one product's waitlist at a time**. Joining a second
-product's waitlist *moves* her rather than adding her, and she will only be told
-about the most recent one.
+- The stamp names the **addresses actually read**, rather than re-running the
+  predicate — otherwise a shopper who joins while the sends are in flight would
+  be marked served without ever being emailed.
+- The stamp is also scoped **by slug** — otherwise notifying one product would
+  mark her served on every other product she is waiting on.
 
-Lifting this means a proper join table (`email`, `slug`, `joined_at`,
-`notified_at`) rather than a column — worth doing if more than one product is
-routinely sold out at once, but it is a schema change and a migration, not a
-tweak.
+### `subscribers.source` is provenance, not state
+
+A waitlist signup still upserts a `subscribers` row as the contact record, with
+`source = 'waitlist:<slug>'`. That value records **where a contact came from**
+and nothing reads it back as membership. It is allowed to move when she joins a
+second waitlist; both memberships survive it.
+
+This is the coupling that used to be the bug. Before
+`0019_product_waitlist.sql` the membership *was* `subscribers.source`, and
+because `email` is that table's primary key and `source` is a single column, one
+address could sit on exactly one product's waitlist — joining a second moved her
+off the first, silently, and she was only ever told about the most recent one.
+The migration backfills both old states (`waitlist:` → waiting,
+`waitlist-notified:` → notified, preserving the notification time) and collapses
+`source` to the single origin form.
 
 ## Administering it
 
@@ -102,9 +112,9 @@ Two actions:
   being marked sold out, a send that failed part-way, or a list that grew after
   the product reopened. It **refuses while the product is still sold out**,
   because the email says "it's back".
-- **Remove** — takes one address off a product's waitlist. Only the waiting
-  state is cleared; the subscriber row and any marketing consent on it are left
-  exactly as they were.
+- **Remove** — deletes one `(address, product)` membership. Scoped to that pair,
+  so it cannot disturb anything else she is waiting on, nor her subscriber row
+  and any marketing consent on it.
 
 The admin home badges the Waitlist section with the number of people **owed an
 email** — waiting on a product that is available again. Someone waiting on a
@@ -114,8 +124,9 @@ product that is genuinely still sold out is not an action item.
 
 | Path | Role |
 |---|---|
-| `lib/restock-waitlist.ts` | Source-column helpers, the send, and the reopened-crossing trigger |
-| `app/api/subscribe/route.ts` | Signup, the optional opt-in, and the confirmation email |
+| `drizzle/0019_product_waitlist.sql` | The table, its RLS lockdown, and the backfill from the old encoding |
+| `lib/restock-waitlist.ts` | The send and the reopened-crossing trigger |
+| `app/api/subscribe/route.ts` | Signup, the membership upsert, the optional opt-in, and the confirmation email |
 | `app/admin/inventory/actions.ts` | Calls the trigger after every inventory write |
 | `app/admin/waitlist/` | The admin view and its two server actions |
 | `app/products/[slug]/WaitlistForm.tsx`, `app/WynnShop.tsx` | The two sold-out forms |

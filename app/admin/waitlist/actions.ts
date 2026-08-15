@@ -3,14 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "../../../db";
-import { productInventory, subscribers } from "../../../db/schema";
+import { productInventory, productWaitlist } from "../../../db/schema";
 import { products } from "../../data";
 import { isAuthenticated } from "../../../lib/admin-auth";
 import { normalizeEmail } from "../../../lib/unsubscribe";
 import {
   isSoldOut,
   notifyRestockWaitlist,
-  waitlistSource,
   type InventoryState,
 } from "../../../lib/restock-waitlist";
 
@@ -59,9 +58,9 @@ export async function notifyWaitlist(formData: FormData) {
 }
 
 /**
- * Take one address off a product's waitlist, at her request or to clear a bad
- * one. Only the waiting state is removed — the row itself, and any marketing
- * consent recorded on it, is left exactly as it was.
+ * Take one address off ONE product's waitlist, at her request or to clear a bad
+ * one. Scoped to the (address, product) pair, so it cannot disturb anything
+ * else she is waiting on — nor her subscriber row and any consent on it.
  */
 export async function removeFromWaitlist(formData: FormData) {
   await requireAdmin();
@@ -70,11 +69,8 @@ export async function removeFromWaitlist(formData: FormData) {
   const email = typeof raw === "string" ? normalizeEmail(raw) : "";
   if (!email) throw new Error("Unknown subscriber.");
 
-  // Scoped to this product's waiting source, so a stale form cannot clear a
-  // subscriber who has since moved to a different product's waitlist.
-  await getDb().update(subscribers)
-    .set({ source: null, updatedAt: new Date() })
-    .where(and(eq(subscribers.email, email), eq(subscribers.source, waitlistSource(slug))));
+  await getDb().delete(productWaitlist)
+    .where(and(eq(productWaitlist.email, email), eq(productWaitlist.slug, slug)));
 
   revalidatePath("/admin/waitlist");
 }

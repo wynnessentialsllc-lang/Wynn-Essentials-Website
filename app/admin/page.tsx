@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { and, eq, ne, count, like } from "drizzle-orm";
+import { and, eq, ne, count, isNull } from "drizzle-orm";
 import { getDb } from "../../db";
-import { orders, productInventory, productReviews, subscribers, supportMessages } from "../../db/schema";
+import { orders, productInventory, productReviews, productWaitlist, supportMessages } from "../../db/schema";
 import { products } from "../data";
 import { isAuthenticated, adminTokenConfigured } from "../../lib/admin-auth";
-import { WAITLIST_PREFIX, isSoldOut, slugFromSource } from "../../lib/restock-waitlist";
+import { isSoldOut } from "../../lib/restock-waitlist";
 import { signOut } from "./orders/actions";
 import SignInForm from "./orders/SignInForm";
 
@@ -45,18 +45,16 @@ const SECTIONS: Section[] = [
 async function waitlistNeedingNotice(): Promise<number> {
   const db = getDb();
   const [waiting, inventory] = await Promise.all([
-    db.select({ source: subscribers.source, n: count() })
-      .from(subscribers)
-      .where(like(subscribers.source, `${WAITLIST_PREFIX}%`))
-      .groupBy(subscribers.source),
+    db.select({ slug: productWaitlist.slug, n: count() })
+      .from(productWaitlist)
+      .where(isNull(productWaitlist.notifiedAt))
+      .groupBy(productWaitlist.slug),
     db.select().from(productInventory),
   ]);
   const stockBySlug = new Map(inventory.map(r => [r.slug, { soldOut: r.soldOut, stock: r.stock }]));
   return waiting.reduce((total, row) => {
-    const slug = slugFromSource(row.source);
-    if (!slug) return total;
-    const override = stockBySlug.get(slug);
-    const catalogSoldOut = products.find(p => p.slug === slug)?.soldOut ?? false;
+    const override = stockBySlug.get(row.slug);
+    const catalogSoldOut = products.find(p => p.slug === row.slug)?.soldOut ?? false;
     const state = { soldOut: override?.soldOut ?? catalogSoldOut, stock: override?.stock ?? null };
     return isSoldOut(state) ? total : total + row.n;
   }, 0);

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { and, eq, isNotNull, isNull, or } from "drizzle-orm";
 import { getDb } from "../../../db";
-import { subscribers } from "../../../db/schema";
+import { productWaitlist, subscribers } from "../../../db/schema";
 import { brandConfig, products } from "../../data";
 import { commerceConfig } from "../../../lib/commerce-config";
 import { notifySubscriberWelcome, notifyNewSubscriber, notifyWynnEditWelcome, notifyFirstOrderWelcome } from "../../../lib/notify";
@@ -95,21 +95,33 @@ export async function POST(request: Request) {
     // never DOWNGRADE one — she may already be a subscriber, and joining a
     // waitlist is not a request to leave the newsletter.
     if (isWaitlist) {
+      const slug = source.slice("waitlist:".length);
       const marketing = consent ? consentRecord(source, brandConfig.consentForms.waitlist) : null;
+
+      // The membership itself. One row per (address, product), so joining a
+      // second product's waitlist ADDS to what she is waiting on rather than
+      // moving her off the first. Re-joining clears notified_at, which is what
+      // puts her back in line after a previous restock already told her.
+      await db.insert(productWaitlist).values({ email, slug }).onConflictDoUpdate({
+        target: [productWaitlist.email, productWaitlist.slug],
+        set: { joinedAt: new Date(), notifiedAt: null },
+      });
+
+      // The contact record. `source` is provenance only — the membership above
+      // is the thing that decides who gets emailed.
       await db.insert(subscribers).values({
         email,
         ...(marketing ?? { marketingConsent: false, consentText: brandConfig.waitlistConsent }),
         source,
       }).onConflictDoUpdate({
         target: subscribers.email,
-        // Without the opt-in this touches only the waiting state, leaving her
+        // Without the opt-in this refreshes only provenance, leaving her
         // marketing standing — consent, consent_at, unsubscribed_at — untouched.
         set: marketing
           ? { ...marketing, unsubscribedAt: null, source, updatedAt: new Date() }
           : { source, updatedAt: new Date() },
       });
 
-      const slug = source.slice("waitlist:".length);
       const product = products.find(p => p.slug === slug);
       // A per-product restock request is confirmed every time it is made.
       await notifySubscriberWelcome({

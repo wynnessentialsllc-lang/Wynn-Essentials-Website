@@ -24,11 +24,7 @@ delete process.env.RESEND_API_KEY;
 delete process.env.wynnessentials_site;
 
 const {
-  WAITLIST_PREFIX,
-  NOTIFIED_PREFIX,
   waitlistSource,
-  notifiedSource,
-  slugFromSource,
   waitlistProductName,
   waitlistProductUrl,
   isSoldOut,
@@ -37,27 +33,13 @@ const {
 } = await import("../lib/restock-waitlist.ts");
 const { products } = await import("../app/data.ts");
 
-// --- the source column, which is the whole state machine ---------------------
+// --- provenance --------------------------------------------------------------
 
-test("a waiting signup and a notified one are told apart, and both name their product", () => {
+test("the subscriber row records where a waitlist contact came from", () => {
+  // Provenance only. Membership lives in product_waitlist, and nothing may read
+  // this value back as "who is waiting" — that is the coupling that used to
+  // limit an address to one waitlist at a time.
   assert.equal(waitlistSource("grow-oil"), "waitlist:grow-oil");
-  assert.equal(notifiedSource("grow-oil"), "waitlist-notified:grow-oil");
-  assert.equal(slugFromSource("waitlist:grow-oil"), "grow-oil");
-  assert.equal(slugFromSource("waitlist-notified:grow-oil"), "grow-oil");
-});
-
-test("the notified prefix is not mistaken for a waiting one", () => {
-  // "waitlist-notified:x" starts with neither a clean "waitlist:" nor anything
-  // ambiguous — if these two prefixes ever overlapped, everyone already told
-  // would be told again on the next restock.
-  assert.ok(!notifiedSource("x").startsWith(WAITLIST_PREFIX));
-  assert.ok(NOTIFIED_PREFIX !== WAITLIST_PREFIX);
-});
-
-test("a source that is not a waitlist yields no slug", () => {
-  for (const source of ["the-wynn-edit", "first-order-popup", "square-import", null, undefined, ""]) {
-    assert.equal(slugFromSource(source), null, `${source} should not read as a waitlist`);
-  }
 });
 
 test("a product name resolves from the catalog, and a retired product still reads as something", () => {
@@ -106,9 +88,18 @@ function boundStrings(node, seen = new WeakSet(), found = []) {
  */
 function fakeDb(waiting) {
   const updates = [];
+  const selects = [];
   return {
     updates,
-    select: () => ({ from: () => ({ where: () => ({ limit: async () => waiting }) }) }),
+    selects,
+    select: () => ({
+      from: () => ({
+        where: (condition) => {
+          selects.push({ bound: boundStrings(condition) });
+          return { limit: async () => waiting };
+        },
+      }),
+    }),
     update: () => ({
       set: (values) => ({
         where: async (condition) => {
@@ -125,30 +116,37 @@ test("nobody waiting means nothing sent and nothing written", async () => {
   assert.equal(db.updates.length, 0, "an empty list must not still issue an UPDATE");
 });
 
-test("everyone waiting is emailed and moved to the notified source", async () => {
+test("everyone waiting is emailed and stamped notified", async () => {
   const db = fakeDb([{ email: "a@example.com" }, { email: "b@example.com" }]);
   assert.equal(await notifyRestockWaitlist(db, "grow-oil"), 2);
 
   assert.equal(db.updates.length, 1);
-  const [move] = db.updates;
-  assert.equal(move.values.source, "waitlist-notified:grow-oil");
-  assert.ok(move.values.updatedAt instanceof Date, "the move should stamp updated_at");
+  const [stamp] = db.updates;
+  assert.ok(stamp.values.notifiedAt instanceof Date, "the send should stamp notified_at");
+  assert.equal(Object.keys(stamp.values).join(), "notifiedAt", "nothing but notified_at may move");
 });
 
-test("the move is scoped to the addresses actually read, not to the whole list", async () => {
+test("only the people still waiting on THIS product are read", async () => {
+  const db = fakeDb([{ email: "a@example.com" }]);
+  await notifyRestockWaitlist(db, "grow-oil");
+  // The slug scopes the read, and already-notified rows are excluded by
+  // notified_at IS NULL rather than by deleting or rewriting them.
+  assert.ok(db.selects[0].bound.includes("grow-oil"), "the read is not scoped to the product");
+});
+
+test("the stamp is scoped to the addresses actually read, and to this product", async () => {
   // Somebody who joins while the sends are in flight must stay on the list and
   // be told on the next run — marking her served without emailing her would
-  // lose her silently. Re-running the source predicate would do exactly that,
-  // so the UPDATE must name the addresses it read.
+  // lose her silently. So the UPDATE names the addresses it read.
   const db = fakeDb([{ email: "a@example.com" }, { email: "b@example.com" }]);
   await notifyRestockWaitlist(db, "grow-oil");
 
   const { bound } = db.updates[0];
   assert.ok(bound.includes("a@example.com"), "the first address is not named in the WHERE clause");
   assert.ok(bound.includes("b@example.com"), "the second address is not named in the WHERE clause");
-  // And the clause must not fall back to matching the source instead, which is
-  // what would sweep up a late joiner.
-  assert.ok(!bound.includes("waitlist:grow-oil"), "the WHERE clause re-runs the source predicate");
+  // And it must still be scoped by slug, or notifying one product would mark
+  // the same person served on every other product she is waiting on.
+  assert.ok(bound.includes("grow-oil"), "the stamp is not scoped to this product");
 });
 
 test("a waitlister with no marketing consent is still emailed", async () => {

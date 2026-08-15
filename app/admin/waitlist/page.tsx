@@ -1,20 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { desc, like, or } from "drizzle-orm";
+import { desc } from "drizzle-orm";
 import { getDb } from "../../../db";
-import { productInventory, subscribers } from "../../../db/schema";
+import { productInventory, productWaitlist, subscribers } from "../../../db/schema";
 import { products } from "../../data";
 import { isAuthenticated, adminTokenConfigured } from "../../../lib/admin-auth";
 import { signOut } from "../orders/actions";
 import SignInForm from "../orders/SignInForm";
 import { notifyWaitlist, removeFromWaitlist } from "./actions";
-import {
-  NOTIFIED_PREFIX,
-  WAITLIST_PREFIX,
-  isSoldOut,
-  slugFromSource,
-  waitlistProductName,
-} from "../../../lib/restock-waitlist";
+import { isSoldOut, waitlistProductName } from "../../../lib/restock-waitlist";
 
 // Waitlist rows are subscriber email addresses — PII, same posture as the
 // orders and subscribers views: never cached, prerendered, or indexed.
@@ -35,7 +29,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 const cell = { padding: "0.6rem 0.5rem" } as const;
 const headCell = { textAlign: "left", padding: "0.6rem 0.5rem", borderBottom: "2px solid currentColor", whiteSpace: "nowrap" } as const;
 
-type Entry = { email: string; joinedAt: Date | null; updatedAt: Date | null; marketingConsent: boolean };
+type Entry = { email: string; joinedAt: Date | null; notifiedAt: Date | null; marketingConsent: boolean };
 type Group = {
   slug: string;
   name: string;
@@ -62,21 +56,22 @@ export default async function AdminWaitlist() {
   }
   if (!(await isAuthenticated())) return <Shell><SignInForm /></Shell>;
 
-  let rows: { email: string; source: string | null; createdAt: Date | null; updatedAt: Date | null; marketingConsent: boolean }[] = [];
+  let rows: { email: string; slug: string; joinedAt: Date | null; notifiedAt: Date | null }[] = [];
   let stockBySlug = new Map<string, { soldOut: boolean; stock: number | null }>();
+  let consentByEmail = new Map<string, boolean>();
   let error: string | null = null;
   try {
     const db = getDb();
-    const [signups, inventory] = await Promise.all([
-      db.select({ email: subscribers.email, source: subscribers.source, createdAt: subscribers.createdAt, updatedAt: subscribers.updatedAt, marketingConsent: subscribers.marketingConsent })
-        .from(subscribers)
-        .where(or(like(subscribers.source, `${WAITLIST_PREFIX}%`), like(subscribers.source, `${NOTIFIED_PREFIX}%`)))
-        .orderBy(desc(subscribers.updatedAt))
-        .limit(2000),
+    const [signups, inventory, contacts] = await Promise.all([
+      db.select().from(productWaitlist).orderBy(desc(productWaitlist.joinedAt)).limit(5000),
       db.select().from(productInventory),
+      // Marketing standing is a property of the contact, not of a membership,
+      // so it is read once per address rather than joined per row.
+      db.select({ email: subscribers.email, marketingConsent: subscribers.marketingConsent }).from(subscribers).limit(20000),
     ]);
     rows = signups;
     stockBySlug = new Map(inventory.map(r => [r.slug, { soldOut: r.soldOut, stock: r.stock }]));
+    consentByEmail = new Map(contacts.map(c => [c.email, c.marketingConsent]));
   } catch (cause) {
     // Drizzle's outer message is only the "Failed query: …" SQL dump; the real
     // reason (an unapplied migration, say) is on `.cause`. Surface that one.
@@ -109,10 +104,13 @@ export default async function AdminWaitlist() {
   };
 
   for (const row of rows) {
-    const slug = slugFromSource(row.source);
-    if (!slug) continue;
-    const entry: Entry = { email: row.email, joinedAt: row.createdAt, updatedAt: row.updatedAt, marketingConsent: row.marketingConsent };
-    groupFor(slug)[row.source?.startsWith(WAITLIST_PREFIX) ? "waiting" : "notified"].push(entry);
+    const entry: Entry = {
+      email: row.email,
+      joinedAt: row.joinedAt,
+      notifiedAt: row.notifiedAt,
+      marketingConsent: consentByEmail.get(row.email) ?? false,
+    };
+    groupFor(row.slug)[row.notifiedAt ? "notified" : "waiting"].push(entry);
   }
 
   // Products people are actually waiting on come first, biggest list at the
@@ -200,7 +198,7 @@ export default async function AdminWaitlist() {
                     <tbody>
                       {group.waiting.map(entry => (
                         <tr key={entry.email} style={{ borderBottom: "1px solid rgba(128,128,128,0.35)" }}>
-                          <td style={{ ...cell, whiteSpace: "nowrap" }}>{when(entry.updatedAt ?? entry.joinedAt)}</td>
+                          <td style={{ ...cell, whiteSpace: "nowrap" }}>{when(entry.joinedAt)}</td>
                           <td style={cell}><a href={`mailto:${entry.email}`}>{entry.email}</a></td>
                           <td style={{ ...cell, whiteSpace: "nowrap" }} title={entry.marketingConsent ? "Also opted in to The Wynn Edit." : "Waitlist only — still gets the back-in-stock email."}>
                             {entry.marketingConsent ? "Opted in" : <span style={{ opacity: 0.7 }}>Waitlist only</span>}
@@ -237,7 +235,7 @@ export default async function AdminWaitlist() {
                   <summary style={{ cursor: "pointer" }}>{group.notified.length} already told it was back</summary>
                   <ul style={{ marginTop: "0.5rem", opacity: 0.8 }}>
                     {group.notified.map(entry => (
-                      <li key={entry.email}>{entry.email} <span style={{ opacity: 0.7 }}>— notified {when(entry.updatedAt)}</span></li>
+                      <li key={entry.email}>{entry.email} <span style={{ opacity: 0.7 }}>— notified {when(entry.notifiedAt)}</span></li>
                     ))}
                   </ul>
                 </details>

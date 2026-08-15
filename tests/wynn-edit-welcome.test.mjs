@@ -320,9 +320,56 @@ test("a waitlist signup records no marketing consent and never joins the marketi
 test("the restock alert never depends on the opt-in: an unticked box still joins the waitlist", async () => {
   const res = await post({ email: "no-thanks@example.com", consent: false, source: "waitlist:boho-spanish-curl-18" });
   assert.equal(res.status, 200);
-  const row = store.store.get("no-thanks@example.com");
-  assert.equal(row.source, "waitlist:boho-spanish-curl-18", "she is on the list regardless of the opt-in");
-  assert.equal(row.marketingConsent, false, "and is not quietly added to the marketing list");
+  assert.deepEqual(
+    store.waitlistFor("no-thanks@example.com").map(r => r.slug),
+    ["boho-spanish-curl-18"],
+    "she is on the list regardless of the opt-in",
+  );
+  assert.equal(store.store.get("no-thanks@example.com").marketingConsent, false, "and is not quietly added to the marketing list");
+});
+
+// --- one address, several products -------------------------------------------
+//
+// The membership used to live in subscribers.source, a single column on a table
+// keyed by email — so joining a second product's waitlist MOVED her off the
+// first and she was only ever told about the most recent one. These pin the
+// join table that replaced it.
+
+test("one address can wait on several products at once", async () => {
+  await post({ email: "collector@example.com", consent: false, source: "waitlist:boho-spanish-curl-18" });
+  await post({ email: "collector@example.com", consent: false, source: "waitlist:boho-bohemian-curl-18" });
+
+  const slugs = store.waitlistFor("collector@example.com").map(r => r.slug).sort();
+  assert.deepEqual(slugs, ["boho-bohemian-curl-18", "boho-spanish-curl-18"], "the second signup displaced the first");
+  assert.equal(store.store.size, 1, "and she is still a single contact, not a row per product");
+});
+
+test("re-joining the same product does not duplicate the membership", async () => {
+  await post({ email: "twice@example.com", consent: false, source: "waitlist:boho-spanish-curl-18" });
+  await post({ email: "twice@example.com", consent: false, source: "waitlist:boho-spanish-curl-18" });
+  assert.equal(store.waitlistFor("twice@example.com").length, 1, "the composite key should collapse a repeat join");
+});
+
+test("a membership starts unnotified, and re-joining after a restock puts her back in line", async () => {
+  await post({ email: "again@example.com", consent: false, source: "waitlist:boho-spanish-curl-18" });
+  const [entry] = store.waitlistFor("again@example.com");
+  assert.equal(entry.notifiedAt, null, "a fresh join is waiting, not already served");
+
+  // Simulate the restock having told her.
+  entry.notifiedAt = new Date();
+  // She joins again after a later sell-out.
+  await post({ email: "again@example.com", consent: false, source: "waitlist:boho-spanish-curl-18" });
+  assert.equal(store.waitlistFor("again@example.com")[0].notifiedAt, null, "re-joining must clear the previous notification");
+});
+
+test("the subscriber row records provenance, and never has to carry the membership", async () => {
+  await post({ email: "provenance@example.com", consent: false, source: "waitlist:boho-spanish-curl-18" });
+  await post({ email: "provenance@example.com", consent: false, source: "waitlist:boho-bohemian-curl-18" });
+
+  // `source` is where she most recently came from. It is allowed to move; what
+  // matters is that both memberships survive it.
+  assert.equal(store.store.get("provenance@example.com").source, "waitlist:boho-bohemian-curl-18");
+  assert.equal(store.waitlistFor("provenance@example.com").length, 2);
 });
 
 test("ticking the opt-in records a full marketing consent naming the waitlist form", async () => {

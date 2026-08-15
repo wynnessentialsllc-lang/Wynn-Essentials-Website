@@ -1,6 +1,6 @@
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { getDb } from "../db";
-import { subscribers } from "../db/schema";
+import { productWaitlist } from "../db/schema";
 import { products } from "../app/data";
 import { notifyCustomerRestock } from "./notify";
 import { emailUrl } from "./email-brand";
@@ -8,35 +8,19 @@ import { emailUrl } from "./email-brand";
 /**
  * The restock waitlist.
  *
- * There is no separate waitlist table: a signup is a row in `subscribers` whose
- * `source` names the product she is waiting on. That column carries the whole
- * state machine, and it has exactly three values that matter here:
+ * One row per (address, product) in `product_waitlist`, so an address can wait
+ * on as many products as she likes. `notified_at` is the state: NULL means
+ * still waiting, a timestamp means she has been told about that product's
+ * return. Re-joining after a later sell-out clears it, so each restock cycle
+ * notifies a fresh list.
  *
- *   waitlist:<slug>           — waiting to hear that <slug> is back
- *   waitlist-notified:<slug>  — already told, this cycle
- *   anything else             — not on any waitlist
- *
- * Consequence worth knowing before you read the admin view: because `email` is
- * the primary key of `subscribers` and `source` is a single column, one address
- * can sit on ONE product's waitlist at a time. Joining a second product's
- * waitlist moves her, it does not add her. See docs/restock-waitlist.md.
+ * `subscribers.source` still records 'waitlist:<slug>' as the PROVENANCE of a
+ * contact — where she came from — but nothing reads it back as membership.
+ * See docs/restock-waitlist.md.
  */
 
-export const WAITLIST_PREFIX = "waitlist:";
-export const NOTIFIED_PREFIX = "waitlist-notified:";
-
-/** The `source` value written when someone joins <slug>'s waitlist. */
-export const waitlistSource = (slug: string) => `${WAITLIST_PREFIX}${slug}`;
-/** The `source` value they are moved to once the back-in-stock email is sent. */
-export const notifiedSource = (slug: string) => `${NOTIFIED_PREFIX}${slug}`;
-
-/** Reads the slug back out of either source form; null when it is neither. */
-export function slugFromSource(source: string | null | undefined): string | null {
-  if (typeof source !== "string") return null;
-  if (source.startsWith(WAITLIST_PREFIX)) return source.slice(WAITLIST_PREFIX.length) || null;
-  if (source.startsWith(NOTIFIED_PREFIX)) return source.slice(NOTIFIED_PREFIX.length) || null;
-  return null;
-}
+/** The `source` value recorded on the subscriber row a waitlist signup creates. */
+export const waitlistSource = (slug: string) => `waitlist:${slug}`;
 
 /** Display name for a product, falling back to the slug for a retired one. */
 export function waitlistProductName(slug: string): string {
@@ -55,21 +39,22 @@ export const isSoldOut = (state: InventoryState) => state.soldOut || (state.stoc
 type Db = ReturnType<typeof getDb>;
 
 /**
- * Emails everyone currently waiting on <slug> that it is back, then moves them
- * to the notified source so a later sell-out/restock cycle starts a fresh list
- * and nobody is told twice about the same return.
+ * Emails everyone still waiting on <slug> that it is back, then stamps them
+ * notified so nobody is told twice about the same return.
  *
- * The move happens only after the sends resolve, so a crash mid-send leaves the
- * list intact and the restock can be retried from the admin view. The trade-off
- * is the other direction: a crash after some sends have landed can produce a
- * duplicate on retry. Telling her twice is the better failure than never
- * telling her at all.
+ * The stamp happens only after the sends resolve, so a crash mid-send leaves
+ * the list intact and the restock can be retried from /admin/waitlist. The
+ * trade-off runs the other way: a crash after some sends have landed can
+ * produce a duplicate on retry. Telling her twice is the better failure than
+ * never telling her at all.
  *
  * Returns how many addresses were emailed.
  */
 export async function notifyRestockWaitlist(db: Db, slug: string): Promise<number> {
-  const source = waitlistSource(slug);
-  const waiting = await db.select({ email: subscribers.email }).from(subscribers).where(eq(subscribers.source, source)).limit(2000);
+  const waiting = await db.select({ email: productWaitlist.email })
+    .from(productWaitlist)
+    .where(and(eq(productWaitlist.slug, slug), isNull(productWaitlist.notifiedAt)))
+    .limit(2000);
   if (waiting.length === 0) return 0;
 
   const productName = waitlistProductName(slug);
@@ -77,12 +62,12 @@ export async function notifyRestockWaitlist(db: Db, slug: string): Promise<numbe
   // One failed address must not hold back the rest of the list.
   await Promise.all(waiting.map(w => notifyCustomerRestock({ email: w.email, productName, productUrl }).catch(() => {})));
 
-  // Scoped to the addresses actually read above rather than re-running the
-  // predicate, so somebody who joins while the sends are in flight stays on the
-  // list and is told on the next run instead of being silently marked served.
-  await db.update(subscribers)
-    .set({ source: notifiedSource(slug), updatedAt: new Date() })
-    .where(inArray(subscribers.email, waiting.map(w => w.email)));
+  // Scoped to the addresses actually read rather than re-running the predicate,
+  // so somebody who joins while the sends are in flight stays on the list and is
+  // told on the next run instead of being silently marked served.
+  await db.update(productWaitlist)
+    .set({ notifiedAt: new Date() })
+    .where(and(eq(productWaitlist.slug, slug), inArray(productWaitlist.email, waiting.map(w => w.email))));
 
   return waiting.length;
 }
