@@ -15,6 +15,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { localPreview } from "./email-preview-local.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = resolve(root, "build/email-previews/education");
@@ -43,9 +44,13 @@ for (const fixture of educationFixtures) {
   });
   writeFileSync(resolve(outDir, `${fixture.key}.html`), html);
   writeFileSync(resolve(outDir, `${fixture.key}.txt`), text);
+  // A twin whose images resolve against this repo's public/ folder, so the
+  // preview can be looked at without reaching production.
+  writeFileSync(resolve(outDir, `${fixture.key}.preview.html`), localPreview(html, { root, outDir }));
   console.log(`${fixture.key.padEnd(13)} ${String(cards.length).padStart(2)} sections  ${kb(html).padStart(8)} HTML  ${kb(text).padStart(7)} text  ${subject}`);
   if (Buffer.byteLength(html, "utf8") > 102_000) console.warn(`  WARNING: ${fixture.key} is over ~102KB — Gmail will clip it.`);
   if (!preheader) console.warn(`  WARNING: ${fixture.key} has no preview text.`);
 }
 
-console.log(`\nWrote ${educationFixtures.length * 2} files to ${outDir}`);
+console.log(`\nWrote ${educationFixtures.length * 3} files to ${outDir}`);
+console.log("Open the *.preview.html twins to see the images; the plain .html is the exact message that sends.");

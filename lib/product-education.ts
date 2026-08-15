@@ -222,15 +222,13 @@ export type EducationCard = {
   directions: string;
   url: string;
   /**
-   * A JPEG or PNG only. WebP and AVIF break in Outlook for Windows, and half
-   * the catalog's photography is WebP — a section simply goes without a picture
-   * rather than shipping a broken one.
+   * The email build of the product's photograph (public/email/products), which
+   * exists as a JPEG for every product — Outlook for Windows renders neither
+   * WebP nor AVIF, and six of the catalog's products are shot only in those.
    */
   image: { src: string; alt: string } | null;
   education: ProductEducation;
 };
-
-const MAILABLE_IMAGE = /\.(jpe?g|png)$/i;
 
 /** The order a routine actually runs in: wash day first, then the rest. */
 function routineOrder(a: Product, b: Product): number {
@@ -266,7 +264,7 @@ export function educationFor(items: { productId?: string | null }[], siteUrl: st
       size: p.size,
       directions: p.directions,
       url: `${siteUrl.replace(/\/+$/, "")}/products/${p.slug}`,
-      image: p.images?.find(i => MAILABLE_IMAGE.test(i.src)) ?? null,
+      image: p.images?.[0] ? { src: `/email/products/${p.slug}.jpg`, alt: p.images[0].alt } : null,
       education: productEducation[p.slug],
     }));
 }
