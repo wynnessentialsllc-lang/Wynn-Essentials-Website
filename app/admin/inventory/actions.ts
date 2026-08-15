@@ -3,40 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { getDb } from "../../../db";
-import { productInventory, subscribers } from "../../../db/schema";
+import { productInventory } from "../../../db/schema";
 import { products } from "../../data";
 import { isAuthenticated } from "../../../lib/admin-auth";
-import { notifyCustomerRestock } from "../../../lib/notify";
+// The waitlist itself — who is waiting, what they are told, and when the list is
+// cleared — lives in lib/restock-waitlist.ts, shared with /admin/waitlist.
+import { notifyRestockIfReopened, type InventoryState as InvState } from "../../../lib/restock-waitlist";
 
 const VALID_SLUGS = new Set(products.map(p => p.slug));
-
-type InvState = { soldOut: boolean; stock: number | null };
-// Mirrors the storefront/API rule: sold out when flagged or tracked stock ≤ 0.
-const isOut = (s: InvState) => s.soldOut || (s.stock != null && s.stock <= 0);
-
-// When a product crosses from sold-out to in-stock, email everyone on that
-// product's restock waitlist and clear them from it so a later restock cycle
-// can't re-notify the same people. Best-effort: never throws, so it can't break
-// the inventory update that triggered it.
-async function notifyRestockIfReopened(db: ReturnType<typeof getDb>, slug: string, before: InvState, after: InvState) {
-  if (!(isOut(before) && !isOut(after))) return;
-  try {
-    const source = `waitlist:${slug}`;
-    const waiting = await db.select({ email: subscribers.email }).from(subscribers).where(eq(subscribers.source, source)).limit(2000);
-    if (waiting.length === 0) return;
-
-    const product = products.find(p => p.slug === slug);
-    const productName = product ? `${product.name} ${product.subtitle}` : slug;
-    const productUrl = `https://wynnessentialsllc.us/products/${slug}`;
-    await Promise.all(waiting.map(w => notifyCustomerRestock({ email: w.email, productName, productUrl }).catch(() => {})));
-
-    // Mark them served so the next sell-out/restock cycle starts a fresh list.
-    // A customer who re-joins after this resets their source back to waitlist:slug.
-    await db.update(subscribers).set({ source: `waitlist-notified:${slug}`, updatedAt: new Date() }).where(eq(subscribers.source, source));
-  } catch (error) {
-    console.error("Restock notification failed", { slug, message: error instanceof Error ? error.message : "Unknown error" });
-  }
-}
 
 export async function setSoldOut(formData: FormData) {
   // A server action is its own endpoint, so it re-checks authentication rather

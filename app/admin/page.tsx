@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { and, eq, ne, count } from "drizzle-orm";
+import { and, eq, ne, count, isNull } from "drizzle-orm";
 import { getDb } from "../../db";
-import { orders, productReviews, supportMessages } from "../../db/schema";
+import { orders, productInventory, productReviews, productWaitlist, supportMessages } from "../../db/schema";
+import { products } from "../data";
 import { isAuthenticated, adminTokenConfigured } from "../../lib/admin-auth";
+import { isSoldOut } from "../../lib/restock-waitlist";
 import { signOut } from "./orders/actions";
 import SignInForm from "./orders/SignInForm";
 
@@ -20,33 +22,60 @@ function Shell({ children }: { children: React.ReactNode }) {
 
 // `badge` names the attention-count for a section (see attentionCounts). A count
 // above zero renders a red indicator with the number of items needing action.
-type BadgeKey = "orders" | "reviews" | "support";
+type BadgeKey = "orders" | "reviews" | "support" | "waitlist";
 type Section = { href: string; title: string; blurb: string; badge?: BadgeKey };
 const SECTIONS: Section[] = [
   { href: "/admin/analytics", title: "Analytics", blurb: "Sales, orders, average order value, and top products." },
   { href: "/admin/traffic", title: "Traffic", blurb: "Visitors by day and hour, viewed products, and the cart→checkout funnel." },
   { href: "/admin/orders", title: "Orders", blurb: "View paid orders and mark them fulfilled.", badge: "orders" },
   { href: "/admin/inventory", title: "Inventory", blurb: "Track stock counts and mark products sold out or back in stock." },
+  { href: "/admin/waitlist", title: "Waitlist", blurb: "Who is waiting on each sold-out product, and who still needs telling it is back.", badge: "waitlist" },
   { href: "/admin/support", title: "Support", blurb: "Customer messages from the contact form. Mark them resolved.", badge: "support" },
   { href: "/admin/reviews", title: "Reviews", blurb: "Approve, reject, or verify customer product reviews before they publish.", badge: "reviews" },
   { href: "/admin/blog", title: "Insights", blurb: "Write and publish education-hub articles (Markdown), co-branded with Hair Wellness Lab." },
   { href: "/admin/subscribers", title: "Subscribers", blurb: "Newsletter and product-waitlist signups." },
 ];
 
+/**
+ * People still owed a back-in-stock email: waiting on a product that is
+ * available again. Someone waiting on a product that is genuinely still sold
+ * out is not an action — there is nothing to tell her yet — so only the
+ * reopened ones are counted.
+ */
+async function waitlistNeedingNotice(): Promise<number> {
+  const db = getDb();
+  const [waiting, inventory] = await Promise.all([
+    db.select({ slug: productWaitlist.slug, n: count() })
+      .from(productWaitlist)
+      .where(isNull(productWaitlist.notifiedAt))
+      .groupBy(productWaitlist.slug),
+    db.select().from(productInventory),
+  ]);
+  const stockBySlug = new Map(inventory.map(r => [r.slug, { soldOut: r.soldOut, stock: r.stock }]));
+  return waiting.reduce((total, row) => {
+    const override = stockBySlug.get(row.slug);
+    const catalogSoldOut = products.find(p => p.slug === row.slug)?.soldOut ?? false;
+    const state = { soldOut: override?.soldOut ?? catalogSoldOut, stock: override?.stock ?? null };
+    return isSoldOut(state) ? total : total + row.n;
+  }, 0);
+}
+
 // Counts the items awaiting action in each section: paid-but-unfulfilled orders,
-// reviews pending approval, and unresolved support messages. Every count fails
-// closed to 0 so a database hiccup never blocks the admin home from rendering.
-async function attentionCounts(): Promise<{ orders: number; reviews: number; support: number }> {
+// reviews pending approval, unresolved support messages, and waitlisters owed a
+// restock email. Every count fails closed to 0 so a database hiccup never blocks
+// the admin home from rendering.
+async function attentionCounts(): Promise<{ orders: number; reviews: number; support: number; waitlist: number }> {
   const db = getDb();
   const one = async (query: Promise<{ n: number }[]>) => {
     try { return (await query)[0]?.n ?? 0; } catch { return 0; }
   };
-  const [ordersN, reviewsN, supportN] = await Promise.all([
+  const [ordersN, reviewsN, supportN, waitlistN] = await Promise.all([
     one(db.select({ n: count() }).from(orders).where(and(eq(orders.status, "paid"), ne(orders.fulfillmentStatus, "fulfilled")))),
     one(db.select({ n: count() }).from(productReviews).where(eq(productReviews.status, "pending"))),
     one(db.select({ n: count() }).from(supportMessages).where(eq(supportMessages.status, "new"))),
+    waitlistNeedingNotice().catch(() => 0),
   ]);
-  return { orders: ordersN, reviews: reviewsN, support: supportN };
+  return { orders: ordersN, reviews: reviewsN, support: supportN, waitlist: waitlistN };
 }
 
 export default async function AdminHome() {

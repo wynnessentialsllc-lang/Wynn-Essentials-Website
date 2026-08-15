@@ -158,10 +158,15 @@ export const brandConfig = {
   consentForms: {
     newsletter: "the-wynn-edit-newsletter-section",
     firstOrderPopup: "first-order-welcome-popup",
+    waitlist: "restock-waitlist-optional-opt-in",
   },
   // Shown on restock-waitlist forms. Joining a waitlist is a one-time
   // transactional alert for a single product — not marketing consent.
   waitlistConsent: "We’ll email you once — when this item is back in stock. No marketing list, no obligation.",
+  // The optional extra on a waitlist form. Ticking it is a separate,
+  // affirmative marketing opt-in; leaving it alone must change nothing about
+  // the restock alert, which she gets either way.
+  waitlistMarketingOptIn: "Also send me The Wynn Edit — hair-care tips, new arrivals, and offers. Optional; unsubscribe any time.",
   // First-order welcome offer. `code` must match a Stripe promotion code created
   // in the dashboard (a 15%-off coupon), and STRIPE_PROMOTION_CODES_ENABLED must
   // be "true" so the code field appears at checkout. Change the code/label here

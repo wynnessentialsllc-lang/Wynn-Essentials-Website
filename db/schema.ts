@@ -1,4 +1,4 @@
-import { pgTable, text, bigint, bigserial, integer, timestamp, jsonb, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, bigint, bigserial, integer, timestamp, jsonb, boolean, primaryKey } from "drizzle-orm/pg-core";
 
 // Every Stripe event we have already accepted. Written before an order is
 // recorded so a redelivered event can never create a second order.
@@ -87,6 +87,25 @@ export const productInventory = pgTable("product_inventory", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 export type ProductInventory = typeof productInventory.$inferSelect;
+
+// Restock waitlist: one row per (address, product) she asked to be told about.
+//
+// A membership is a relationship, so it is a row rather than a value crammed
+// into subscribers.source — which is what limited an address to one waitlist at
+// a time before 0019_product_waitlist.sql. Holds email, so it is locked to
+// server-side access by that migration, exactly like the subscriber and order
+// tables.
+export const productWaitlist = pgTable("product_waitlist", {
+  email: text("email").notNull(),
+  slug: text("slug").notNull(),
+  joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
+  // NULL while she is still waiting; stamped when the back-in-stock email is
+  // sent, and cleared again if she re-joins after a later sell-out so each
+  // restock cycle starts a fresh list.
+  notifiedAt: timestamp("notified_at", { withTimezone: true }),
+}, t => [primaryKey({ columns: [t.email, t.slug] })]);
+
+export type ProductWaitlistEntry = typeof productWaitlist.$inferSelect;
 
 // Customer support / contact messages submitted from the storefront. Holds
 // contact PII (name, email), so it is locked to server-side access by
