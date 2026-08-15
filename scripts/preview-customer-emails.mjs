@@ -15,6 +15,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { localPreview } from "./email-preview-local.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = resolve(root, "build/email-previews/customer");
@@ -113,6 +114,10 @@ const kb = (s) => `${(Buffer.byteLength(s, "utf8") / 1024).toFixed(1)}KB`;
 for (const [key, message] of Object.entries(messages)) {
   writeFileSync(resolve(outDir, `${key}.html`), message.html);
   writeFileSync(resolve(outDir, `${key}.txt`), message.text);
+  // A twin whose images resolve against this repo's public/ folder, so the
+  // preview can be looked at without reaching production.
+  writeFileSync(resolve(outDir, `${key}.preview.html`), localPreview(message.html, { root, outDir }));
   console.log(`${key.padEnd(16)} ${kb(message.html).padStart(8)} HTML  ${kb(message.text).padStart(7)} text  ${message.subject}`);
 }
-console.log(`\nWrote ${Object.keys(messages).length * 2} files to ${outDir}`);
+console.log(`\nWrote ${Object.keys(messages).length * 3} files to ${outDir}`);
+console.log("Open the *.preview.html twins to see the images; the plain .html is the exact message that sends.");
