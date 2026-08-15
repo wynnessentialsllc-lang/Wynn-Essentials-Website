@@ -68,7 +68,8 @@ export async function POST(request: Request) {
     // without accepting arbitrary values.
     const source = typeof body.source === "string" && /^(the-wynn-edit|first-order-popup|waitlist:[a-z0-9-]{1,60})$/.test(body.source) ? body.source : "the-wynn-edit";
     // A restock waitlist is a one-time transactional alert, not marketing — so it
-    // never requires marketing consent and never records one.
+    // never REQUIRES marketing consent. It can still carry one: the form shows an
+    // optional, unticked opt-in, and `consent` is true only when she ticked it.
     const isWaitlist = source.startsWith("waitlist:");
     if (!EMAIL.test(email) || email.length > 254) return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
     // Marketing consent is required only to store a contact for marketing use.
@@ -76,21 +77,38 @@ export async function POST(request: Request) {
 
     const db = getDb();
 
-    // ---- Restock waitlist: transactional, unchanged, no marketing consent ----
+    // ---- Restock waitlist: transactional, with an OPTIONAL marketing opt-in ----
     // Email is the primary key, so a repeat signup refreshes the same row rather
-    // than erroring or duplicating. A waitlist signup records NO marketing
-    // consent and, on an existing row, must never upgrade or downgrade a
-    // marketing subscriber — so it only refreshes the source/timestamp.
+    // than erroring or duplicating.
+    //
+    // Two independent things can happen here, and keeping them independent is the
+    // whole point:
+    //
+    //   1. The restock alert. Always recorded, never gated on consent. She asked
+    //      to be told when one specific product returns; that request is the
+    //      permission, and honouring it is not marketing.
+    //   2. Marketing. Recorded ONLY when she ticked the optional box, because
+    //      that box is the affirmative opt-in the disclosure describes.
+    //
+    // The one asymmetry to preserve: an opt-in may UPGRADE an existing row to a
+    // marketing subscriber, but a waitlist signup without the box ticked must
+    // never DOWNGRADE one — she may already be a subscriber, and joining a
+    // waitlist is not a request to leave the newsletter.
     if (isWaitlist) {
+      const marketing = consent ? consentRecord(source, brandConfig.consentForms.waitlist) : null;
       await db.insert(subscribers).values({
         email,
-        marketingConsent: false,
-        consentText: brandConfig.waitlistConsent,
+        ...(marketing ?? { marketingConsent: false, consentText: brandConfig.waitlistConsent }),
         source,
       }).onConflictDoUpdate({
         target: subscribers.email,
-        set: { source, updatedAt: new Date() },
+        // Without the opt-in this touches only the waiting state, leaving her
+        // marketing standing — consent, consent_at, unsubscribed_at — untouched.
+        set: marketing
+          ? { ...marketing, unsubscribedAt: null, source, updatedAt: new Date() }
+          : { source, updatedAt: new Date() },
       });
+
       const slug = source.slice("waitlist:".length);
       const product = products.find(p => p.slug === slug);
       // A per-product restock request is confirmed every time it is made.
@@ -98,6 +116,27 @@ export async function POST(request: Request) {
         email,
         productName: product ? `${product.name} ${product.subtitle}` : null,
       }).catch(() => {});
+
+      // The newsletter welcome is a separate message with its own unsubscribe
+      // machinery, and it is claimed the same send-once way as every other door
+      // into the list: the update only matches while welcome_sent_at is NULL, so
+      // a waitlister who already had a welcome does not collect a second one.
+      if (marketing) {
+        const claimed = await db.update(subscribers)
+          .set({ welcomeSentAt: new Date() })
+          .where(and(eq(subscribers.email, email), isNull(subscribers.welcomeSentAt)))
+          .returning({ email: subscribers.email });
+        if (claimed.length > 0) {
+          await notifyNewSubscriber({ email, source }).catch(() => {});
+          const delivery = await notifyWynnEditWelcome({ email }).catch(() => ({ ok: false, certainNotSent: false }));
+          // Release the claim only when we KNOW nothing was transmitted, so it
+          // can be retried later without risking a second copy in her inbox.
+          if (!delivery.ok && delivery.certainNotSent) {
+            await db.update(subscribers).set({ welcomeSentAt: null }).where(eq(subscribers.email, email)).catch(() => {});
+          }
+          if (!delivery.ok) console.warn("Wynn Edit welcome not delivered", { source, certainNotSent: delivery.certainNotSent });
+        }
+      }
       return NextResponse.json(SIGNUP_ACCEPTED);
     }
 
