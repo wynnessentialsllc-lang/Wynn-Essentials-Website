@@ -10,7 +10,18 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: "Wynn Essentials | Healthy Hair Is a Practice",
   description: "Moisture, strength, scalp, and styling essentials created for textured hair and the routines that keep it healthy.",
-  alternates: { canonical: "/" },
+  // An AI assistant that lands on any page can follow these to the plain-text
+  // site map (/llms.txt) and the full catalog, instead of crawling the DOM.
+  alternates: {
+    canonical: "/",
+    types: {
+      "text/plain": [
+        { url: "/llms.txt", title: "Wynn Essentials — site guide for AI assistants" },
+        { url: "/llms-full.txt", title: "Wynn Essentials — full catalog for AI assistants" },
+      ],
+      "application/json": [{ url: "/api/catalog", title: "Wynn Essentials — machine-readable catalog" }],
+    },
+  },
   icons: {
     icon: [{ url: "/wynn-essentials-favicon.png", type: "image/png", sizes: "512x512" }],
     shortcut: "/wynn-essentials-favicon.png",
