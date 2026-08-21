@@ -17,6 +17,7 @@
 //                     needing a second verified address.
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
+const RESEND_BATCH_ENDPOINT = "https://api.resend.com/emails/batch";
 const DEFAULT_TO = "wynnessentialsllc@gmail.com";
 
 // The Resend API key, read from the environment. RESEND_API_KEY is the standard
@@ -89,6 +90,33 @@ export type EmailInput = {
  * duplicate: release only when the non-delivery is certain.
  */
 export type EmailResult = { ok: boolean; certainNotSent: boolean; providerMessageId?: string };
+export type BatchEmailResult = { ok: boolean; certainNotSent: boolean; providerMessageIds?: string[] };
+
+/** Sends up to 100 personalized campaign messages in one Resend request. */
+export async function deliverEmailBatch(inputs: EmailInput[]): Promise<BatchEmailResult> {
+  const apiKey = resendApiKey();
+  if (!apiKey || inputs.length === 0 || inputs.some(input => !input.to)) return { ok: false, certainNotSent: true };
+  try {
+    const response = await fetch(RESEND_BATCH_ENDPOINT, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify(inputs.map(({ to, subject, html, text, replyTo, headers, fromName }) => ({
+        from: fromHeader(fromName), to, subject, html,
+        ...(text ? { text } : {}), ...(replyTo ? { reply_to: replyTo } : {}), ...(headers ? { headers } : {}),
+      }))),
+    });
+    if (!response.ok) {
+      console.error("Email batch failed", { status: response.status, detail: await response.text().catch(() => "") });
+      return { ok: false, certainNotSent: true };
+    }
+    const result = await response.json().catch(() => null) as { data?: { id?: unknown }[] } | null;
+    const ids = Array.isArray(result?.data) ? result.data.map(item => typeof item.id === "string" ? item.id : "") : [];
+    return { ok: true, certainNotSent: false, providerMessageIds: ids };
+  } catch (error) {
+    console.error("Email batch error", error instanceof Error ? error.message : "Unknown error");
+    return { ok: false, certainNotSent: false };
+  }
+}
 
 /** Sends via Resend and reports how it went. Never throws. */
 export async function deliverEmail({ to, subject, html, text, replyTo, headers, fromName }: EmailInput): Promise<EmailResult> {
