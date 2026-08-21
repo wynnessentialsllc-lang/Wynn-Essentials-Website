@@ -34,6 +34,12 @@ export const orders = pgTable("orders", {
   trackingNumber: text("tracking_number"),
   carrier: text("carrier"),
   shippedAt: timestamp("shipped_at", { withTimezone: true }),
+  // Transactional preorder updates. These timestamps are also the one-send
+  // guards; a resend requires an explicit admin action.
+  preorderConfirmationEmailedAt: timestamp("preorder_confirmation_emailed_at", { withTimezone: true }),
+  preorderProcessingEmailedAt: timestamp("preorder_processing_emailed_at", { withTimezone: true }),
+  preorderQualityEmailedAt: timestamp("preorder_quality_emailed_at", { withTimezone: true }),
+  preorderShippedEmailedAt: timestamp("preorder_shipped_emailed_at", { withTimezone: true }),
   // Set by the review-requests cron once the post-purchase review email has been
   // sent, so each customer is asked at most once.
   reviewRequestedAt: timestamp("review_requested_at", { withTimezone: true }),

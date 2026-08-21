@@ -5,7 +5,7 @@ import { getDb } from "../../../db";
 import { orders as ordersTable } from "../../../db/schema";
 import { isAuthenticated, adminTokenConfigured } from "../../../lib/admin-auth";
 import { trackingUrl } from "../../../lib/notify";
-import { signOut, setFulfillment, setShipped } from "./actions";
+import { sendPreorderUpdate, signOut, setFulfillment, setShipped } from "./actions";
 import SignInForm from "./SignInForm";
 
 // Carriers offered in the "Mark shipped" picker. Kept here (not imported from
@@ -94,6 +94,7 @@ export default async function AdminOrders() {
               <tbody>
                 {rows.map(row => {
                   const items = (Array.isArray(row.items) ? row.items : []) as OrderItem[];
+                  const isPreorder = items.some(item => item.name?.includes("PRE-ORDER"));
                   const ship = (row.shippingAddress ?? null) as ShippingAddress | null;
                   const a = ship?.address;
                   return (
@@ -121,6 +122,13 @@ export default async function AdminOrders() {
                         <div style={{ opacity: 0.75 }}>{row.paymentStatus}</div>
                       </td>
                       <td style={{ padding: "0.6rem 0.5rem", minWidth: "230px" }}>
+                        {isPreorder && row.fulfillmentStatus !== "fulfilled" && <div style={{ marginBottom: "0.65rem", padding: "0.6rem", border: "1px solid #ff8ac7", background: "#fff0f8" }}>
+                          <strong style={{ display: "block", marginBottom: "0.4rem", color: "#c21873", fontSize: "0.78rem" }}>PRE-ORDER EMAILS</strong>
+                          <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
+                            <form action={sendPreorderUpdate}><input type="hidden" name="sessionId" value={row.sessionId}/><input type="hidden" name="stage" value="processing"/>{row.preorderProcessingEmailedAt && <input type="hidden" name="force" value="1"/>}<button className="text-button" type="submit" style={{ fontSize: "0.75rem" }}>{row.preorderProcessingEmailedAt ? "Resend processing" : "Send processing"}</button>{row.preorderProcessingEmailedAt && <small style={{ display: "block" }}>Sent {when(row.preorderProcessingEmailedAt)}</small>}</form>
+                            <form action={sendPreorderUpdate}><input type="hidden" name="sessionId" value={row.sessionId}/><input type="hidden" name="stage" value="quality-check"/>{row.preorderQualityEmailedAt && <input type="hidden" name="force" value="1"/>}<button className="text-button" type="submit" style={{ fontSize: "0.75rem" }}>{row.preorderQualityEmailedAt ? "Resend quality check" : "Send quality check"}</button>{row.preorderQualityEmailedAt && <small style={{ display: "block" }}>Sent {when(row.preorderQualityEmailedAt)}</small>}</form>
+                          </div>
+                        </div>}
                         {row.fulfillmentStatus === "fulfilled" && (
                           <div style={{ marginBottom: "0.5rem" }}>
                             <span style={{ color: "#15803d", fontWeight: 700 }}>✓ Fulfilled</span>
@@ -141,8 +149,10 @@ export default async function AdminOrders() {
                           </select>
                           <input name="trackingNumber" defaultValue={row.trackingNumber ?? ""} placeholder="Tracking number" style={{ padding: "0.35rem", border: "1px solid rgba(128,128,128,0.5)" }} />
                           <button className="button" type="submit" style={{ minHeight: "auto", padding: "0.5rem 0.75rem", fontSize: "0.75rem" }}>
-                            {row.fulfillmentStatus === "fulfilled" ? "Update & re-email" : "Mark shipped + email"}
+                            {row.fulfillmentStatus === "fulfilled" ? isPreorder ? "Update tracking (no email)" : "Update & re-email" : "Mark shipped + email"}
                           </button>
+                          {isPreorder && row.preorderShippedEmailedAt && <button className="text-button" type="submit" name="forceEmail" value="1" style={{ fontSize: "0.75rem" }}>Update + resend shipping email</button>}
+                          {isPreorder && row.preorderShippedEmailedAt && <small>Shipping email sent {when(row.preorderShippedEmailedAt)}</small>}
                         </form>
                         <form action={setFulfillment} style={{ marginTop: "0.4rem" }}>
                           <input type="hidden" name="sessionId" value={row.sessionId} />
