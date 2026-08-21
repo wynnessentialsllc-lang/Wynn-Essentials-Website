@@ -1,6 +1,6 @@
 import Stripe from "stripe";
 import { NextResponse } from "next/server";
-import { and, eq, isNotNull, sql } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { getStripe } from "../../../../lib/stripe";
 import { getDb } from "../../../../db";
 import { orders, stripeEvents, productInventory, abandonedCarts } from "../../../../db/schema";
@@ -86,7 +86,19 @@ async function recordOrder(event: Stripe.Event, sessionId: string, status: "paid
     // Best-effort emails. Each is wrapped so a notify failure never turns into a
     // 500 (which Stripe retries): the owner alert, and the customer confirmation.
     await notifyNewOrder(row).catch(() => {});
-    await notifyCustomerOrderConfirmation(row).catch(() => {});
+    const isPreorder = row.items.some(item => item.name?.includes("PRE-ORDER"));
+    if (isPreorder) {
+      const claimedAt = new Date();
+      const claimed = await db.update(orders).set({ preorderConfirmationEmailedAt: claimedAt, updatedAt: claimedAt })
+        .where(and(eq(orders.sessionId, sessionId), isNull(orders.preorderConfirmationEmailedAt)))
+        .returning({ sessionId: orders.sessionId });
+      if (claimed.length > 0) {
+        const sent = await notifyCustomerOrderConfirmation(row).catch(() => false);
+        if (!sent) await db.update(orders).set({ preorderConfirmationEmailedAt: null }).where(eq(orders.sessionId, sessionId));
+      }
+    } else {
+      await notifyCustomerOrderConfirmation(row).catch(() => {});
+    }
     // Close out any abandoned-cart snapshot for this buyer so no reminder is
     // sent after they've purchased.
     if (row.customerEmail) {
