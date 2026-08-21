@@ -353,9 +353,15 @@ function FooterInfo({ page, onClose }: { page: FooterInfoKey; onClose: () => voi
 function HeroMedia({ play, invitationOpen, onReveal }: { play: boolean; invitationOpen: boolean; onReveal: () => void }) {
   const vidRef = useRef<HTMLVideoElement>(null);
   const bgRef = useRef<HTMLVideoElement>(null);
+  const revealTimer = useRef<number | null>(null);
   const [done, setDone] = useState(false);
   const finished = useRef(false);
-  const finish = () => { if (finished.current) return; finished.current = true; setDone(true); onReveal(); };
+  const finish = () => {
+    if (finished.current) return;
+    finished.current = true;
+    setDone(true);
+    revealTimer.current = window.setTimeout(onReveal, 1100);
+  };
   // Start the clip once the invitation is out of the way; reveal on end, with a
   // safety timeout in case the 'ended' event never fires. The parent reveals the
   // copy directly for the no-play case (repeat visit / reduced motion / deep link).
@@ -368,8 +374,11 @@ function HeroMedia({ play, invitationOpen, onReveal }: { play: boolean; invitati
     const t = window.setTimeout(finish, 13000);
     return () => window.clearTimeout(t);
   }, [play, invitationOpen]);
+  useEffect(() => () => {
+    if (revealTimer.current !== null) window.clearTimeout(revealTimer.current);
+  }, []);
   return (
-    <div className="hero-image">
+    <div className={`hero-image${done ? " is-revealing" : ""}`}>
       <img src="/hero-nourish-sky-full.webp" width={1200} height={1600} alt="Model holding eight Wynn Essentials Nourish boxes against a bright blue sky" fetchPriority="high" />
       {play && (
         <>
