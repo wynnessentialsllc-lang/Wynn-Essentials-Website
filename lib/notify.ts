@@ -239,13 +239,18 @@ export async function notifyCustomerOrderConfirmation(order: OrderInfo): Promise
   if (!order.customerEmail) return false;
   const currency = order.currency ?? "usd";
   const firstName = (order.customerName ?? "").trim().split(/\s+/)[0] || "there";
+  const includesPreorder = (order.items ?? []).some(item => item.name?.includes("PRE-ORDER"));
+  const preorderNote = includesPreorder
+    ? `<div style="margin:18px 0;padding:14px;border:1px solid #ef8fbd;background:#fff0f8"><strong>Pre-order details</strong><p style="margin:7px 0 0;line-height:1.55">Pre-orders close every Friday at 12 PM PT. Order before the cutoff to be included in the current pre-order batch. Please allow approximately 7–13 days for processing before shipment.</p></div>`
+    : "";
   const body = `
     ${itemsTable(order.items, currency)}
+    ${preorderNote}
     <table style="width:100%;border-collapse:collapse;font-size:15px;margin-top:6px">
       <tr><td style="padding:10px 0;font-weight:700">Total paid</td><td style="padding:10px 0;text-align:right;font-weight:700">${money(order.totalAmount, currency)}</td></tr>
     </table>
     <p style="font-size:13px;color:#6d675f;margin:16px 0 0">Order reference: <strong>${esc(order.orderReference ?? "—")}</strong></p>
-    <p style="font-size:14px;line-height:1.6;margin:18px 0 0">We'll send a shipping confirmation with tracking as soon as your order is on its way. Orders typically process within 3 business days.</p>`;
+    <p style="font-size:14px;line-height:1.6;margin:18px 0 0">We'll send a shipping confirmation with tracking as soon as your order is on its way.${includesPreorder ? "" : " Orders typically process within 3 business days."}</p>`;
   return sendEmail({
     to: order.customerEmail,
     subject: `Your Wynn Essentials order is confirmed${order.orderReference ? ` — ${order.orderReference}` : ""}`,

@@ -94,6 +94,7 @@
 .pdp-review-head .pdp-review-date{color:var(--muted);letter-spacing:normal;font-weight:400;font-size:12px;margin-left:10px}
 .pdp-review-title{font-weight:700;margin:0 0 4px}
 .pdp-waitlist{display:grid;gap:16px;margin:26px 0 8px;max-width:420px}
+.product-preorder,.pdp-preorder{margin:22px 0;padding:22px;border:1px solid #ef8fbd;background:linear-gradient(145deg,#f7fbff,#fff0f8);box-shadow:0 12px 34px #e98cbd22}.product-preorder h3,.pdp-preorder h2{margin:5px 0 12px;font-family:var(--font-display);font-weight:400}.product-preorder p,.pdp-preorder p{margin:7px 0;line-height:1.55}.preorder-label{width:max-content;margin:0!important;padding:6px 10px;border-radius:999px;background:#ff4fa0;color:#fff;font-size:10px!important;font-weight:900;letter-spacing:.14em}.pdp-preorder .button{display:inline-block;margin-top:14px}.pdp-preorder>button{margin-left:10px}@media(max-width:520px){.pdp-preorder>button{display:block;margin:10px 0 0}.product-preorder,.pdp-preorder{padding:18px}}
 .pdp-footer{margin-top:60px;border-top:1px solid var(--line);padding-top:26px;text-align:center;color:var(--muted)}.pdp-footer a{color:inherit;text-decoration:underline;text-underline-offset:3px}.pdp-footer small{display:block;margin-top:14px;font-size:11px}
 @media(max-width:820px){.pdp-main{grid-template-columns:1fr;gap:26px}.pdp-info{position:static}.pdp-actions .button{width:100%;min-width:0}}
 .offer-shell{align-items:center;padding:16px}

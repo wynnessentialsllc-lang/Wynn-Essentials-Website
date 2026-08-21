@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { products } from "../data";
 import { SITE_URL, ldJson } from "../seo";
+import { isPreorderEligible } from "../../lib/preorder";
 
 export const metadata: Metadata = {
   title: "Braiding Hair — Premium Human Hair Bulk | Wynn Essentials",
@@ -66,6 +67,7 @@ export default function BraidingHairPage() {
           const lengths = [...new Set(variants.map(v => v.length))];
           const colors = [...new Set(variants.map(v => v.color))];
           const allOut = p.soldOut || (variants.length > 0 && variants.every(v => v.soldOut));
+          const preorder = isPreorderEligible(p.slug);
           const img = p.images?.[0];
           return (
             <article className="collection-card" key={p.slug}>
@@ -80,7 +82,7 @@ export default function BraidingHairPage() {
                 <p className="collection-meta">{lengths.join(", ") || p.size}{colors.length ? ` · ${colors.join(", ")}` : ""}</p>
                 <strong className="collection-price">{min == null ? "Price to be confirmed" : min === max ? money(min) : `From ${money(min)}`}</strong>
                 <div className="collection-actions">
-                  <Link className="button" href={allOut ? `/products/${p.slug}` : `/#product-${p.slug}`}>{allOut ? "Join the Waitlist" : "Shop This Texture"}</Link>
+                  <Link className="button" href={preorder || allOut ? `/products/${p.slug}` : `/#product-${p.slug}`}>{preorder ? "PRE-ORDER" : allOut ? "Join the Waitlist" : "Shop This Texture"}</Link>
                   <Link className="pdp-bar-shop" href={`/products/${p.slug}`}>Details</Link>
                 </div>
               </div>

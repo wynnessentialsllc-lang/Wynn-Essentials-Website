@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { products } from "../../../data";
 import { getStripe } from "../../../../lib/stripe";
 import { commerceConfig } from "../../../../lib/commerce-config";
+import { isPreorderEligible } from "../../../../lib/preorder";
 
 type IncomingItem = { productId?: unknown; variantId?: unknown; quantity?: unknown; color?: unknown };
 
@@ -65,9 +66,10 @@ export async function POST(request: Request) {
       const inv = inventoryOverride.get(product.slug);
       const stock = inv?.stock ?? null;
       const effectiveSoldOut = (inv ? inv.soldOut || (stock != null && stock <= 0) : Boolean(product.soldOut)) || Boolean(variant?.soldOut);
-      if (effectiveSoldOut) throw new Error("SOLD_OUT");
+      const preorder = isPreorderEligible(product.slug);
+      if (effectiveSoldOut && !preorder) throw new Error("SOLD_OUT");
       // Never let a bag exceed what is in stock, so we cannot oversell.
-      if (stock != null && Number(item.quantity) > stock) throw new Error("INSUFFICIENT_STOCK");
+      if (!preorder && stock != null && Number(item.quantity) > stock) throw new Error("INSUFFICIENT_STOCK");
       // Subtotal comes from the server catalog, never from the client payload.
       subtotalCents += Math.round(unitPrice * 100) * Number(item.quantity);
       // An inline price_data line carries a descriptive name onto the line item
@@ -77,7 +79,7 @@ export async function POST(request: Request) {
       // set). Regular items use their pre-made Stripe price.
       const variantSuffix = variant && (product.variants?.length ?? 0) > 1 ? ` · ${variant.length}` : "";
       const colorSuffix = color ? ` · ${color}` : "";
-      if (!hasValidPriceId || color) return { price_data: { currency: "usd", unit_amount: Math.round(unitPrice * 100), product_data: { name: `${product.name} — ${product.subtitle}${variantSuffix}${colorSuffix}`, metadata: { wynn_slug: product.slug, ...(variant ? { variantId: variant.id } : {}), ...(color ? { color } : {}) } } }, quantity: Number(item.quantity) };
+      if (!hasValidPriceId || color || preorder) return { price_data: { currency: "usd", unit_amount: Math.round(unitPrice * 100), product_data: { name: `${preorder ? "PRE-ORDER · " : ""}${product.name} — ${product.subtitle}${variantSuffix}${colorSuffix}`, metadata: { wynn_slug: product.slug, ...(preorder ? { preorder: "true" } : {}), ...(variant ? { variantId: variant.id } : {}), ...(color ? { color } : {}) } } }, quantity: Number(item.quantity) };
       return { price: priceId, quantity: Number(item.quantity) };
     });
     // Honors the "free U.S. shipping over $50" promise made on the storefront.
