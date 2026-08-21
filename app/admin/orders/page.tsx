@@ -32,6 +32,13 @@ const money = (cents: number | null, currency: string | null) =>
 const when = (value: Date | null) =>
   value ? new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(value) : "—";
 
+const preorderSteps = [
+  { key: "confirmed", label: "Confirmed" },
+  { key: "processing", label: "Processing" },
+  { key: "quality", label: "Quality check" },
+  { key: "shipped", label: "On the way" },
+] as const;
+
 function Shell({ children }: { children: React.ReactNode }) {
   return <main className="order-page" style={{ maxWidth: "72rem" }}>{children}</main>;
 }
@@ -95,6 +102,14 @@ export default async function AdminOrders() {
                 {rows.map(row => {
                   const items = (Array.isArray(row.items) ? row.items : []) as OrderItem[];
                   const isPreorder = items.some(item => item.name?.includes("PRE-ORDER"));
+                  const preorderStage = row.preorderShippedEmailedAt || row.fulfillmentStatus === "fulfilled"
+                    ? "shipped"
+                    : row.preorderQualityEmailedAt
+                      ? "quality"
+                      : row.preorderProcessingEmailedAt
+                        ? "processing"
+                        : "confirmed";
+                  const preorderStageIndex = preorderSteps.findIndex(step => step.key === preorderStage);
                   const ship = (row.shippingAddress ?? null) as ShippingAddress | null;
                   const a = ship?.address;
                   return (
@@ -122,11 +137,31 @@ export default async function AdminOrders() {
                         <div style={{ opacity: 0.75 }}>{row.paymentStatus}</div>
                       </td>
                       <td style={{ padding: "0.6rem 0.5rem", minWidth: "230px" }}>
-                        {isPreorder && row.fulfillmentStatus !== "fulfilled" && <div style={{ marginBottom: "0.65rem", padding: "0.6rem", border: "1px solid #ff8ac7", background: "#fff0f8" }}>
-                          <strong style={{ display: "block", marginBottom: "0.4rem", color: "#c21873", fontSize: "0.78rem" }}>PRE-ORDER EMAILS</strong>
-                          <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
-                            <form action={sendPreorderUpdate}><input type="hidden" name="sessionId" value={row.sessionId}/><input type="hidden" name="stage" value="processing"/>{row.preorderProcessingEmailedAt && <input type="hidden" name="force" value="1"/>}<button className="text-button" type="submit" style={{ fontSize: "0.75rem" }}>{row.preorderProcessingEmailedAt ? "Resend processing" : "Send processing"}</button>{row.preorderProcessingEmailedAt && <small style={{ display: "block" }}>Sent {when(row.preorderProcessingEmailedAt)}</small>}</form>
-                            <form action={sendPreorderUpdate}><input type="hidden" name="sessionId" value={row.sessionId}/><input type="hidden" name="stage" value="quality-check"/>{row.preorderQualityEmailedAt && <input type="hidden" name="force" value="1"/>}<button className="text-button" type="submit" style={{ fontSize: "0.75rem" }}>{row.preorderQualityEmailedAt ? "Resend quality check" : "Send quality check"}</button>{row.preorderQualityEmailedAt && <small style={{ display: "block" }}>Sent {when(row.preorderQualityEmailedAt)}</small>}</form>
+                        {isPreorder && <div style={{ marginBottom: "0.75rem", padding: "0.75rem", border: "1px solid #ff8ac7", borderRadius: "0.65rem", background: "#fff0f8" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem", alignItems: "center", marginBottom: "0.65rem" }}>
+                            <strong style={{ color: "#c21873", fontSize: "0.78rem", letterSpacing: "0.06em" }}>BOHO PRE-ORDER</strong>
+                            <span style={{ padding: "0.2rem 0.45rem", borderRadius: "999px", background: "#ff3fa4", color: "white", fontSize: "0.7rem", fontWeight: 800 }}>{preorderSteps[preorderStageIndex].label}</span>
+                          </div>
+                          <ol aria-label="Boho preorder email progress" style={{ listStyle: "none", display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "0.25rem", margin: "0 0 0.75rem", padding: 0 }}>
+                            {preorderSteps.map((step, index) => <li key={step.key} style={{ color: index <= preorderStageIndex ? "#c21873" : "#8a7b83", fontSize: "0.65rem", fontWeight: index === preorderStageIndex ? 800 : 600 }}>
+                              <span aria-hidden="true" style={{ display: "block", height: "0.22rem", marginBottom: "0.25rem", borderRadius: "999px", background: index <= preorderStageIndex ? "#ff3fa4" : "#ead8e1" }}/>{step.label}
+                            </li>)}
+                          </ol>
+                          <div style={{ display: "grid", gap: "0.45rem" }}>
+                            <div style={{ fontSize: "0.72rem" }}>✓ Confirmation email {row.preorderConfirmationEmailedAt ? `sent ${when(row.preorderConfirmationEmailedAt)}` : "is sent automatically after payment"}</div>
+                            {row.fulfillmentStatus !== "fulfilled" && <>
+                              <form action={sendPreorderUpdate}>
+                                <input type="hidden" name="sessionId" value={row.sessionId}/><input type="hidden" name="stage" value="processing"/>{row.preorderProcessingEmailedAt && <input type="hidden" name="force" value="1"/>}
+                                <button className={row.preorderProcessingEmailedAt ? "text-button" : "button"} type="submit" style={{ minHeight: "auto", padding: row.preorderProcessingEmailedAt ? 0 : "0.5rem 0.65rem", fontSize: "0.72rem" }}>{row.preorderProcessingEmailedAt ? "Resend processing email" : "Mark processing + send email"}</button>
+                                {row.preorderProcessingEmailedAt && <small style={{ display: "block" }}>Processing sent {when(row.preorderProcessingEmailedAt)}</small>}
+                              </form>
+                              <form action={sendPreorderUpdate}>
+                                <input type="hidden" name="sessionId" value={row.sessionId}/><input type="hidden" name="stage" value="quality-check"/>{row.preorderQualityEmailedAt && <input type="hidden" name="force" value="1"/>}
+                                <button className={row.preorderQualityEmailedAt ? "text-button" : "button"} type="submit" style={{ minHeight: "auto", padding: row.preorderQualityEmailedAt ? 0 : "0.5rem 0.65rem", fontSize: "0.72rem" }}>{row.preorderQualityEmailedAt ? "Resend quality-check email" : "Mark quality check + send email"}</button>
+                                {row.preorderQualityEmailedAt && <small style={{ display: "block" }}>Quality check sent {when(row.preorderQualityEmailedAt)}</small>}
+                              </form>
+                            </>}
+                            {row.preorderShippedEmailedAt && <small>On-the-way email sent {when(row.preorderShippedEmailedAt)}</small>}
                           </div>
                         </div>}
                         {row.fulfillmentStatus === "fulfilled" && (
@@ -149,7 +184,7 @@ export default async function AdminOrders() {
                           </select>
                           <input name="trackingNumber" defaultValue={row.trackingNumber ?? ""} placeholder="Tracking number" style={{ padding: "0.35rem", border: "1px solid rgba(128,128,128,0.5)" }} />
                           <button className="button" type="submit" style={{ minHeight: "auto", padding: "0.5rem 0.75rem", fontSize: "0.75rem" }}>
-                            {row.fulfillmentStatus === "fulfilled" ? isPreorder ? "Update tracking (no email)" : "Update & re-email" : "Mark shipped + email"}
+                            {row.fulfillmentStatus === "fulfilled" ? isPreorder ? "Update tracking (no email)" : "Update & re-email" : isPreorder ? "Mark on the way + send email" : "Mark shipped + email"}
                           </button>
                           {isPreorder && row.preorderShippedEmailedAt && <button className="text-button" type="submit" name="forceEmail" value="1" style={{ fontSize: "0.75rem" }}>Update + resend shipping email</button>}
                           {isPreorder && row.preorderShippedEmailedAt && <small>Shipping email sent {when(row.preorderShippedEmailedAt)}</small>}
