@@ -3,6 +3,7 @@ import { products } from "../../../data";
 import { getStripe } from "../../../../lib/stripe";
 import { commerceConfig } from "../../../../lib/commerce-config";
 import { isPreorderEligible } from "../../../../lib/preorder";
+import { getLaborDayOffer } from "../../../../lib/labor-day-2026";
 
 type IncomingItem = { productId?: unknown; variantId?: unknown; quantity?: unknown; color?: unknown };
 
@@ -83,7 +84,8 @@ export async function POST(request: Request) {
       return { price: priceId, quantity: Number(item.quantity) };
     });
     // Honors the "free U.S. shipping over $50" promise made on the storefront.
-    const qualifiesForFreeShipping = commerceConfig.freeShippingRateId !== null && subtotalCents >= commerceConfig.freeShippingThresholdCents;
+    const laborDayOffer = getLaborDayOffer();
+    const qualifiesForFreeShipping = commerceConfig.freeShippingRateId !== null && (laborDayOffer === "free-shipping" || subtotalCents >= commerceConfig.freeShippingThresholdCents);
     const groundRateId = qualifiesForFreeShipping ? commerceConfig.freeShippingRateId : commerceConfig.standardShippingRateId;
     const shipping = [groundRateId, commerceConfig.expeditedShippingRateId].filter((x): x is string => Boolean(x)).map(shipping_rate => ({ shipping_rate }));
     if (!shipping.length) return NextResponse.json({ error: "Shipping is not configured yet." }, { status: 503 });
@@ -100,7 +102,7 @@ export async function POST(request: Request) {
       success_url: `${commerceConfig.siteUrl}/order/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${commerceConfig.siteUrl}/order/cancelled`,
       client_reference_id: cartId,
-      metadata: { cartId, internalOrderReference: `WE-${new Date().getUTCFullYear()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`, source: "wynn-essentials-website", invitationAccepted: String(Boolean(body.invitationAccepted)), ...(body.routineRecommendationId ? { routineRecommendationId: body.routineRecommendationId.slice(0, 100) } : {}) },
+      metadata: { cartId, internalOrderReference: `WE-${new Date().getUTCFullYear()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`, source: "wynn-essentials-website", invitationAccepted: String(Boolean(body.invitationAccepted)), ...(laborDayOffer ? { laborDayOffer } : {}), ...(body.routineRecommendationId ? { routineRecommendationId: body.routineRecommendationId.slice(0, 100) } : {}) },
     });
     if (!session.url) throw new Error("NO_SESSION_URL");
     return NextResponse.json({ url: session.url });

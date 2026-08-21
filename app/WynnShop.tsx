@@ -10,6 +10,7 @@ import PayInFour from "./PayInFour";
 import QuietVideo from "./QuietVideo";
 import PreorderDetails from "./PreorderDetails";
 import { isPreorderEligible } from "../lib/preorder";
+import { getLaborDayOffer } from "../lib/labor-day-2026";
 
 type CartItem = { slug: string; quantity: number; color?: string; variantId?: string };
 type FooterInfoKey = "contact" | "shipping" | "returns" | "faq" | "track" | "accessibility" | "privacy" | "terms" | "refunds" | "cookies";
@@ -632,15 +633,17 @@ function Cart({ items, setItems, onClose, add, suggest }: { items: CartItem[]; s
       window.location.assign(result.url);
     } catch (error) { setCheckoutError(error instanceof Error ? error.message : "Secure checkout is unavailable."); }
   };
+  const laborDayOffer = getLaborDayOffer();
+  const campaignFreeShipping = laborDayOffer === "free-shipping";
   return <ModalShell label="Shopping bag" onClose={onClose} className="drawer-shell"><aside className="drawer">
     <header><h2>Your Bag</h2><button onClick={onClose}>Close</button></header>
     {!items.length ? <div className="empty"><p>Your bag is ready for an intentional routine.</p><button className="button" onClick={onClose}>Continue Shopping</button></div> :
       <>{detailed.map(({ product, quantity, color, variantId }) => { const v = product.variants?.find(vv => vv.id === variantId); const unit = v?.price ?? product.price; return <div className="cart-line" key={`${product.slug}-${color ?? ""}-${variantId ?? ""}`}><ProductArt product={product} small /><div><b>{product.name}</b><span>{product.subtitle}</span>{isPreorderEligible(product.slug) && <span className="preorder-label">PRE-ORDER</span>}{color && <span>Color: {color}</span>}{v ? <span>{v.length}{v.color ? ` · ${v.color}` : ""}</span> : <span>{product.size ?? "Size to be confirmed"}</span>}<div className="quantity"><button onClick={() => change(product.slug, color, variantId, -1)} aria-label={`Decrease ${product.name}`}>−</button><span>{quantity}</span><button onClick={() => change(product.slug, color, variantId, 1)} aria-label={`Increase ${product.name}`}>+</button></div><button className="remove" onClick={() => remove(product.slug, color, variantId)}>Remove</button></div><strong>{money(unit == null ? null : unit * quantity)}</strong></div>; })}
-      <div className="shipping-progress"><span style={{ width: `${Math.min(100, subtotal / brandConfig.shippingThreshold * 100)}%` }} /></div><p>{unknown ? "Shipping progress will appear after prices are verified." : subtotal >= brandConfig.shippingThreshold ? "You qualify for free U.S. shipping." : `${money(brandConfig.shippingThreshold - subtotal)} from free U.S. shipping.`}</p>
+      <div className="shipping-progress"><span style={{ width: `${campaignFreeShipping ? 100 : Math.min(100, subtotal / brandConfig.shippingThreshold * 100)}%` }} /></div><p>{unknown ? "Shipping progress will appear after prices are verified." : campaignFreeShipping ? "Labor Day free standard U.S. shipping is applied at checkout." : subtotal >= brandConfig.shippingThreshold ? "You qualify for free U.S. shipping." : `${money(brandConfig.shippingThreshold - subtotal)} from free U.S. shipping.`}</p>
       <div className="subtotal"><span>Subtotal</span><strong>{unknown ? "Pending verified prices" : money(subtotal)}</strong></div>
       {suggest.length > 0 && <div className="cart-crosssell"><p className="cart-crosssell-h">Complete your routine</p>{suggest.map(p => <div className="cart-suggest" key={p.slug}><ProductArt product={p} small /><div className="cart-suggest-info"><b>{p.name}</b><span>{p.subtitle}</span><span className="cart-suggest-price">{money(p.price)}</span></div><button type="button" className="outline-button" onClick={() => add(p)}>Add</button></div>)}</div>}
       <p className="payment-note">Available payment options are shown securely at checkout. Discounts, shipping, and tax are validated by Stripe.</p>
-      <ul className="cart-trust"><li>Secure checkout by Stripe</li><li>Free U.S. shipping over ${brandConfig.shippingThreshold}</li><li>Not loving it? Email us and we&rsquo;ll make it right.</li></ul>
+      <ul className="cart-trust"><li>Secure checkout by Stripe</li><li>{campaignFreeShipping ? "Labor Day free standard U.S. shipping" : `Free U.S. shipping over $${brandConfig.shippingThreshold}`}</li><li>Not loving it? Email us and we&rsquo;ll make it right.</li></ul>
       {unconfigured && <p className="config-warning">Checkout will open after Wynn Essentials verifies product prices, sizes, Stripe Price IDs, and shipping rates.</p>}
       {checkoutError && <p role="alert">{checkoutError}</p>}
       <button className="button full" disabled={unknown || unconfigured} onClick={() => { if (offerShouldShow()) setShowOffer(true); else startCheckout(); }}>Checkout securely with Stripe</button>
