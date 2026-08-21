@@ -38,11 +38,37 @@ import {
 export type { MatchClass, MatchRationale };
 
 export type FitMatch = {
+  /**
+   * The AUTHORIZATION identity, in the vocabulary of whoever authorized it —
+   * HWL's own product key on the connected path. This is what
+   * enforceMatchesOnly() compares and what the audit reports, so both sides of
+   * the subset check speak the same language.
+   */
   productKey: string;
+  /**
+   * The Wynn catalog slug this resolves to — the RENDERING identity, used for
+   * the product join, the image, the price and the URL. Usually identical to
+   * productKey; different when HWL names a product in its own vocabulary
+   * ("revaivl" → "revaivl-protein-conditioner").
+   */
+  catalogSlug: string;
   productName: string;
   matchClass: MatchClass;
   /** Why this product fits THIS CrownPrint. */
   why: string;
+  /**
+   * HWL's own explanation of the match, rendered verbatim when present.
+   *
+   * These are PRESENTATION fields. They never influence which products render,
+   * their class, or their order — `matches` decides all of that. When HWL sends
+   * none of them the card shows less, because the alternative is Wynn inventing
+   * chemistry, which it must not do.
+   */
+  needServed?: string;
+  functionServed?: string;
+  functionKey?: string;
+  evidence?: { ingredient?: string; capabilityKey?: string; statement?: string };
+  limitation?: string;
   /** Which CrownPrint need it serves — the routine role, in one phrase. */
   need: string;
   /** When and how often to use it, tuned to this profile where that matters. */
@@ -494,83 +520,30 @@ const classify = (score: number): MatchClass | null =>
 const CLASS_ORDER: Record<MatchClass, number> = { strong: 0, good: 1, conditional: 2 };
 
 // ---------------------------------------------------------------------------
-// Matching the catalog against RESOLVED product functions.
+// REMOVED (HWL contract hardening): matchFunctionsToCatalog / CATALOG_CAPABILITIES.
 //
-// This is the path used for a fully connected CrownPrint 360 shopper. Hair
-// Wellness Lab has already decided what that person's routine needs to do; Wynn
-// does not re-derive any of it from a code. Wynn answers the one question it
-// owns: which of these functions can our catalog actually perform, and which can
-// it not?
+// This block used to map a resolved product-function LABEL onto Wynn product
+// slugs with a table of regexes, and lib/crownprint-guidance.ts turned every hit
+// into a product card. That made a description of a need into a recommendation,
+// and it was wrong in both directions:
 //
-// Matching is on function keywords rather than exact strings, so HWL can word
-// its own conclusions however it likes without Wynn silently dropping them.
+//   · "Strength & Protein Support" is a function label. It contains no
+//     instruction to render a cleanser, yet a coverage row mentioning
+//     `cleanse_scalp` pulled Lathyr onto the page via /cleans|wash/.
+//   · `reduce_surface_friction` pulled the Soft Life Bonnet in via /friction/ —
+//     an accessory conjured out of formulation coverage, which is exactly the
+//     confusion the separate accessory channel exists to prevent.
+//
+// The Hair Wellness Lab decides which products a CrownPrint resolves to. That
+// decision arrives in `matches`, and `matches` is now the ONLY thing Wynn will
+// render a CrownPrint product card from. Coverage explains what Wynn could and
+// could not serve; it names no products, because a boundary normalizer drops
+// every product field before coverage reaches this layer.
+//
+// Do not reintroduce a label-to-product table here. If a function should yield
+// a product, that belongs in HWL's matches array, where it can be classified,
+// explained, and audited.
 // ---------------------------------------------------------------------------
-// Functions Wynn structurally cannot perform. Checked FIRST, so a resolved need
-// is never approximated by the nearest thing on the shelf: a bond builder is not
-// a protein conditioner, a medicated shampoo is not a botanical oil, and a
-// gentle sulfate-free cleanser is not a clarifying wash. Each of these belongs
-// in "what Wynn does not carry" no matter how well its wording overlaps with
-// something we do sell.
-const NOT_SERVED = [
-  /bond[\s-]?(build|repair)|bond treatment/i,
-  /heat protect/i,
-  /clarif|chelat/i,
-  /medicated|anti[\s-]?dandruff|ketoconazole|pyrithione|salicylic/i,
-  /\b(gel|custard|mousse)\b|firm[\s-]?hold/i,
-  /clinical|active ingredient|minoxidil|prescription/i,
-];
-
-const CATALOG_CAPABILITIES: { slugs: string[]; test: RegExp }[] = [
-  { slugs: ["lathyr-shampoo"], test: /cleans|shampoo|wash|buildup|build-up|residue|reset/i },
-  { slugs: ["uplyft-conditioner"], test: /deep.?condition|conditioning|moisture treatment|hydrating mask|slip|detangl/i },
-  { slugs: ["revaivl-protein-conditioner"], test: /protein|strength|strengthen|elasticity|breakage/i },
-  { slugs: ["hydrate-herbal-hair-mist"], test: /leave.?in|daily moisture|between wash|mist|refresh|water.?based|hydrat/i },
-  { slugs: ["nourish-oil"], test: /seal|lock.?in|occlusive|moisture retention|oil.*(seal|finish)/i },
-  { slugs: ["relief-oil"], test: /scalp.*(comfort|sooth|relief|itch|flak|dry|irritat|tender)|scalp care|scalp treatment/i },
-  { slugs: ["grow-oil"], test: /growth|length retention|thinning|shedding|follicle|scalp.*(support|stimulat)/i },
-  { slugs: ["thairap-moisture-styling-cream"], test: /styl|definition|defining|curl cream|twist.?out|braid.?out|wash.?and.?go|frizz/i },
-  { slugs: ["edge-control"], test: /edge|hairline|lay|baby hair/i },
-  { slugs: ["soft-life-bonnet"], test: /overnight|night|satin|silk|friction|bonnet|sleep/i },
-  { slugs: ["heritage-hold-scrunchie-set"], test: /tension|elastic|tie|scrunchie|low.?manipulation/i },
-];
-
-export type FunctionCoverage = {
-  /** Functions Wynn can serve, with the products that serve them. */
-  covered: { label: string; detail?: string; slugs: string[] }[];
-  /** Functions Wynn cannot serve. These become "what Wynn does not carry". */
-  unmet: { label: string; detail?: string }[];
-};
-
-/**
- * Map HWL's resolved product functions onto the Wynn catalog. Wynn never edits
- * or re-ranks the functions — it only reports which ones it can serve.
- */
-export function matchFunctionsToCatalog(
-  functions: { label: string; detail?: string }[],
-  catalog: FitCatalogProduct[],
-): FunctionCoverage {
-  const available = new Set(catalog.filter((p) => p.kind !== "hair").map((p) => p.slug));
-  const covered: FunctionCoverage["covered"] = [];
-  const unmet: FunctionCoverage["unmet"] = [];
-
-  for (const fn of functions) {
-    // Matched on the function NAME only. Including the explanatory detail was
-    // enough to make "scalp comfort care, applied while styled" match a styling
-    // cream — a false positive that reads as a recommendation.
-    const haystack = fn.label;
-    if (NOT_SERVED.some((pattern) => pattern.test(haystack))) {
-      unmet.push(fn);
-      continue;
-    }
-    const slugs = CATALOG_CAPABILITIES
-      .filter((c) => c.test.test(haystack))
-      .flatMap((c) => c.slugs)
-      .filter((slug) => available.has(slug));
-    if (slugs.length) covered.push({ ...fn, slugs: [...new Set(slugs)] });
-    else unmet.push(fn);
-  }
-  return { covered, unmet };
-}
 
 /**
  * The routine role and usage cadence for one product, independent of any
@@ -709,6 +682,9 @@ export function matchProducts(profile: CrownPrintProfile, catalog: FitCatalogPro
 
     scored.set(product.slug, {
       productKey: product.slug,
+      // Wynn's own engine authorizes from its own catalog, so the two
+      // identities are the same slug here.
+      catalogSlug: product.slug,
       productName: product.name,
       matchClass,
       why,
@@ -755,6 +731,7 @@ export function matchProducts(profile: CrownPrintProfile, catalog: FitCatalogPro
       );
       scored.set(BUNDLE_SLUG, {
         productKey: BUNDLE_SLUG,
+        catalogSlug: BUNDLE_SLUG,
         productName: bundle.name,
         matchClass: bundleClass,
         why: bundleWhy,

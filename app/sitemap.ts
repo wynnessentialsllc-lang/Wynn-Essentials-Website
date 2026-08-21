@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { eq } from "drizzle-orm";
-import { products } from "./data";
 import { SITE_URL } from "./seo";
+import { allPages, pageUrl } from "../lib/agent-catalog";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Published blog posts, best-effort: if the DB or table is unavailable the
@@ -14,25 +14,26 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     blog = rows.map((r) => ({ url: `${SITE_URL}/blog/${r.slug}`, priority: 0.6, changeFrequency: "monthly" as const, ...(r.updatedAt ? { lastModified: r.updatedAt } : {}) }));
   } catch { blog = []; }
 
+  // Every indexable page — the storefront, the CrownPrint pages, the editorial
+  // hub, the About page, one crawlable URL per catalog product, and the policy
+  // and support pages — comes from lib/agent-catalog's page inventory, the same
+  // list /llms.txt publishes. One list means a new page can never appear in one
+  // and be missing from the other.
+  //
+  // Notes on what that list deliberately includes and excludes:
+  //   - /shop-by-crownprint and /crownprint are listed once each. Personalized
+  //     results share those URLs behind a query string and are marked noindex
+  //     per-request, so no per-shopper URL is ever emitted here.
+  //   - Each product has its own crawlable page. Search engines and AI
+  //     assistants discard the old "/#product-slug" fragments, so the real
+  //     "/products/slug" URLs are what belong here.
+  //   - /admin, the CrownPrint connect handoff, order receipts, and unsubscribe
+  //     are not content and are excluded from the inventory and from robots.
   return [
-    { url: SITE_URL, priority: 1, changeFrequency: "weekly" },
-    { url: `${SITE_URL}/braiding-hair`, priority: 0.8, changeFrequency: "weekly" },
-    // The public Shop by CrownPrint landing is indexable educational content.
-    // Personalized results share this one URL and are marked noindex per-request,
-    // so no per-result URLs are ever emitted here.
-    { url: `${SITE_URL}/shop-by-crownprint`, priority: 0.8, changeFrequency: "weekly" },
-    // The CrownPrint-code page. Its bare form is educational (what the five axes
-    // mean); personalized results live on the same URL behind a query string and
-    // are marked noindex per-request, so nothing per-shopper is ever listed here.
-    { url: `${SITE_URL}/crownprint`, priority: 0.8, changeFrequency: "weekly" },
-    { url: `${SITE_URL}/blog`, priority: 0.7, changeFrequency: "weekly" },
-    // Each product now has its own crawlable, indexable page. Search engines and
-    // AI assistants discard the old "/#product-slug" fragments, so the real
-    // "/products/slug" URLs are what belong in the sitemap.
-    ...products.map((p) => ({
-      url: `${SITE_URL}/products/${p.slug}`,
-      priority: 0.8,
-      changeFrequency: "weekly" as const,
+    ...allPages().map((page) => ({
+      url: pageUrl(page.path),
+      priority: page.priority,
+      changeFrequency: page.changeFrequency,
     })),
     ...blog,
   ];

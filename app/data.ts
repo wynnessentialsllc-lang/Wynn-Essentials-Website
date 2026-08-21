@@ -148,12 +148,77 @@ export const brandConfig = {
   shippingThreshold: 50,
   founder: { name: "The Wynn Sisters — Patricia, Sheree, and Karina Wynn", ownership: "Black women-owned", established: "Established 2020", location: "Los Angeles, California" },
   consent: "By joining, you agree to receive Wynn Essentials marketing emails. Consent is optional and you can unsubscribe at any time.",
+  // Version stamp for the consent + privacy language above, recorded on every
+  // marketing consent so a stored record can be tied back to exactly what was
+  // shown. Bump this (and only this) whenever `consent` or the privacy notice's
+  // email section changes; it tracks the "Updated" date on /privacy.
+  consentVersion: "2026-08",
+  // Stable identifiers for each placement that can capture marketing consent,
+  // stored alongside the consent so a record names the form it came from.
+  consentForms: {
+    newsletter: "the-wynn-edit-newsletter-section",
+    firstOrderPopup: "first-order-welcome-popup",
+    waitlist: "restock-waitlist-optional-opt-in",
+  },
   // Shown on restock-waitlist forms. Joining a waitlist is a one-time
   // transactional alert for a single product — not marketing consent.
   waitlistConsent: "We’ll email you once — when this item is back in stock. No marketing list, no obligation.",
+  // The optional extra on a waitlist form. Ticking it is a separate,
+  // affirmative marketing opt-in; leaving it alone must change nothing about
+  // the restock alert, which she gets either way.
+  waitlistMarketingOptIn: "Also send me The Wynn Edit — hair-care tips, new arrivals, and offers. Optional; unsubscribe any time.",
   // First-order welcome offer. `code` must match a Stripe promotion code created
   // in the dashboard (a 15%-off coupon), and STRIPE_PROMOTION_CODES_ENABLED must
   // be "true" so the code field appears at checkout. Change the code/label here
   // and in Stripe together.
-  firstOrder: { code: "WELCOME15", discountLabel: "15% off", headline: "15% off your first order" },
+  firstOrder: {
+    code: "WELCOME15",
+    discountLabel: "15% off",
+    // Says only what Stripe was confirmed to enforce. NOT "your first order":
+    // the coupon is *named* "First order 15% off", but a name is not a rule,
+    // and no first-time-transaction restriction has been verified.
+    headline: "15% off one eligible order",
+    // Terms CONFIRMED against the live Stripe Dashboard, and the only offer
+    // claims any customer-facing surface is allowed to make.
+    //
+    // Verified 2026-08-13 from the live Dashboard:
+    //   promotion code WELCOME15 exists · coupon valid · 15% off ·
+    //   duration "once" · no expiration shown · 1 historical redemption
+    //
+    // "No expiration shown" is a fact about the Dashboard on that date, NOT a
+    // guarantee of continued availability, so it is never said to a customer.
+    //
+    // NOT verified, and therefore never claimed in either direction — we say
+    // neither that these restrictions exist nor that they don't:
+    //   first-time-customer restriction · minimum order amount ·
+    //   maximum total redemptions · customer restriction · product restrictions
+    //
+    // Two readings that would be wrong, spelled out so they are not made again:
+    //   * duration "once" means the discount applies once when redeemed. It is
+    //     NOT a cap of one redemption across all customers.
+    //   * "1 redemption" is historical usage. It is NOT a maximum. It is also
+    //     internal, and never appears in a customer-facing surface.
+    //
+    // Re-verify with `npm run stripe:check` before changing any line below.
+    verifiedTerms: {
+      verifiedOn: "2026-08-13",
+      // What the discount is, and what Stripe's "once" duration actually licenses
+      // us to say about its scope.
+      appliesTo: "ONE ELIGIBLE ORDER",
+      // No expiry is stated at all. Stripe shows none TODAY, but an email is
+      // read weeks after it is sent, and "no listed expiration" reads as a
+      // promise the offer will still be there — which nothing verifies, since
+      // Stripe can deactivate or change the promotion at any time. Silence here
+      // is the honest position; checkout is the source of truth.
+      //
+      // This field exists for a REAL, verified expiry date ("Expires 31
+      // December 2026"), never for an absence claim.
+      expiration: null as string | null,
+      offerLine: "Use code WELCOME15 for 15% off one eligible order. Offer availability is confirmed at checkout.",
+      // Covers the restrictions that were not verifiable — including whether
+      // the offer is still available — without asserting that any of them
+      // apply.
+      disclaimer: "Eligibility, availability, and product restrictions may apply. Enter WELCOME15 at checkout to confirm your order qualifies.",
+    },
+  },
 };

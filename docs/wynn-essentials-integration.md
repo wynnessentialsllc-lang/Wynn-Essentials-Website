@@ -362,6 +362,11 @@ assessmentComplete?: boolean         // false ⇒ NO_CROWNPRINT
 resultsReady?: boolean               // false ⇒ NO_CROWNPRINT
 crownState: { present: boolean, fresh: boolean, message?: string }
 currentPriorityLabel?: string
+currentPriorities?: { label, detail? }[]
+productFunctionsNeeded?: { label, detail? }[]
+notCarried?: { label, detail? }[]
+coverage?: { functionKey, status: "covered"|"partial"|"not_carried", detail?, functionLabel? }[]
+accessories?: { productKey, why? }[]
 matches: { productKey, productName, matchClass: "strong"|"good"|"conditional", why }[]
 noStrongMatch: boolean
 whatToLookFor?: { hairNeed?, productType?, formulationCharacteristics[], ingredientFunctions[], whatMayNotFit[], whyThisMatters? }
@@ -377,6 +382,115 @@ The four entitlement flags are **inputs only** — they collapse into
 **Never stored or exposed:** raw CrownPrint answers, CrownPrint axis values,
 CrownState detail, CrownHistory, report content, user UUID, raw scores, weights,
 thresholds, internal reason codes, evidence logic.
+
+### 11a. `matches` is the only source of product cards
+
+This is the hardest rule in the contract, and the only one with a runtime guard,
+a boundary stripper, and a live audit endpoint behind it.
+
+| Array | What it may do | What it may never do |
+| --- | --- | --- |
+| `matches` | Render customer-facing CrownPrint product cards, in HWL's own class | — |
+| `coverage` | Explain **covered / partially supported / not carried** | Name, imply, or select a product |
+| `accessories` | Render tools in their own section, visibly apart from matches | Enter `matches`; be produced by coverage |
+| `notCarried`, `productFunctionsNeeded` | Be displayed as resolved needs | Select a product |
+
+**Coverage cannot name a product, structurally.** `asCoverage()` in
+`lib/crownprint-state.mjs` drops `productKey`, `productKeys`, `slug`, `slugs`,
+`products`, and `recommend` before a coverage row reaches any render path — so
+this is not a rule downstream code has to remember, it is a shape it cannot
+express. A coverage row carries a `functionKey`, a status, and prose.
+
+**`functionKey` is the stable integration identifier.** It is the only coverage
+field either side may key on. `functionLabel` is deprecated display text: HWL may
+reword it freely, Wynn renders it and nothing more. It stays **readable until
+2026-11-30** (`LEGACY_COVERAGE_FIELDS_READABLE_UNTIL`), then comes out. An
+unrecognized `status` is dropped rather than guessed at, so an unknown value can
+never read as "covered".
+
+**What was removed.** Wynn used to keep a table of regexes mapping resolved
+function labels onto its own product slugs (`CATALOG_CAPABILITIES` in
+`lib/crownprint-fit.ts`), and every hit became an extra "good" card. That let a
+coverage row for `cleanse_scalp` render Lathyr, and one for
+`reduce_surface_friction` render the Soft Life Bonnet, to a shopper for whom the
+Lab had resolved neither. The table is gone. Do not reintroduce one: if a
+function should yield a product, it belongs in `matches`, where it can be
+classified, explained, and audited.
+
+**Consequence, stated plainly:** a resolved function Wynn *could* serve but which
+HWL named no product for renders **no card**. Capability is not authorization.
+
+**The guard.** `enforceMatchesOnly()` runs at the render boundary in
+`app/shop-by-crownprint/page.tsx` and fails closed — an unauthorized key is
+dropped and logged, never shown. Regressions are pinned in
+`tests/crownprint-matches-only.test.mjs`.
+
+**The live audit.** `GET /api/internal/crownprint-matches-audit?token=…`
+(admin-gated) runs the real pipeline against a connected session and reports
+`authorizedKeys`, `renderedKeys`, `renderedCatalogSlugs`, `unresolvedKeys`,
+`subset`, `violations`, and the `bridge` table.
+
+### 11b. Product identity: HWL `productKey` → Wynn `catalogSlug`
+
+The two systems name the same product differently. HWL's frozen vocabulary
+(HWL PR #640) is camelCase; Wynn's catalog is keyed by slug. `lib/crownprint-catalog-key.ts`
+bridges them, and `matches` / `accessories` both resolve through it.
+
+| # | HWL canonical key | Wynn catalogSlug |
+| --- | --- | --- |
+| 1 | `hydrateMist` | `hydrate-herbal-hair-mist` |
+| 2 | `therapi` | `thairap-moisture-styling-cream` |
+| 3 | `lathyr` | `lathyr-shampoo` |
+| 4 | `uplyft` | `uplyft-conditioner` |
+| 5 | `revaivl` | `revaivl-protein-conditioner` |
+| 6 | `nourishOil` | `nourish-oil` |
+| 7 | `growOil` | `grow-oil` |
+| 8 | `reliefOil` | `relief-oil` |
+| 9 | `scrunchieSet` | `heritage-hold-scrunchie-set` |
+| 10 | `edgeControl` | `edge-control` |
+| 11 | `softLifeBonnet` | `soft-life-bonnet` |
+
+Resolution order is **exact slug → explicit alias → exact unique product-name →
+null**. No regex, substring, fuzzy, category or need-based matching; ambiguity
+fails closed. All eleven canonical keys resolve by slug or alias — the name
+fallback is defence for non-canonical input and is **never load-bearing**, which
+a test enforces by resolving every key against a catalog with all product names
+replaced.
+
+**Resolution is not authorization.** `edgeControl` resolves perfectly and still
+cannot render unless it is in `matches`; `softLifeBonnet` renders only through
+the explicit `accessories` array, never from a `reduce_surface_friction`
+coverage row.
+
+### 11c. Storefront bypass — RESOLVED
+
+Two defects, opposite in direction, both closed and verified in production.
+
+**1. Unauthorized products rendering.** A regex table mapped resolved function
+labels onto Wynn slugs, and every hit became a product card: `cleanse_scalp`
+rendered Lathyr, `reduce_surface_friction` rendered the Soft Life Bonnet. Closed
+by deleting the lookup, making coverage structurally incapable of naming a
+product, and adding the fail-closed `enforceMatchesOnly()` guard.
+
+**2. Authorized products NOT rendering.** The catalog join compared HWL's key
+against Wynn slugs, so `revaivl` was discarded silently — a valid CrownPrint
+rendered an empty page while `subset: true` and `violations: []` reported
+health, because an empty set is trivially a subset. Closed by the identity
+bridge above, by `unresolvedKeys` in the audit, and by logging every drop.
+
+Production acceptance, P2-D3-T3-S2-E2:
+
+```json
+{ "connected": true, "authorizedKeys": ["revaivl"], "renderedKeys": ["revaivl"],
+  "renderedCatalogSlugs": ["revaivl-protein-conditioner"],
+  "unresolvedKeys": [], "subset": true, "violations": [] }
+```
+
+**Still to smoke test:** one CrownPrint exercising a second canonical key —
+`edgeControl` (a formulation match) or `softLifeBonnet` (the accessory channel).
+The `bridge` block in the audit verifies all eleven resolve against the deployed
+catalog without needing such a shopper; the smoke test additionally proves the
+end-to-end render for a second key and channel.
 
 ## 12. Commerce & data boundaries
 

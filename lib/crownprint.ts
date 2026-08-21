@@ -105,11 +105,28 @@ export const parseReturnState = (raw: unknown): ConnectStatus | LocalReturnState
 
 export type MatchClass = "strong" | "good" | "conditional";
 
+/**
+ * HWL's formulation evidence for one match. Mechanism, not performance: it says
+ * a formulation carries a capability CrownPrint asked for, never that the
+ * finished product achieves a result. Wynn renders it verbatim and never
+ * reconstructs chemistry of its own.
+ */
+export type SafeEvidence = {
+  ingredient?: string;      // "Rice protein"
+  capabilityKey?: string;   // "proteins_peptides" — the durable identifier
+  statement?: string;       // consumer-safe sentence, HWL's wording
+};
+
 export type SafeMatchProduct = {
-  productKey: string;   // maps to a Product.slug in app/data.ts (catalog = truth)
+  productKey: string;   // HWL's key; resolved to a catalog slug by crownprint-catalog-key
   productName: string;  // convenience label from HWL; catalog name is authoritative
   matchClass: MatchClass;
   why: string;          // consumer-safe explanation of FIT (not a new efficacy claim)
+  needServed?: string;      // the CrownPrint need, e.g. "Strength & Protein Support"
+  functionServed?: string;  // the function, e.g. "Temporarily reinforce the fibre"
+  functionKey?: string;     // stable identifier for that function
+  evidence?: SafeEvidence;  // why the formulation qualifies
+  limitation?: string;      // what this match does NOT address
 };
 
 // Consumer-safe, educational "what to look for" guidance for the no-strong-match
@@ -129,6 +146,61 @@ export type SafeLinks = { productHub?: string; assessment?: string; crownstateUp
 /** A resolved, consumer-safe point HWL sends: a priority, a function, a gap. */
 export type SafePoint = { label: string; detail?: string };
 
+/** How well Wynn Essentials serves one resolved product function. */
+export type CoverageStatus = "covered" | "partial" | "not_carried";
+
+/**
+ * Descriptive coverage metadata — NEVER a source of product cards.
+ *
+ * Note the absence of any product field. That is deliberate and enforced at the
+ * boundary (`asCoverage` in lib/crownprint-state.mjs drops productKey/slug/
+ * products outright), so no amount of downstream code can turn a coverage row
+ * into a recommendation. Coverage explains; `matches` recommends.
+ */
+export type SafeCoverage = {
+  /** The stable integration identifier. The only coverage field to key on. */
+  functionKey: string;
+  status: CoverageStatus;
+  detail?: string;
+  /**
+   * Display NAMES of products that qualify for this function. Names only — no
+   * keys, slugs or ids — so this can be read but never joined, and therefore
+   * never becomes a product card. Authorization remains `matches` alone.
+   */
+  qualifyingProducts?: string[];
+  /**
+   * @deprecated Display text only, readable until 2026-11-30. HWL may reword it
+   * at any time, so nothing may branch, match, or select on it.
+   */
+  functionLabel?: string;
+};
+
+/**
+ * Accessories and tools: a separate support channel, explicitly sourced by HWL.
+ * Rendered in their own section and never as CrownPrint product cards, so a
+ * suggested bonnet can never be mistaken for a resolved formulation match.
+ */
+export type SafeAccessory = { productKey: string; why?: string };
+
+/** Whether the shopper has built a routine. "unavailable" fails transparently. */
+export type RoutineStatus = "built" | "not_built" | "unavailable";
+
+/**
+ * One ordered step in the routine the shopper built. A SEPARATE authority from
+ * `matches` — placement, not authorization. Deliberately carries no matchClass
+ * and no evidence: a routine step is not a formulation match.
+ */
+export type SafeRoutineStep = {
+  order: number;          // HWL's own sequence. Never re-sorted by Wynn.
+  productKey: string;     // resolved through the same identity bridge as matches
+  slot?: string;          // the stage this step occupies
+  routineRole?: string;   // what the step does in the regimen
+  whenToUse?: string;
+  frequency?: string;
+  why?: string;
+  isAccessory?: boolean;  // a tool in the regimen; never a formulation match
+};
+
 export type WynnMatchContext = {
   crownPrintPresent: boolean;                 // CrownPrint exists / missing
   crownState: { present: boolean; fresh: boolean; message?: string; summary?: string };
@@ -137,7 +209,11 @@ export type WynnMatchContext = {
   currentPriorities?: SafePoint[];            // HWL's ranked priorities
   productFunctionsNeeded?: SafePoint[];       // what the routine must do — Wynn matches on these
   notCarried?: SafePoint[];                   // needs HWL resolved that Wynn doesn't carry
-  matches: SafeMatchProduct[];                // product keys + class + why
+  coverage?: SafeCoverage[];                  // descriptive coverage only — never product cards
+  accessories?: SafeAccessory[];              // separate accessory/tool support channel
+  routineStatus?: RoutineStatus;              // built / not_built / unavailable
+  routine?: SafeRoutineStep[];                // routine-placement authority, NOT authorization
+  matches: SafeMatchProduct[];                // THE ONLY source of CrownPrint product cards
   noStrongMatch: boolean;                     // intentional no-strong-match outcome
   whatToLookFor?: WhatToLookFor;              // guidance for the no-match outcome
   safeLinks?: SafeLinks;                       // safe HWL links

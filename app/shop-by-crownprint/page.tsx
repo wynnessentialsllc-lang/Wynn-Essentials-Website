@@ -12,7 +12,7 @@ import {
   readMatchSession,
   resolveExperienceState,
 } from "../../lib/crownprint";
-import { selectGuidance } from "../../lib/crownprint-guidance";
+import { enforceMatchesOnly, selectGuidance } from "../../lib/crownprint-guidance";
 import CrownPrintExperience, { type CardProduct } from "./CrownPrintExperience";
 
 // Reads the (httpOnly) Wynn session cookie to personalize, so per-request.
@@ -95,9 +95,20 @@ export default async function ShopByCrownPrintPage({
   // Join safe product keys with the real catalog so cards use actual Wynn
   // Essentials data (image, name, price, URL). Product claims are never changed
   // by CrownPrint — only the fit explanation ("why") is personalized.
-  const cards: CardProduct[] = guidance.matches
+  //
+  // THE INVARIANT THIS PAGE ENFORCES: every product card below corresponds to a
+  // productKey the Hair Wellness Lab resolved. enforceMatchesOnly() is the last
+  // gate before render and drops anything else, so no future edit to the
+  // guidance layer can put an unauthorized product in front of a shopper.
+  const cards: CardProduct[] = enforceMatchesOnly(
+    guidance.matches,
+    context ? context.matches : null,
+  )
     .map((m): CardProduct | null => {
-      const p = products.find((x) => x.slug === m.productKey);
+      // Join on catalogSlug, not productKey: HWL authorizes in its own
+      // vocabulary and the catalog is keyed by slug. Authorization was already
+      // settled above, against productKey.
+      const p = products.find((x) => x.slug === m.catalogSlug);
       if (!p) return null; // ignore anything not in the live catalog
       const simple = !(p.colors?.length) && !((p.variants?.length ?? 0) > 1);
       return {
@@ -112,6 +123,12 @@ export default async function ShopByCrownPrintPage({
         why: m.why,
         need: m.need,
         whenToUse: m.whenToUse,
+        // HWL's explanation fields, passed straight to the card.
+        ...(m.functionServed ? { functionServed: m.functionServed } : {}),
+        ...(m.evidence ? { evidence: m.evidence } : {}),
+        ...(m.limitation ? { limitation: m.limitation } : {}),
+        // Wynn's own routine placement, for organizing only.
+        ...(p.methodStep > 0 ? { routineStep: p.methodStep, routineStage: p.category } : {}),
         // Built server-side from the priorities and CrownState the Lab resolved.
         rationale: m.rationale,
       };
@@ -165,11 +182,16 @@ export default async function ShopByCrownPrintPage({
           crownPrintCode={guidance.code}
           priorities={guidance.priorities}
           functions={guidance.functions}
+          coverage={guidance.coverage}
+          accessories={guidance.accessories}
           gaps={guidance.gaps}
           contextNotes={guidance.notes}
           crownStateMessage={context?.crownState.message}
           currentPriorityLabel={context?.currentPriorityLabel}
           noStrongMatch={context?.noStrongMatch ?? false}
+          unresolvedCount={context ? Math.max(0, context.matches.length - cards.length) : 0}
+          routineStatus={guidance.routineStatus}
+          routine={guidance.routine}
           whatToLookFor={context?.whatToLookFor}
           hasStrong={context ? hasStrongMatch(context) : false}
           products={cards}

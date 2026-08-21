@@ -109,19 +109,30 @@ test("Wynn canonical/sitemap/robots metadata uses the Wynn domain, never an HWL 
   const seo = await read("../app/seo.ts");
   const robots = await read("../app/robots.ts");
   const sitemap = await read("../app/sitemap.ts");
+  const agentCatalog = await read("../lib/agent-catalog.ts");
   const crownprintPage = await read("../app/shop-by-crownprint/page.tsx");
 
   assert.match(seo, new RegExp(`export const SITE_URL = "${WYNN}"`));
-  assert.ok(robots.includes(`sitemap: "${WYNN}/sitemap.xml"`), "robots must advertise the Wynn sitemap");
+  // robots may spell the sitemap literally or derive it from SITE_URL, which
+  // the assertion above already pins to the Wynn domain. Either way it must
+  // advertise exactly one sitemap, on the Wynn origin.
+  assert.ok(
+    robots.includes(`sitemap: "${WYNN}/sitemap.xml"`) || robots.includes("sitemap: `${SITE_URL}/sitemap.xml`"),
+    "robots must advertise the Wynn sitemap",
+  );
   assert.notEqual(WYNN, HWL, "Wynn and HWL are distinct production origins");
 
   // The sitemap and the Shop by CrownPrint canonical build off SITE_URL, so no
-  // second production spelling can ever be emitted for the same page.
-  assert.match(sitemap, /url: `\$\{SITE_URL\}\/shop-by-crownprint`/);
+  // second production spelling can ever be emitted for the same page. The
+  // sitemap now maps the shared page inventory, so the paths (and the single
+  // place that turns a path into a URL) live in lib/agent-catalog.
+  assert.match(sitemap, /url: pageUrl\(page\.path\)/);
+  assert.match(agentCatalog, /path: "\/shop-by-crownprint"/);
+  assert.match(agentCatalog, /export const pageUrl = \(path: string\) => \(path === "\/" \? SITE_URL : `\$\{SITE_URL\}\$\{path\}`\)/);
   assert.match(crownprintPage, /alternates: \{ canonical: CANONICAL \}/);
   assert.match(crownprintPage, /url: `\$\{SITE_URL\}\$\{CANONICAL\}`/);
 
-  for (const [name, body] of Object.entries({ seo, robots, sitemap, crownprintPage })) {
+  for (const [name, body] of Object.entries({ seo, robots, sitemap, agentCatalog, crownprintPage })) {
     assert.doesNotMatch(body, /hairwellness/i, `${name} must not reference an HWL host`);
   }
 });

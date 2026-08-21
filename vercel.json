@@ -4,6 +4,7 @@
   "buildCommand": "npm run db:migrate:deploy && npm run build",
   "crons": [
     { "path": "/api/cron/abandoned-carts", "schedule": "0 * * * *" },
+    { "path": "/api/cron/product-education", "schedule": "0 14 * * *" },
     { "path": "/api/cron/review-requests", "schedule": "0 15 * * *" },
     { "path": "/api/cron/reconcile-orders", "schedule": "15 * * * *" },
     { "path": "/api/cron/labor-day-2026", "schedule": "0 * * * *" }

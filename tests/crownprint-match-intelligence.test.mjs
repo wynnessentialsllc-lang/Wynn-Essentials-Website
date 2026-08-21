@@ -426,31 +426,33 @@ test("6. trusted 360 context is the primary source, and the fallback says it is 
 test("7. Wynn never promotes its own catalog to Strong without HWL's verdict", () => {
   const guidance = selectGuidance({ context: resolved360(), catalog });
 
-  // Hydrate serves a function HWL resolved but never named a product for. Wynn
-  // may cover it — at Good, and the card says why it isn't Strong.
-  const filled = guidance.matches.find((m) => m.productKey === "hydrate-herbal-hair-mist");
-  assert.ok(filled, "Wynn should cover a resolved function it can serve");
-  assert.equal(filled.matchClass, "good");
-  assert.match(filled.rationale.explanation, /never promotes a product to a Strong Match/i);
-  assert.match(filled.rationale.explanation, /selling it is not evidence/i);
-
-  // Every Strong Match on a trusted path traces back to an HWL verdict.
-  const resolvedStrong = new Set(
-    resolved360().matches.filter((m) => m.matchClass === "strong").map((m) => m.productKey),
-  );
-  for (const m of guidance.matches.filter((x) => x.matchClass === "strong")) {
-    assert.ok(resolvedStrong.has(m.productKey), `${m.productKey} was promoted to Strong without HWL support`);
+  // Since the contract hardening this is stronger than "no Strong without HWL":
+  // there is no card at ANY class without HWL. Wynn no longer fills a resolved
+  // function from its own catalog, so every match traces to a Lab verdict —
+  // product key AND class alike.
+  const resolvedClass = new Map(resolved360().matches.map((m) => [m.productKey, m.matchClass]));
+  for (const m of guidance.matches) {
+    assert.ok(resolvedClass.has(m.productKey), `${m.productKey} rendered without an HWL verdict`);
+    assert.equal(m.matchClass, resolvedClass.get(m.productKey), `${m.productKey} was re-classified by Wynn`);
   }
 
-  // With no strong verdict from HWL at all, the page has no strong matches —
-  // however many resolved functions Wynn's catalog happens to cover.
+  // Hydrate serves a resolved function the Lab named no product for. It used to
+  // be filled in at Good. It is not rendered at all now.
+  assert.equal(
+    guidance.matches.some((m) => m.productKey === "hydrate-herbal-hair-mist"),
+    false,
+    "a function Wynn could serve is not a product HWL resolved",
+  );
+
+  // With only a conditional verdict from HWL, that is the entire page —
+  // however many resolved functions Wynn's catalog happens to be able to cover.
   const noStrong = selectGuidance({
     context: resolved360({
       matches: [{ productKey: "edge-control", productName: "Edge Control", matchClass: "conditional", why: "Resolved as conditional." }],
     }),
     catalog,
   });
-  assert.ok(noStrong.matches.length > 1, "Wynn still covers the resolved functions");
+  assert.deepEqual(noStrong.matches.map((m) => m.productKey), ["edge-control"]);
   assert.equal(noStrong.matches.some((m) => m.matchClass === "strong"), false);
   assert.equal(noStrong.noStrongMatch, true);
 

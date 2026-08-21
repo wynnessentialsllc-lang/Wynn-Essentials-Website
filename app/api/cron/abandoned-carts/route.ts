@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { and, eq, gt, lt, gte } from "drizzle-orm";
 import { getDb } from "../../../../db";
 import { abandonedCarts, orders } from "../../../../db/schema";
-import { brandConfig } from "../../../data";
+import { firstOrderOffer } from "../../../../lib/first-order-offer";
 import { notifyAbandonedCart } from "../../../../lib/notify";
 
 // Scheduled by Vercel Cron (see vercel.json). Emails a one-time reminder for
@@ -15,7 +15,9 @@ const ABANDON_AFTER_MS = 60 * 60 * 1000;        // wait 1h before reminding
 const MAX_WINDOW_MS = 30 * 24 * 60 * 60 * 1000; // ignore carts older than 30d
 const BATCH = 200;
 
-type CartItem = { name?: string | null; quantity?: number | null; price?: number | null };
+// Shape written by /api/abandoned, which enriches the raw {slug, quantity}
+// lines from the catalog. `slug` is what finds the product photograph.
+type CartItem = { slug?: string | null; name?: string | null; quantity?: number | null; price?: number | null };
 
 function authorized(request: Request): boolean {
   const secret = process.env.CRON_SECRET;
@@ -58,12 +60,16 @@ export async function GET(request: Request) {
       }
 
       const items = (Array.isArray(cart.items) ? cart.items : []) as CartItem[];
+      // Mention the welcome code only while it is actually redeemable. With the
+      // promo-code field switched off at checkout the reminder still goes out,
+      // just without an offer it cannot honour.
+      const offer = firstOrderOffer();
       const sent = await notifyAbandonedCart({
         email: cart.email,
         items,
         subtotal: cart.subtotal,
-        promoCode: brandConfig.firstOrder.code,
-        promoLabel: brandConfig.firstOrder.discountLabel,
+        promoCode: offer?.code ?? null,
+        promoLabel: offer?.label ?? null,
       });
       // Mark emailed regardless so a send failure isn't retried forever.
       await db.update(abandonedCarts).set({ status: "emailed", emailedAt: new Date(), updatedAt: new Date() }).where(eq(abandonedCarts.email, cart.email));

@@ -1,4 +1,4 @@
-import { pgTable, text, bigint, bigserial, integer, timestamp, jsonb, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, bigint, bigserial, integer, timestamp, jsonb, boolean, primaryKey } from "drizzle-orm/pg-core";
 
 // Every Stripe event we have already accepted. Written before an order is
 // recorded so a redelivered event can never create a second order.
@@ -43,6 +43,10 @@ export const orders = pgTable("orders", {
   // Set by the review-requests cron once the post-purchase review email has been
   // sent, so each customer is asked at most once.
   reviewRequestedAt: timestamp("review_requested_at", { withTimezone: true }),
+  // Set by the product-education cron when it claims an order for the "how to
+  // use what you bought" email. Claimed by a conditional update that only
+  // matches while this is NULL, so the email is sent at most once per order.
+  educationSentAt: timestamp("education_sent_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -62,6 +66,18 @@ export const subscribers = pgTable("subscribers", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   unsubscribedAt: timestamp("unsubscribed_at", { withTimezone: true }),
+  // Compliance record for the affirmative marketing consent behind the current
+  // subscription (0017_wynn_edit_consent.sql). `consentText` above stores the
+  // exact disclosure shown; these store when it was accepted, which version of
+  // that language was in force, and which form/placement captured it. The
+  // signup IP is deliberately not stored — see the migration for why.
+  consentAt: timestamp("consent_at", { withTimezone: true }),
+  consentVersion: text("consent_version"),
+  formId: text("form_id"),
+  // Send-once claim for The Wynn Edit welcome email. Stamped by a conditional
+  // update that only succeeds while it is NULL, so retries can never produce a
+  // second welcome; cleared on a genuine re-subscription after an unsubscribe.
+  welcomeSentAt: timestamp("welcome_sent_at", { withTimezone: true }),
 });
 
 export type Subscriber = typeof subscribers.$inferSelect;
@@ -77,6 +93,25 @@ export const productInventory = pgTable("product_inventory", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 export type ProductInventory = typeof productInventory.$inferSelect;
+
+// Restock waitlist: one row per (address, product) she asked to be told about.
+//
+// A membership is a relationship, so it is a row rather than a value crammed
+// into subscribers.source — which is what limited an address to one waitlist at
+// a time before 0019_product_waitlist.sql. Holds email, so it is locked to
+// server-side access by that migration, exactly like the subscriber and order
+// tables.
+export const productWaitlist = pgTable("product_waitlist", {
+  email: text("email").notNull(),
+  slug: text("slug").notNull(),
+  joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
+  // NULL while she is still waiting; stamped when the back-in-stock email is
+  // sent, and cleared again if she re-joins after a later sell-out so each
+  // restock cycle starts a fresh list.
+  notifiedAt: timestamp("notified_at", { withTimezone: true }),
+}, t => [primaryKey({ columns: [t.email, t.slug] })]);
+
+export type ProductWaitlistEntry = typeof productWaitlist.$inferSelect;
 
 // Customer support / contact messages submitted from the storefront. Holds
 // contact PII (name, email), so it is locked to server-side access by

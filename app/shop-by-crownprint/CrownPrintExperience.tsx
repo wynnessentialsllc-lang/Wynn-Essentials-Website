@@ -5,8 +5,13 @@ import Link from "next/link";
 import { trackAddToCart, trackCrownPrintEvent } from "../analytics";
 import type { ExperienceState, MatchClass, WhatToLookFor } from "../../lib/crownprint";
 import type { LabelledPoint } from "../../lib/crownprint-fit";
+import type { AccessorySupport, CoveragePoint, CoverageStatus, RoutineStatus, RoutineStep } from "../../lib/crownprint-guidance";
 import type { GuidanceSource, MatchRationale } from "../../lib/crownprint-match-intelligence";
+import { capabilityLabel } from "../../lib/crownprint-capability-labels";
 import { MatchLegend, MatchReasoning } from "../MatchIntelligence";
+
+// Coverage wording now lives in the OtherNeeds group headings, where each status
+// gets a full sentence of explanation rather than a one-word verdict.
 
 export type CardProduct = {
   slug: string;
@@ -22,6 +27,21 @@ export type CardProduct = {
   // shopper needs both to act on a match: which need it serves, and when to use it.
   need?: string;
   whenToUse?: string;
+  /**
+   * The Lab's own explanation of the match, rendered verbatim. Presentation
+   * only — none of it selects, classifies, or orders anything.
+   */
+  functionServed?: string;
+  evidence?: { ingredient?: string; capabilityKey?: string; statement?: string };
+  limitation?: string;
+  /**
+   * Where this product sits in The Wynn Method — Wynn's own catalog truth about
+   * its own products, and the same "STEP n · CATEGORY" language the storefront
+   * already uses. It ORGANIZES an authorized product; it never authorizes one,
+   * and it is never derived from anything HWL sent.
+   */
+  routineStep?: number;
+  routineStage?: string;
   /**
    * Why THIS product is in THIS class for THIS shopper, built server-side from
    * the signals the Hair Wellness Lab resolved. Never optional: a classification
@@ -78,7 +98,7 @@ function addToBag(slug: string) {
   } catch { /* storage unavailable — silently skip */ }
 }
 
-function MatchCard({ product, onAdd }: { product: CardProduct; onAdd: (p: CardProduct) => void }) {
+function MatchCard({ product, onAdd, suppressMethodStep }: { product: CardProduct; onAdd: (p: CardProduct) => void; suppressMethodStep?: boolean }) {
   return (
     <article className="cp-card">
       <Link
@@ -95,11 +115,56 @@ function MatchCard({ product, onAdd }: { product: CardProduct; onAdd: (p: CardPr
         <span className={`cp-badge cp-badge-${product.matchClass}`}>{CLASS_LABEL[product.matchClass]}</span>
       </Link>
       <div className="cp-card-body">
-        <p className="eyebrow">{product.subtitle}</p>
+        <p className="eyebrow">
+          {!suppressMethodStep && product.routineStep && product.routineStage
+            ? `THE WYNN METHOD · STEP ${product.routineStep} · ${product.routineStage.toUpperCase()}`
+            : product.subtitle.toUpperCase()}
+        </p>
         <h4>{product.name}</h4>
+        <p className="cp-card-subtitle">{product.subtitle}</p>
         <strong className="cp-card-price">{money(product.price)}</strong>
-        {product.need && <p className="cp-card-need"><b>Need it serves:</b> {product.need}</p>}
+        {/* WHAT THIS CARD ANSWERS, in the order a shopper asks it:
+            what need · what function · what evidence · what it does NOT do.
+            Every one of these strings is the Lab's, rendered verbatim. Wynn
+            never writes chemistry, and an absent field simply does not print —
+            a quieter card is better than an invented one. */}
+        {product.need && <p className="cp-card-need"><b>Supports:</b> {product.need}</p>}
+        {product.functionServed && (
+          <p className="cp-card-function"><b>CrownPrint function:</b> {product.functionServed}</p>
+        )}
+        {/* EVIDENCE — HWL contract #642.
+            The structured pair is the canonical explanation source, rendered as
+            two labelled facts. The ingredient is the Lab's own word and prints
+            verbatim; the capability prints through Wynn's display map, because
+            `proteins_peptides` is a contract identifier and not customer copy.
+            The key itself is unchanged everywhere else — payload, session,
+            guidance, guard and audit all still carry it.
+            The Lab's statement follows verbatim. Wynn composes nothing around
+            either: writing "carries the X function" would be a formulation
+            claim of Wynn's own. */}
+        {product.evidence?.ingredient && (
+          <p className="cp-card-evidence"><b>Evidence:</b> {product.evidence.ingredient}</p>
+        )}
+        {/* The key is deliberately NOT emitted as a data attribute. "Internally"
+            means server-side — payload, session, guidance and the admin-gated
+            audit endpoint — not hidden in the markup, where it is one view-source
+            away from a customer and one careless selector away from being read
+            back as copy. */}
+        {product.evidence?.capabilityKey && capabilityLabel(product.evidence.capabilityKey) && (
+          <p className="cp-card-evidence">
+            <b>Capability:</b> {capabilityLabel(product.evidence.capabilityKey)}
+          </p>
+        )}
+        {product.evidence?.statement && (
+          <p className="cp-card-evidence-statement">{product.evidence.statement}</p>
+        )}
         <MatchReasoning rationale={product.rationale} />
+        {/* Printed on the card rather than tucked into a footnote — but only
+            when the Lab supplied one. A boundary Wynn wrote itself would read
+            as the Lab's verdict on what this product does not do. */}
+        {product.limitation && (
+          <p className="cp-card-boundary"><b>Boundary:</b> {product.limitation}</p>
+        )}
         {product.whenToUse && <p className="cp-card-usage"><b>When to use it:</b> {product.whenToUse}</p>}
         <div className="cp-card-actions">
           {product.simple && product.price != null ? (
@@ -118,13 +183,157 @@ function MatchCard({ product, onAdd }: { product: CardProduct; onAdd: (p: CardPr
   );
 }
 
-function MatchGroup({ cls, cards, onAdd }: { cls: MatchClass; cards: CardProduct[]; onAdd: (p: CardProduct) => void }) {
+/**
+ * "Your other CrownPrint needs" — the three coverage groups.
+ *
+ * Deliberately NOT card-shaped. These are list items with no image, no price,
+ * no add-to-bag and no product link, because a shopper decides what is being
+ * recommended by how it looks long before they read a heading. A function Wynn
+ * can cover must never be mistakable for a product CrownPrint authorized.
+ */
+function OtherNeeds({ coverage }: { coverage: CoveragePoint[] }) {
+  const groups: { status: CoverageStatus; heading: string; blurb: string }[] = [
+    {
+      status: "covered",
+      heading: "Wynn Essentials can cover",
+      blurb: "Functions in your CrownPrint that our collection is able to serve. Listed so you know they exist — not as recommendations for this set.",
+    },
+    {
+      status: "partial",
+      heading: "Wynn Essentials can partially support",
+      blurb: "We serve part of what this function needs. The limit is stated rather than glossed over.",
+    },
+    {
+      status: "not_carried",
+      heading: "Wynn Essentials does not currently carry",
+      blurb: "Your CrownPrint calls for these and we don't make them. Buy them elsewhere — we'd rather you have the right routine than a complete receipt.",
+    },
+  ];
+
+  // Status values are contract identifiers; CSS suffixes are Wynn's own. Mapped
+  // rather than interpolated so a snake_case key never lands in the markup.
+  const CLASS_SUFFIX: Record<CoverageStatus, string> = {
+    covered: "covered", partial: "partial", not_carried: "notcarried",
+  };
+
+  return (
+    <section className="cp-otherneeds" aria-labelledby="cp-otherneeds-heading">
+      <h3 className="cp-section-heading" id="cp-otherneeds-heading">Your other CrownPrint needs</h3>
+      <p className="cp-otherneeds-intro">
+        Your CrownPrint contains more information than the product cards above. Here is what else it identified,
+        and how far Wynn Essentials can go on each.
+      </p>
+      {groups.map(({ status, heading, blurb }) => {
+        const rows = coverage.filter((c) => c.status === status);
+        if (!rows.length) return null;
+        return (
+          <div className={`cp-needgroup cp-needgroup-${CLASS_SUFFIX[status]}`} key={status}>
+            <h4>{heading}</h4>
+            <p className="cp-fine">{blurb}</p>
+            <ul>
+              {rows.map((c) => (
+                <li key={c.functionKey}>
+                  <b>{c.label}</b>
+                  {c.detail ? ` — ${c.detail}` : ""}
+                  {/* Display names only. No link, no price, no button: this is
+                      information about the catalog, not an offer. */}
+                  {c.qualifyingProducts.length > 0 && (
+                    <span className="cp-qualifying"> Wynn Essentials products in this function: {c.qualifyingProducts.join(", ")}.</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
+/**
+ * YOUR CROWNPRINT ROUTINE — a separate authority from the matches above.
+ *
+ * matches[] answers "which products did CrownPrint match to your current need?"
+ * routine[] answers "what regimen did you build, and in what order?"
+ *
+ * Rendered in HWL's own `order`, never re-sorted by match class or by Wynn's
+ * Method step. Steps carry no match class and no formulation evidence, because
+ * placing a product in a regimen is not the act that authorized it — and if the
+ * two sections looked alike, a shopper could not tell which question each one
+ * answered.
+ */
+function RoutineSection({ status, steps, urls }: { status?: RoutineStatus; steps: RoutineStep[]; urls: Urls }) {
+  if (!status) return null;
+
+  // Transparent failure. Never a Wynn-generated sequence in its place.
+  if (status === "unavailable") {
+    return (
+      <section className="cp-routine cp-routine-unavailable" aria-labelledby="cp-routine-heading">
+        <h3 className="cp-section-heading" id="cp-routine-heading">Your CrownPrint routine</h3>
+        <p>
+          We couldn&rsquo;t load your routine just now. Your matches above are unaffected — this is only the
+          ordered regimen. We&rsquo;d rather show you nothing here than assemble a sequence we can&rsquo;t stand
+          behind.
+        </p>
+      </section>
+    );
+  }
+
+  if (status === "not_built" || steps.length === 0) {
+    return (
+      <section className="cp-routine cp-routine-cta" aria-labelledby="cp-routine-heading">
+        <h3 className="cp-section-heading" id="cp-routine-heading">Build your personalized routine</h3>
+        <p>
+          Your CrownPrint matches are ready. Complete the routine builder to organize compatible products into an
+          ordered regimen.
+        </p>
+        <div className="actions">
+          <a className="button" href={urls.refresh} onClick={() => trackCrownPrintEvent("routine_builder_clicked")}>
+            Build My Routine
+          </a>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="cp-routine cp-routine-built" aria-labelledby="cp-routine-heading">
+      <h3 className="cp-section-heading" id="cp-routine-heading">Your CrownPrint routine</h3>
+      <p className="cp-routine-intro">
+        The regimen you built, in order. This is separate from your matches above: those are the products
+        CrownPrint matched to your current need, and this is how you chose to use them together.
+      </p>
+      <ol className="cp-routine-steps">
+        {steps.map((step) => (
+          <li key={`${step.order}-${step.productKey}`} className="cp-routine-step">
+            <p className="cp-routine-slot">
+              <span className="cp-routine-order" aria-hidden="true">{step.order}</span>
+              {step.slot ?? "Routine step"}
+              {step.isAccessory && <span className="cp-routine-tool"> · Tool</span>}
+            </p>
+            <h4><Link href={`/products/${step.catalogSlug}`}>{step.productName}</Link></h4>
+            {step.routineRole && <p className="cp-routine-role"><b>Role:</b> {step.routineRole}</p>}
+            {step.whenToUse && <p className="cp-routine-when"><b>When:</b> {step.whenToUse}</p>}
+            {step.frequency && <p className="cp-routine-freq"><b>How often:</b> {step.frequency}</p>}
+            {step.why && <p className="cp-routine-why">{step.why}</p>}
+          </li>
+        ))}
+      </ol>
+      <p className="cp-fine">
+        A step in your routine is not a CrownPrint formulation match. Being in your regimen says how you use a
+        product, not that CrownPrint matched it to a resolved need.
+      </p>
+    </section>
+  );
+}
+
+function MatchGroup({ cls, cards, onAdd, suppressMethodStep }: { cls: MatchClass; cards: CardProduct[]; onAdd: (p: CardProduct) => void; suppressMethodStep?: boolean }) {
   const group = cards.filter((c) => c.matchClass === cls);
   if (!group.length) return null;
   return (
     <div className="cp-group">
       <h3 className={`cp-group-heading cp-group-${cls}`}>{CLASS_LABEL[cls].toUpperCase()}</h3>
-      <div className="cp-grid">{group.map((c) => <MatchCard key={c.slug} product={c} onAdd={onAdd} />)}</div>
+      <div className="cp-grid">{group.map((c) => <MatchCard key={c.slug} product={c} onAdd={onAdd} suppressMethodStep={suppressMethodStep} />)}</div>
     </div>
   );
 }
@@ -136,7 +345,7 @@ function NoStrongMatch({ guidance, productHub }: { guidance?: WhatToLookFor; pro
       <h3 id="cp-nomatch-heading">
         We don&rsquo;t currently have a Wynn Essentials product that strongly matches this particular need.
       </h3>
-      <p className="cp-nomatch-lead">
+      <p className="cp-noauth-lead">
         That&rsquo;s okay — and worth knowing. Here&rsquo;s what to look for so you can care for your hair well right now.
       </p>
       {guidance && (
@@ -411,11 +620,16 @@ export default function CrownPrintExperience({
   crownPrintCode,
   priorities,
   functions,
+  coverage,
+  accessories,
   gaps,
   contextNotes,
   crownStateMessage,
   currentPriorityLabel,
   noStrongMatch,
+  unresolvedCount,
+  routineStatus,
+  routine,
   whatToLookFor,
   hasStrong,
   products,
@@ -436,6 +650,13 @@ export default function CrownPrintExperience({
   priorities: LabelledPoint[];
   /** The product functions HWL resolved this routine has to perform. */
   functions: LabelledPoint[];
+  /**
+   * Descriptive coverage metadata. Explains covered / partially supported / not
+   * carried. Carries no product identity and renders no product cards.
+   */
+  coverage: CoveragePoint[];
+  /** The separate accessory-support channel. Never CrownPrint product cards. */
+  accessories: AccessorySupport[];
   /** Resolved needs Wynn's catalog cannot serve. */
   gaps: LabelledPoint[];
   /** CrownState summary / staleness notes carried by the resolved context. */
@@ -443,6 +664,17 @@ export default function CrownPrintExperience({
   crownStateMessage?: string;
   currentPriorityLabel?: string;
   noStrongMatch: boolean;
+  /**
+   * Products the Lab authorized that Wynn could not put on the page. Reported
+   * rather than absorbed: "CrownPrint chose nothing" and "CrownPrint chose
+   * something we could not show you" are different facts, and telling a shopper
+   * the first when the second is true is a lie about their own assessment.
+   */
+  unresolvedCount: number;
+  /** Routine build state from HWL. Undefined when HWL sent none. */
+  routineStatus?: RoutineStatus;
+  /** The built routine, in HWL's order. Never re-sorted, never generated. */
+  routine: RoutineStep[];
   whatToLookFor?: WhatToLookFor;
   hasStrong: boolean;
   products: CardProduct[];
@@ -572,10 +804,103 @@ export default function CrownPrintExperience({
             shopper is told what those words mean — and what they don't. */}
         <MatchLegend source={source} />
 
-        <h3 className="cp-section-heading">Best Wynn Essentials matches</h3>
-        <MatchGroup cls="strong" cards={products} onAdd={onAdd} />
-        <MatchGroup cls="good" cards={products} onAdd={onAdd} />
-        <MatchGroup cls="conditional" cards={products} onAdd={onAdd} />
+        {/* THE SUMMARY. A single authorized product is a precise result, not a
+            thin one, and the copy has to carry that — a shopper who reads "1
+            match" as "we only found one thing" will distrust a page that is
+            working exactly as designed. The count is never the headline. */}
+        <div className="cp-matchsummary">
+          <h3 className="cp-section-heading" id="cp-matches-heading">Your Wynn Essentials matches</h3>
+          <p>
+            CrownPrint found the Wynn Essentials products that best fit the needs it prioritized for you. Only
+            products explicitly authorized by CrownPrint appear here.
+          </p>
+          {products.length === 1 && (
+            <p className="cp-matchsummary-one">
+              <b>One product earned a direct CrownPrint match for your current priorities.</b> That is a precise
+              result, not a short one — your CrownPrint holds more than these cards show, and the rest of it is
+              set out below.
+            </p>
+          )}
+        </div>
+
+        {/* ZERO AUTHORIZED MATCHES. Not an error, not a catalog dump, and not
+            a single fallback product. CrownPrint declined to authorize a direct
+            product for these priorities, which is a real answer — so the page
+            says so and then spends its space on the coverage the shopper does
+            have. */}
+        {products.length === 0 && unresolvedCount > 0 && (
+          <div className="cp-noauth">
+            <p className="cp-noauth-lead">
+              <b>Your CrownPrint authorized {unresolvedCount === 1 ? "a product" : `${unresolvedCount} products`}, but we couldn&rsquo;t display {unresolvedCount === 1 ? "it" : "them"} here.</b>
+            </p>
+            <p>
+              This is a problem on our side, not with your CrownPrint. Your assessment resolved normally and the
+              recommendation exists — we just couldn&rsquo;t match it to something in our current collection. We would
+              rather tell you that than quietly show you a shorter page.
+            </p>
+          </div>
+        )}
+
+        {products.length === 0 && unresolvedCount === 0 && (
+          <div className="cp-noauth">
+            <p className="cp-noauth-lead">
+              <b>No direct Wynn Essentials product match was authorized for this recommendation set.</b>
+            </p>
+            <p>
+              That does not mean Wynn Essentials has nothing relevant to your hair. It means CrownPrint did not
+              authorize a direct product recommendation for these priorities — and we would rather show you
+              nothing than put a product in front of you that your CrownPrint did not choose.
+            </p>
+            {coverage.length > 0 && <p>Here is what your CrownPrint did identify, and how far we can go on each.</p>}
+          </div>
+        )}
+
+        <MatchGroup cls="strong" cards={products} onAdd={onAdd} suppressMethodStep={routine.length > 0} />
+        <MatchGroup cls="good" cards={products} onAdd={onAdd} suppressMethodStep={routine.length > 0} />
+        <MatchGroup cls="conditional" cards={products} onAdd={onAdd} suppressMethodStep={routine.length > 0} />
+
+        {/* WHY COVERAGE IS NOT A MATCH. Printed next to the cards, where the
+            question actually occurs, rather than in a help page nobody opens. */}
+        {coverage.length > 0 && (
+          <p className="cp-coverage-disclosure">
+            A product can belong to a function Wynn Essentials is capable of supporting without being selected as
+            one of your direct CrownPrint matches. Your match cards reflect the needs CrownPrint prioritized for
+            this recommendation set.
+          </p>
+        )}
+
+        <RoutineSection status={routineStatus} steps={routine} urls={urls} />
+
+        {/* Accessories and tools. A SEPARATE support channel, explicitly sent by
+            the Hair Wellness Lab — never a formulation match, never produced by
+            coverage. Rendered after the matches and visibly apart from them so
+            a suggested bonnet is never read as a resolved product match. */}
+        {accessories.length > 0 && (
+          <div className="cp-functions-inline cp-accessories-inline">
+            <p className="eyebrow">ROUTINE SUPPORT</p>
+            <p className="cp-fine">
+              Tools the Hair Wellness Lab supplied alongside your matches. They work mechanically — through
+              contact, friction and coverage — not through a formulation, so they carry no ingredient evidence and
+              are <b>not</b> CrownPrint formulation matches.
+            </p>
+            <ul>
+              {accessories.map((a) => (
+                <li key={a.productKey}>
+                  <a href={`/products/${a.catalogSlug}`}><b>{a.productName}</b></a>
+                  {a.why ? ` — ${a.why}` : ""}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* YOUR OTHER CROWNPRINT NEEDS.
+            Three groups, three different messages. This is the section that
+            stops "one product shown" from reading as "one hair need exists":
+            the CrownPrint holds more than the cards, and this is the more.
+            It never produces a product card — the names it prints are display
+            text with no key to join on. */}
+        {coverage.length > 0 && <OtherNeeds coverage={coverage} />}
 
         {gaps.length > 0 && (
           <div className="cp-functions-inline cp-gaps-inline">
@@ -588,7 +913,13 @@ export default function CrownPrintExperience({
           </div>
         )}
 
-        {(noStrongMatch || !hasStrong) && <NoStrongMatch guidance={whatToLookFor} productHub={urls.productHub} />}
+        {/* The no-strong-match panel answers "we have nothing STRONG for this".
+            With zero authorized products the cp-noauth panel above already said
+            something more accurate, and two near-identical explanations in a row
+            read as a page apologising twice. One message per situation. */}
+        {products.length > 0 && (noStrongMatch || !hasStrong) && (
+          <NoStrongMatch guidance={whatToLookFor} productHub={urls.productHub} />
+        )}
 
         <div className="cp-utility">
           <a href={urls.refresh} onClick={() => trackCrownPrintEvent("crownstate_update_clicked")}>Update my hair needs</a>

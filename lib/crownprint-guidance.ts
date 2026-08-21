@@ -32,9 +32,9 @@
 // itself is directly unit-testable — see tests/crownprint-architecture.test.mjs.
 
 import type { CrownPrintProfile } from "./crownprint-code";
+import { resolveCatalogSlug } from "./crownprint-catalog-key";
 import { formatCrownPrintCode, missingCoreAxes } from "./crownprint-code";
 import {
-  matchFunctionsToCatalog,
   matchProducts,
   productUsage,
   whatToLookFor,
@@ -84,12 +84,80 @@ export type Guidance = {
   missingAxes: { letter: string; label: string }[];
   priorities: LabelledPoint[];
   functions: LabelledPoint[];
+  /**
+   * The ONLY source of CrownPrint product cards. On the connected path this is
+   * HWL's `matches` array intersected with the live catalog — nothing is ever
+   * added to it from coverage, function labels, or category lookups.
+   */
   matches: FitMatch[];
+  /** Descriptive coverage for the explanation panel. Never renders products. */
+  coverage: CoveragePoint[];
+  /** Accessories/tools from HWL's explicit accessory channel. Never matches. */
+  accessories: AccessorySupport[];
+  /** Routine build state. Undefined when HWL sent none. */
+  routineStatus?: RoutineStatus;
+  /** The built routine, in HWL's order. Empty unless routineStatus is "built". */
+  routine: RoutineStep[];
   gaps: LabelledPoint[];
   notes: string[];
   noFit: boolean;
   noStrongMatch: boolean;
   whatToLookFor: WhatToLookFor;
+};
+
+export type RoutineStatus = "built" | "not_built" | "unavailable";
+
+/**
+ * One routine step, joined to the catalog for display.
+ *
+ * Separate from FitMatch by design: no matchClass, no evidence, no rationale.
+ * Being placed in a routine is not being authorized against a resolved need,
+ * and the two must stay distinguishable in the type system as well as on screen.
+ */
+export type RoutineStep = {
+  order: number;
+  productKey: string;
+  catalogSlug: string;
+  productName: string;
+  slot?: string;
+  routineRole?: string;
+  whenToUse?: string;
+  frequency?: string;
+  why?: string;
+  isAccessory: boolean;
+};
+
+/** How Wynn served one resolved function. Descriptive; carries no product. */
+export type CoverageStatus = "covered" | "partial" | "not_carried";
+
+/**
+ * One coverage row, ready to explain.
+ *
+ * `functionKey` is the stable integration identifier and the only thing either
+ * side keys on. `label` is display text derived from the deprecated
+ * `functionLabel` when HWL sent one, falling back to a readable form of the key
+ * — it is never used to pick, rank, or filter anything.
+ */
+export type CoveragePoint = {
+  functionKey: string;
+  status: CoverageStatus;
+  label: string;
+  detail: string;
+  /** Display names only. Explains capability; never renders a product card. */
+  qualifyingProducts: string[];
+};
+
+/**
+ * An accessory HWL explicitly suggested. Rendered apart from matches.
+ *
+ * Carries the same two identities as a match: `productKey` is HWL's vocabulary,
+ * `catalogSlug` is what Wynn links and renders.
+ */
+export type AccessorySupport = {
+  productKey: string;
+  catalogSlug: string;
+  productName: string;
+  why: string;
 };
 
 /** The subset of WynnMatchContext this module reads. */
@@ -101,7 +169,21 @@ export type TrustedContext = {
   currentPriorities?: { label: string; detail?: string }[];
   productFunctionsNeeded?: { label: string; detail?: string }[];
   notCarried?: { label: string; detail?: string }[];
-  matches: { productKey: string; productName: string; matchClass: MatchClass; why: string }[];
+  coverage?: { functionKey: string; status: CoverageStatus; detail?: string; functionLabel?: string; qualifyingProducts?: string[] }[];
+  routineStatus?: RoutineStatus;
+  routine?: { order: number; productKey: string; slot?: string; routineRole?: string; whenToUse?: string; frequency?: string; why?: string; isAccessory?: boolean }[];
+  accessories?: { productKey: string; why?: string }[];
+  matches: {
+    productKey: string;
+    productName: string;
+    matchClass: MatchClass;
+    why: string;
+    needServed?: string;
+    functionServed?: string;
+    functionKey?: string;
+    evidence?: { ingredient?: string; capabilityKey?: string; statement?: string };
+    limitation?: string;
+  }[];
   noStrongMatch: boolean;
   whatToLookFor?: Partial<WhatToLookFor>;
 };
@@ -199,18 +281,45 @@ function fromTrustedContext(context: TrustedContext, catalog: FitCatalogProduct[
   // 1. HWL's own matches, in HWL's own classes. Wynn adds only catalog facts —
   //    the routine need a product serves and how often to use it — and never
   //    re-classifies or re-orders on its own reasoning.
-  const matches: FitMatch[] = context.matches
-    .filter((m) => byName.has(m.productKey))
-    .map((m) => {
-      const product = byName.get(m.productKey)!;
-      const usage = productUsage(m.productKey);
-      const need = usage?.need ?? "Part of your resolved routine";
+  // HWL names products in its own vocabulary ("revaivl"); Wynn's catalog is
+  // keyed by slug ("revaivl-protein-conditioner"). Resolve the two before the
+  // join, and say so loudly when a product HWL authorized cannot be resolved —
+  // that is a lost sale and a broken results page, and it used to happen in
+  // total silence. productKey stays HWL's key, so the guard and the audit keep
+  // comparing like with like; catalogSlug is what renders.
+  const resolved = context.matches
+    .map((m) => ({ match: m, catalogSlug: resolveCatalogSlug(m.productKey, catalog) }))
+    .filter((r): r is { match: (typeof context.matches)[number]; catalogSlug: string } => {
+      if (r.catalogSlug && byName.has(r.catalogSlug)) return true;
+      console.error(
+        `[crownprint] AUTHORIZED product "${r.match.productKey}" could not be resolved to a Wynn catalog product. ` +
+          `The Hair Wellness Lab matched it, and the shopper will not see it. ` +
+          `Either the catalog no longer carries it, or the two systems disagree about its key.`,
+      );
+      return false;
+    });
+
+  const matches: FitMatch[] = resolved
+    .map(({ match: m, catalogSlug }) => {
+      const product = byName.get(catalogSlug)!;
+      const usage = productUsage(catalogSlug);
+      // HWL's resolved need wins when it sent one. Wynn's catalog role is the
+      // fallback label only — it describes a routine step, never a CrownPrint
+      // verdict, and it is never dressed up as one.
+      const need = m.needServed ?? usage?.need ?? "Part of your resolved routine";
       const whenToUse = usage?.whenToUse ?? "Follow the directions on the product page.";
       return {
         productKey: m.productKey,
+        catalogSlug,
         productName: product.name,
         matchClass: m.matchClass,
         why: m.why,
+        // HWL's explanation, passed through untouched. Presentation only.
+        ...(m.needServed ? { needServed: m.needServed } : {}),
+        ...(m.functionServed ? { functionServed: m.functionServed } : {}),
+        ...(m.functionKey ? { functionKey: m.functionKey } : {}),
+        ...(m.evidence ? { evidence: m.evidence } : {}),
+        ...(m.limitation ? { limitation: m.limitation } : {}),
         need,
         whenToUse,
         keyIngredients: [],
@@ -230,83 +339,129 @@ function fromTrustedContext(context: TrustedContext, catalog: FitCatalogProduct[
       };
     });
 
-  // 2. The resolved product functions are what Wynn matches its catalog against.
+  // matches is now COMPLETE. Nothing below may add to it.
+  //
+  // What used to sit here was a third step that walked the resolved product
+  // functions, keyword-matched each label against a table of Wynn slugs, and
+  // pushed the hits in as extra "good" cards. That step is gone. It meant a
+  // shopper could be shown a product the Hair Wellness Lab never resolved for
+  // them — a cleanser because a coverage row said `cleanse_scalp`, a bonnet
+  // because one said `reduce_surface_friction` — with a rationale that sounded
+  // every bit as authoritative as a real match.
+  //
+  // HWL decides what a CrownPrint resolves to. Wynn renders that decision.
+  matches.sort((a, b) => CLASS_ORDER[a.matchClass] - CLASS_ORDER[b.matchClass] || a.methodStep - b.methodStep);
+
+  // 2. The resolved product functions, shown as the Lab worded them.
   const functions = (context.productFunctionsNeeded ?? []).map((f) => ({
     label: f.label,
     detail: f.detail ?? "",
   }));
 
-  // HWL's `notCarried` is authoritative and outranks Wynn's own keyword match.
-  // If the Lab has already determined we do not carry a function, no amount of
-  // wording overlap may turn it into a product: a bond builder stays a gap even
-  // though "strengthening" matches our protein conditioner. Excluded BEFORE
-  // matching, so a gap can never become a recommendation by accident.
-  const notCarriedLabels = new Set((context.notCarried ?? []).map((g) => g.label.trim().toLowerCase()));
-  const matchable = (context.productFunctionsNeeded ?? []).filter(
-    (f) => !notCarriedLabels.has(f.label.trim().toLowerCase()),
+  // 3. Coverage — descriptive only. Three outcomes get explained: covered,
+  //    partially supported, not carried. No branch of this produces a product.
+  //
+  // Names of products that ARE authorized matches, in both vocabularies HWL
+  // might use for them: the catalog name Wynn renders, and the productName the
+  // Lab sent. Anything outside this set is not nameable in the coverage section.
+  const authorizedNames = new Set(
+    matches.flatMap((m) => [m.productName, context.matches.find((x) => x.productKey === m.productKey)?.productName])
+      .filter((n): n is string => Boolean(n))
+      .map((n) => n.trim().toLowerCase()),
   );
-  const coverage = matchFunctionsToCatalog(matchable, catalog);
+  const coverage: CoveragePoint[] = (context.coverage ?? []).map((c) => ({
+    functionKey: c.functionKey,
+    status: c.status,
+    // Display text only. functionLabel is deprecated (readable until
+    // 2026-11-30); when it is absent the key is humanized for reading. Neither
+    // is ever compared, matched, or selected on.
+    label: c.functionLabel?.trim() || humanizeFunctionKey(c.functionKey),
+    detail: c.detail ?? COVERAGE_DETAIL[c.status],
+    // A qualifying product is only NAMED if it is also an authorized match.
+    //
+    // Naming one that is not is how coverage starts reading as a recommendation:
+    // a shopper who sees "Wynn products in this function: Lathyr" has been shown
+    // a product CrownPrint did not choose for them, in a section they were told
+    // is not a recommendation. Filtered here on the server, so the UI cannot
+    // leak it and no future template edit can re-expose it.
+    qualifyingProducts: (c.qualifyingProducts ?? []).filter((name) => authorizedNames.has(name.trim().toLowerCase())),
+  }));
 
-  // 3. Anything the functions point at that HWL didn't already name is added as a
-  //    GOOD match at most. HWL owns "strong"; Wynn filling a function it noticed
-  //    is a catalog observation, not an intelligence verdict.
-  const already = new Set(matches.map((m) => m.productKey));
-  for (const fn of coverage.covered) {
-    for (const slug of fn.slugs) {
-      if (already.has(slug)) continue;
-      const product = byName.get(slug);
-      const usage = productUsage(slug);
-      if (!product || !usage) continue;
-      already.add(slug);
-      const why = `Your CrownPrint calls for ${lowerFirst(fn.label)}, and this is what covers that step in the Wynn Essentials routine.`;
-      matches.push({
-        productKey: slug,
-        productName: product.name,
-        matchClass: "good",
-        why,
-        need: usage.need,
-        whenToUse: usage.whenToUse,
-        keyIngredients: [],
-        methodStep: product.methodStep,
-        rationale: buildRationale({
-          matchClass: "good",
-          productName: product.name,
-          functionServed: usage.need,
-          signals: [
-            resolvedSignal(
-              fn.label,
-              `${lowerFirst(fn.label)} (a product function the Hair Wellness Lab resolved for you)`,
-              { clause: `your resolved CrownPrint calls for ${lowerFirst(fn.label)}` },
-            ),
-            ...(crownStateSignal ? [crownStateSignal] : []),
-          ],
-          productReason: why,
-          whenToUse: usage.whenToUse,
-          // Wynn mapped its own catalog onto a need HWL named. That is a catalog
-          // observation, not an intelligence verdict — so the card says so, and
-          // the class is capped at Good.
-          wynnFilled: true,
-          source: "crownprint-360",
-        }),
-        score: 0,
-      });
-    }
-  }
-
-  matches.sort((a, b) => CLASS_ORDER[a.matchClass] - CLASS_ORDER[b.matchClass] || a.methodStep - b.methodStep);
-
-  // 4. Gaps: what HWL already determined Wynn doesn't carry, plus any resolved
-  //    function Wynn's catalog cannot serve. Never padded, never hidden.
+  // 4. Gaps: what HWL determined Wynn doesn't carry — from `notCarried`, and
+  //    from coverage rows the Lab itself marked not_carried. Wynn no longer
+  //    forms an opinion of its own about what its catalog can serve.
+  const notCarriedFromCoverage = coverage
+    .filter((c) => c.status === "not_carried")
+    .map((c) => ({ label: c.label, detail: c.detail }));
   const gaps: LabelledPoint[] = [
     ...(context.notCarried ?? []).map((g) => ({
       label: g.label,
       detail: g.detail ?? "Your Hair Wellness Lab report identified this need, and Wynn Essentials doesn't currently make it.",
     })),
-    ...coverage.unmet.map((f) => ({
-      label: f.label,
-      detail: f.detail || "Your resolved CrownPrint calls for this, and nothing in the Wynn Essentials collection serves it.",
-    })),
+    ...notCarriedFromCoverage,
   ].filter(dedupeByLabel());
+
+  // 5. Accessories — the separate support channel, joined to the catalog for a
+  //    name only. These never enter `matches` and never render as CrownPrint
+  //    product cards.
+  const accessories: AccessorySupport[] = (context.accessories ?? [])
+    .map((a): AccessorySupport | null => {
+      // The accessory channel speaks the same HWL vocabulary as matches
+      // (`softLifeBonnet`, `scrunchieSet`), so it needs the same key resolution.
+      // Looking these up by raw key against slugs is the exact bug that lost
+      // Revaivl, and it would lose every suggested tool the same silent way.
+      const catalogSlug = resolveCatalogSlug(a.productKey, catalog);
+      const product = catalogSlug ? byName.get(catalogSlug) : undefined;
+      if (!product || !catalogSlug) {
+        console.error(
+          `[crownprint] SUGGESTED accessory "${a.productKey}" could not be resolved to a Wynn catalog product; it will not be shown.`,
+        );
+        return null;
+      }
+      return {
+        productKey: a.productKey,
+        catalogSlug,
+        productName: product.name,
+        why: a.why ?? "Suggested by the Hair Wellness Lab as everyday support for your routine.",
+      };
+    })
+    .filter((a): a is AccessorySupport => a !== null);
+
+  // 6. The routine the shopper built — a SEPARATE authority from matches.
+  //
+  // HWL's `order` is preserved exactly. Wynn does not re-sort by match class or
+  // by its own Wynn Method step: those order different things, and applying
+  // either here would silently overwrite the sequence the shopper built. A
+  // routine step is placement, never authorization, so nothing here can add to
+  // `matches` and no step carries a class or evidence.
+  const routineStatus = context.routineStatus;
+  const routine: RoutineStep[] =
+    routineStatus === "built"
+      ? (context.routine ?? [])
+          .map((r): RoutineStep | null => {
+            const catalogSlug = resolveCatalogSlug(r.productKey, catalog);
+            const product = catalogSlug ? byName.get(catalogSlug) : undefined;
+            if (!product || !catalogSlug) {
+              console.error(
+                `[crownprint] routine step "${r.productKey}" could not be resolved to a Wynn catalog product; the step is omitted.`,
+              );
+              return null;
+            }
+            return {
+              order: r.order,
+              productKey: r.productKey,
+              catalogSlug,
+              productName: product.name,
+              ...(r.slot ? { slot: r.slot } : {}),
+              ...(r.routineRole ? { routineRole: r.routineRole } : {}),
+              ...(r.whenToUse ? { whenToUse: r.whenToUse } : {}),
+              ...(r.frequency ? { frequency: r.frequency } : {}),
+              ...(r.why ? { why: r.why } : {}),
+              isAccessory: r.isAccessory === true || product.kind === "accessory",
+            };
+          })
+          .filter((r): r is RoutineStep => r !== null)
+      : [];
 
   const priorities: LabelledPoint[] = (context.currentPriorities ?? []).map((p) => ({
     label: p.label,
@@ -343,6 +498,10 @@ function fromTrustedContext(context: TrustedContext, catalog: FitCatalogProduct[
     priorities,
     functions,
     matches,
+    coverage,
+    accessories,
+    ...(routineStatus ? { routineStatus } : {}),
+    routine,
     gaps,
     notes,
     noFit: matches.length === 0,
@@ -389,6 +548,13 @@ function fromLocalCore(profile: CrownPrintProfile, catalog: FitCatalogProduct[])
     priorities: fit.priorities,
     functions: fit.functions,
     matches: fit.matches,
+    // The fallback has no HWL context, so there is no coverage verdict and no
+    // accessory channel to read. Empty, never reconstructed locally.
+    coverage: [],
+    accessories: [],
+    // The fallback has no HWL context, so there is no routine authority either.
+    // Wynn never generates a routine of its own.
+    routine: [],
     gaps: fit.gaps,
     notes: fit.notes,
     noFit: fit.noFit,
@@ -400,6 +566,58 @@ function fromLocalCore(profile: CrownPrintProfile, catalog: FitCatalogProduct[])
 // ---------------------------------------------------------------------------
 
 const lowerFirst = (s: string) => (s ? s.charAt(0).toLowerCase() + s.slice(1) : s);
+
+/** Default explanation per coverage status, when HWL sent no detail of its own. */
+const COVERAGE_DETAIL: Record<CoverageStatus, string> = {
+  covered: "Your resolved CrownPrint calls for this, and the Wynn Essentials collection serves it.",
+  partial: "Your resolved CrownPrint calls for this, and Wynn Essentials supports it in part — not as fully as a dedicated product would.",
+  not_carried: "Your resolved CrownPrint calls for this, and Wynn Essentials doesn't currently make it.",
+};
+
+/**
+ * Turn `reduce_surface_friction` into "Reduce surface friction" for display when
+ * HWL sent no label. Presentation only — the key stays the identifier.
+ */
+const humanizeFunctionKey = (key: string): string => {
+  const words = key.replace(/[_-]+/g, " ").trim();
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : key;
+};
+
+/**
+ * THE GUARD.
+ *
+ * Every CrownPrint product card must correspond to a product key the Hair
+ * Wellness Lab actually resolved. This is the last line before render, and it
+ * fails CLOSED: an unauthorized key is dropped from the page, not surfaced with
+ * a warning attached. Rendering one product the Lab did not choose is worse than
+ * rendering one fewer.
+ *
+ * `authorized` is null only when there is no trusted context at all — the
+ * manual-code fallback, where Wynn's own engine is openly the author of the
+ * results and there is no HWL matches array to be a subset of. Pass the real
+ * array (even an empty one) whenever a context exists.
+ */
+export function enforceMatchesOnly<T extends { productKey: string }>(
+  cards: T[],
+  authorized: { productKey: string }[] | null,
+): T[] {
+  if (authorized === null) return cards;
+  const allowed = new Set(authorized.map((m) => m.productKey));
+  const kept: T[] = [];
+  for (const card of cards) {
+    if (allowed.has(card.productKey)) {
+      kept.push(card);
+      continue;
+    }
+    // Loud on the server, silent to the shopper. If this ever fires, some path
+    // is manufacturing recommendations again and needs finding, not muting.
+    console.error(
+      `[crownprint] BLOCKED product card "${card.productKey}": not present in the Hair Wellness Lab matches array. ` +
+        `Product cards may only come from matches — coverage and function labels never select products.`,
+    );
+  }
+  return kept;
+}
 
 const dedupeByLabel = () => {
   const seen = new Set<string>();

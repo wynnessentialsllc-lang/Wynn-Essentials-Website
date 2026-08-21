@@ -313,17 +313,17 @@ function ContactForm() {
 function FooterInfo({ page, onClose }: { page: FooterInfoKey; onClose: () => void }) {
   const content: Record<FooterInfoKey, { title: string; body: React.ReactNode }> = {
     contact: { title: "Contact Wynn Essentials", body: <ContactForm /> },
-    shipping: { title: "Shipping Information", body: <><p>We currently ship within the United States only. Standard and expedited rates are shown at checkout, and U.S. orders over $50 qualify for free standard shipping.</p><p>Orders may require up to 3 business days for processing before shipment. Delivery estimates and available rates are shown at checkout.</p><p>Please review your shipping address carefully. Address corrections, returned packages, and reshipments may result in additional charges. When your order ships, tracking information is sent to the email used at checkout.</p><p>If a package is marked delivered but cannot be found, contact the carrier first to request a trace, then contact Wynn Essentials with your order number.</p></> },
-    returns: { title: "Returns & Exchanges", body: <><p>Contact us before sending any product back. Eligibility depends on the product type, condition, and reason for the request.</p><p>For hygiene and safety, opened or used hair-care products and bulk human hair may not be returnable. Report damaged, defective, or incorrect items within 5 calendar days of delivery and include your order number and clear photos.</p><p>Email <a href="mailto:wynnessentialsllc@gmail.com">wynnessentialsllc@gmail.com</a> for authorization and instructions.</p></> },
+    shipping: { title: "Shipping Information", body: <><p>We currently ship within the United States only. Standard and expedited rates are shown at checkout, and U.S. orders over $50 qualify for free standard shipping.</p><p>Most orders require up to 3 business days for processing before shipment. Boho Hair orders require 3–7 business days for processing. Processing time begins on the first business day after an order is placed and does not include weekends, federal holidays, or carrier transit time.</p><p>During launches, sales, restocks, holidays, or other high-volume periods, processing may take longer. If an order contains Boho Hair and other products, the entire order may be held and shipped together when all items are ready. Selecting expedited shipping speeds up carrier transit only and does not shorten processing time.</p><p>Please review your shipping address carefully. Address corrections, returned packages, and reshipments may result in additional charges. When your order ships, tracking information is sent to the email used at checkout.</p><p><a href="/shipping">Read the complete Shipping Policy.</a></p></> },
+    returns: { title: "Returns & Exchanges", body: <><p>All sales are final. Returns and exchanges are limited to merchandise damaged in transit or an incorrect item sent by Wynn Essentials.</p><p>Contact us within 5 calendar days after delivery. Include your order number and clear photos. The item must remain unused, unopened, unaltered, and in its original packaging with all tags attached.</p><p>Email <a href="mailto:wynnessentialsllc@gmail.com">wynnessentialsllc@gmail.com</a> for authorization and instructions before returning anything. Unauthorized returns will not be accepted.</p><p><a href="/returns">Read the complete Returns &amp; Exchanges Policy.</a></p></> },
     faq: { title: "Help Center", body: <><p>Answers to the questions we hear most. Still stuck? Open <button className="text-button" onClick={onClose}>Contact</button> from the Help menu and send us a message.</p>
       <h3 className="faq-group">Orders &amp; Shipping</h3>
-      <h4>How long until my order ships?</h4><p>Orders may need up to 3 business days to process before shipment. When your order ships, tracking is emailed to the address used at checkout.</p>
+      <h4>How long until my order ships?</h4><p>Most orders require up to 3 business days for processing. Boho Hair orders require 3–7 business days for processing. Carrier transit time begins after processing is complete.</p>
       <h4>Where is my tracking information?</h4><p>It is sent to your checkout email once the carrier receives your package. If you don’t see it, check spam and promotions, then contact us with your name and order number.</p>
       <h4>Where do you ship?</h4><p>We currently ship within the United States only. U.S. orders over $50 qualify for free standard shipping; standard and expedited rates are shown at checkout.</p>
       <h4>Can I change or cancel an order?</h4><p>Contact us immediately with your order number. Changes aren’t guaranteed once processing or fulfillment begins.</p>
       <h4>A package says delivered but I can’t find it.</h4><p>Contact the carrier first to open a trace, then contact us with your order number so we can help.</p>
       <h3 className="faq-group">Returns &amp; Refunds</h3>
-      <h4>What is your return policy?</h4><p>Contact us before sending anything back. For hygiene and safety, opened or used hair-care products and bulk human hair may not be returnable.</p>
+      <h4>What is your return policy?</h4><p>All sales are final. Returns and exchanges are limited to merchandise damaged in transit or an incorrect item sent by Wynn Essentials. Contact us within 5 calendar days after delivery.</p>
       <h4>My item arrived damaged or incorrect.</h4><p>Report damaged, defective, or incorrect items within 5 calendar days of delivery. Email us with your order number and clear photos and we’ll make it right.</p>
       <h4>How are refunds issued?</h4><p>Approved refunds go back to your original payment method. Your bank’s processing time may vary after we issue the refund.</p>
       <h3 className="faq-group">Products &amp; Routine</h3>
@@ -338,7 +338,7 @@ function FooterInfo({ page, onClose }: { page: FooterInfoKey; onClose: () => voi
     accessibility: { title: "Accessibility", body: <><p>Wynn Essentials is committed to making this website usable for as many people as possible, including customers who use keyboards, screen readers, magnification, or other assistive technology.</p><p>If you encounter an accessibility barrier, email <a href="mailto:wynnessentialsllc@gmail.com">wynnessentialsllc@gmail.com</a> and include the page, feature, and assistance needed.</p></> },
     privacy: { title: "Privacy Notice", body: <><p>We collect information needed to process orders and support customers, such as name, email, phone number, shipping address, order details, and site interactions. Payments are processed by Stripe; Wynn Essentials does not store full card numbers on this website.</p><p>Information may be shared with service providers that operate checkout, payments, hosting, shipping, security, and communications. We do not sell customer payment information.</p><p>To request access, correction, or deletion of eligible personal information, contact <a href="mailto:wynnessentialsllc@gmail.com">wynnessentialsllc@gmail.com</a>.</p></> },
     terms: { title: "Website Terms", body: <><p>Product availability, pricing, promotions, and shipping terms may change. An order is accepted when it is confirmed for fulfillment; we may cancel or refund an order affected by inventory, pricing, fraud, or address issues.</p><p>Hair-care information on this website is educational and is not medical advice. Stop use if irritation occurs and consult a qualified professional when appropriate.</p><p>Site copy, branding, photography, and designs belong to Wynn Essentials or their respective owners and may not be reused without permission.</p></> },
-    refunds: { title: "Refund Policy", body: <><p>Approved refunds are returned to the original payment method. Bank processing time may vary after Wynn Essentials issues the refund.</p><p>Opened or used hair-care products and bulk human hair may be ineligible for refund for hygiene reasons. Report damage, defects, or incorrect items within 5 calendar days of delivery. Contact us before returning anything; unauthorized returns may not be accepted.</p><p>Email <a href="mailto:wynnessentialsllc@gmail.com">wynnessentialsllc@gmail.com</a> with your order number and photos when applicable.</p></> },
+    refunds: { title: "Refund Policy", body: <><p>All sales are final. Wynn Essentials does not accept refunds for change of mind, ordering the wrong item, or personal preference.</p><p>A refund may be considered only when merchandise was damaged in transit. Contact us within 5 calendar days after delivery. The item must remain unused, unopened, unaltered, and in its original packaging.</p><p>Email <a href="mailto:wynnessentialsllc@gmail.com">wynnessentialsllc@gmail.com</a> with your order number and clear photos before returning anything. Unauthorized returns will not be accepted.</p><p><a href="/refunds">Read the complete Refund Policy.</a></p></> },
     cookies: { title: "Cookies & Local Storage", body: <><p>This site uses essential browser storage to remember your shopping bag and whether you have viewed the welcome invitation. Checkout and security providers may also use cookies needed to prevent fraud and complete payment.</p><p>You can clear or block cookies and local storage in your browser settings. Blocking essential storage may prevent the bag, checkout, or other site features from working correctly.</p></> },
   };
   const item = content[page];
@@ -422,16 +422,155 @@ function Invitation({ manual, onDone }: { manual: boolean; onDone: () => void })
   </ModalShell>;
 }
 
-// First-order discount popup: captures an email in exchange
-// for the welcome code. On success it reveals the code on screen and the API
-// also emails it. `wynnOfferClaimed` prevents it from re-showing after a claim.
-// Shown when a shopper starts checkout: capture an email for the welcome code,
-// then proceed. `onClose` returns to the bag without checking out; `onContinue`
-// proceeds to Stripe (used after claiming the code or declining the offer).
-function FirstOrderOffer({ onClose, onContinue }: { onClose: () => void; onContinue: () => void }) {
+// The welcome-offer quiz: two questions, then the email field. Asking something
+// a shopper wants to answer before asking for her address is what earns the
+// popup its screen — and every answer here is a real catalog tag, so the reveal
+// can name a product that serves what she actually picked instead of a generic
+// best seller. The answers never leave the browser: they are not posted with
+// the signup and not stored, they only choose which product the last screen
+// shows.
+type OfferAnswer = { label: string; tag: string };
+const offerQuiz: { id: string; question: string; note: string; options: OfferAnswer[] }[] = [
+  {
+    id: "concern",
+    question: "What does your hair need most?",
+    note: "Pick the one that matters most right now.",
+    // Tags match the concern list on Shop by Concern, so a pick always has
+    // products behind it.
+    options: [
+      { label: "More moisture", tag: "Dryness" },
+      { label: "A healthier scalp", tag: "Scalp Care" },
+      { label: "Less breakage", tag: "Weakness and Breakage" },
+      { label: "Definition and hold", tag: "Definition and Styling" },
+      { label: "Protective style care", tag: "Protective Style Care" },
+    ],
+  },
+  {
+    id: "style",
+    question: "How are you wearing it right now?",
+    note: "So your match suits the style you’re actually in.",
+    options: [
+      { label: "Braids", tag: "Braids" },
+      { label: "Locs", tag: "Locs" },
+      { label: "Twists", tag: "Twists" },
+      { label: "Natural curls", tag: "Natural Curls" },
+      { label: "A silk press", tag: "Silk Press" },
+      { label: "Wigs or weaves", tag: "Wigs and Weaves" },
+    ],
+  },
+];
+
+// The picture beside the quiz. It answers back: each screen carries the
+// editorial shot for what she just picked, so the popup responds to her instead
+// of sitting still behind a form. Stills, not film, for the questions — these
+// are 150–250KB and are on screen before she can read the question, where a
+// background video would spend a megabyte of someone's data mid-checkout to say
+// the same thing. The reveal is where motion is worth it (see below).
+// `focus` is what stays in frame: the panel is a tall column on desktop and a
+// shallow band on a phone, and a centred crop of a portrait puts the band across
+// a shoulder. Each one names the height of its own subject instead.
+const offerScene: Record<string, { src: string; width: number; height: number; focus: string }> = {
+  default: { src: "/editorial/wellness-ritual.jpeg", width: 1206, height: 2134, focus: "center 42%" },
+  "Dryness": { src: "/editorial/uplyft-model.jpeg", width: 1206, height: 2510, focus: "center 30%" },
+  "Scalp Care": { src: "/shoppable/lathyr-pour.jpeg", width: 1206, height: 1809, focus: "center 38%" },
+  "Weakness and Breakage": { src: "/shoppable/grow-sleek.jpeg", width: 1206, height: 1809, focus: "center 35%" },
+  "Definition and Styling": { src: "/shoppable/edge-control-model.jpeg", width: 1206, height: 1809, focus: "center 26%" },
+  "Protective Style Care": { src: "/editorial/relief-braids.jpeg", width: 1206, height: 1809, focus: "center 40%" },
+};
+
+/**
+ * The most video the reveal may fetch, in bytes. The catalog's product films run
+ * from 0.6MB to 3.7MB, and the heavy end is not something to put on a shopper's
+ * connection for a background — those products keep their still.
+ *
+ * Checked against the file itself rather than a list of slugs, so re-cutting a
+ * clip cannot quietly reintroduce a 4MB background nobody meant to ship.
+ */
+const OFFER_FILM_BUDGET = 1_500_000;
+
+/**
+ * Whether this visitor's connection should be asked to carry the reveal's film
+ * at all. This popup sits in the middle of a checkout — the one place where
+ * spending someone's data on decoration is least excusable — so: not on
+ * Save-Data, and not on a connection the browser calls 2g. Browsers without the
+ * Network Information API are given the benefit of the doubt; the size check
+ * below still applies to them.
+ */
+function meteredConnection() {
+  const link = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+  return Boolean(link?.saveData) || /2g/.test(link?.effectiveType ?? "");
+}
+
+// The product shown on the reveal: from the in-stock, purchasable pool the bag
+// already works from, the first item that serves her concern — preferring one
+// that also suits the style she picked. Null when nothing in the pool serves
+// it, and in that case the reveal is the code alone: a "match" that doesn't
+// match is worse than no match at all.
+function offerPick(pool: Product[], answers: OfferAnswer[]): Product | null {
+  const [need, style] = answers;
+  if (!need) return null;
+  const serves = pool.filter(p => p.concerns.includes(need.tag));
+  return (style ? serves.find(p => p.styles.includes(style.tag)) : null) ?? serves[0] ?? null;
+}
+
+// First-order discount popup: a two-question quiz, then an email in exchange
+// for the welcome code. On success it reveals the code on screen — alongside the
+// product her answers matched — and the API also emails it. `wynnOfferClaimed`
+// prevents it from re-showing after a claim.
+// Shown when a shopper starts checkout. `onClose` returns to the bag without
+// checking out; `onContinue` proceeds to Stripe (used after claiming the code or
+// declining the offer).
+function FirstOrderOffer({ onClose, onContinue, add, pool }: { onClose: () => void; onContinue: () => void; add: (p: Product) => void; pool: Product[] }) {
+  // step 0 and 1 are the quiz; step 2 is the email field.
+  const [step, setStep] = useState(0);
+  const [answers, setAnswers] = useState<OfferAnswer[]>([]);
+  const [picking, setPicking] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [consent, setConsent] = useState(false);
   const [state, setState] = useState<"idle" | "sending" | "done" | "err">("idle");
+  // The match is settled once, when the code is revealed, and then held. It is
+  // read off a pool that excludes what is already in the bag, so recomputing it
+  // after she adds it would swap the card for a different product under the
+  // "Added to your bag" she just pressed.
+  const [matched, setMatched] = useState<Product | null>(null);
+  const [film, setFilm] = useState<Product | null>(null);
+  const [added, setAdded] = useState(false);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const handoff = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (handoff.current) clearTimeout(handoff.current); }, []);
+  // Each screen replaces the one before it, so move focus onto the new heading:
+  // without this a screen reader stays on the button that was just pressed and
+  // never hears what is now being asked. Not on the first screen — ModalShell
+  // has already placed focus inside the dialog there.
+  useEffect(() => { if (step > 0 || state === "done") heading.current?.focus({ preventScroll: true }); }, [step, state]);
+  // The matched product's own film, and only on the reveal: by then she has a
+  // code and a product in front of her, which is the one moment in this popup
+  // worth the bytes. Weighed before it is fetched — a HEAD carries no body — and
+  // played over the still, so a clip that is too heavy, too slow, or blocked
+  // from auto-playing costs nothing and shows as the still it replaced.
+  useEffect(() => {
+    if (state !== "done" || !matched?.video || meteredConnection()) return;
+    let live = true;
+    fetch(matched.video, { method: "HEAD" })
+      .then(r => {
+        const bytes = Number(r.headers.get("content-length") ?? 0);
+        if (live && bytes > 0 && bytes <= OFFER_FILM_BUDGET) setFilm(matched);
+      })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [state, matched]);
+  // A short beat between the tap and the next question, so the chosen answer is
+  // visibly chosen before the screen turns. A second tap during it is ignored
+  // rather than queued, which is what would otherwise skip a question.
+  const choose = (option: OfferAnswer) => {
+    if (picking) return;
+    setPicking(option.tag);
+    handoff.current = setTimeout(() => {
+      setAnswers(a => [...a.slice(0, step), option]);
+      setPicking(null);
+      setStep(s => s + 1);
+    }, 260);
+  };
   const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (state === "sending") return;
@@ -444,30 +583,87 @@ function FirstOrderOffer({ onClose, onContinue }: { onClose: () => void; onConti
       // Remember the email so checkout can snapshot the cart for abandoned-cart
       // recovery, and so the offer isn't shown again.
       try { localStorage.setItem("wynnOfferClaimed", "1"); localStorage.setItem("wynnEmail", email); } catch {}
+      setMatched(offerPick(pool, answers));
       setState("done");
     } catch { setState("err"); }
   };
+  const quiz = offerQuiz[step];
+  // Says only what the match was actually made on: the style half is named only
+  // when the product really carries that style.
+  const why = matched && answers[0]
+    ? `Chosen for ${answers[0].label.toLowerCase()}${answers[1] && matched.styles.includes(answers[1].tag) ? ` on ${answers[1].label.toLowerCase()}` : ""}.`
+    : "";
+  const scene = offerScene[answers[0]?.tag ?? ""] ?? offerScene.default;
   return <ModalShell label="First-order offer" onClose={onClose} className="offer-shell">
-    <div className="offer-modal">
+    <div className={`offer-modal${state === "done" ? " is-revealed" : ""}`}>
       <button className="offer-close" onClick={onClose} aria-label="Close offer">Close</button>
+      <div className="offer-body">
       {state === "done" ? <div className="offer-done">
         <p className="eyebrow">YOUR CODE</p>
-        <h2>{brandConfig.firstOrder.discountLabel}<span>unlocked</span></h2>
+        <h2 ref={heading} tabIndex={-1}>{brandConfig.firstOrder.discountLabel}<span>unlocked</span></h2>
         <p>Enter this code at checkout:</p>
         <p className="offer-code">{brandConfig.firstOrder.code}</p>
-        <p className="offer-fine">We&rsquo;ve emailed it to you too. Enter it on the next screen.</p>
+        <p className="offer-fine">Enter it on the next screen. Eligibility, availability, and product restrictions may apply.</p>
+        {matched && <div className="offer-pick">
+          <p className="eyebrow">MATCHED TO YOUR ANSWERS</p>
+          <div className="offer-pick-card">
+            {matched.images?.[0] && <img src={matched.images[0].src} alt="" width="600" height="600" loading="lazy" />}
+            <div>
+              <b>{matched.name}</b>
+              <span>{matched.subtitle}</span>
+              <span className="offer-pick-why">{why}</span>
+              <strong>{money(matched.price)}</strong>
+            </div>
+          </div>
+          <button type="button" className="outline-button full" disabled={added} onClick={() => { add(matched); setAdded(true); }}>{added ? "Added to your bag" : "Add it to my bag"}</button>
+        </div>}
         <button className="button full" onClick={onContinue}>Continue to checkout</button>
-      </div> : <form onSubmit={submit}>
-        <p className="eyebrow">WELCOME TO WYNN ESSENTIALS</p>
-        <h2>{brandConfig.firstOrder.headline}</h2>
-        <p>Join The Wynn Edit for routine guidance and early access &mdash; and take {brandConfig.firstOrder.discountLabel} your first order.</p>
-        <label>Email address<input type="email" required placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} /></label>
-        <label className="offer-consent"><input type="checkbox" required checked={consent} onChange={e => setConsent(e.target.checked)} /> I agree to receive marketing emails.</label>
-        <button className="button full" type="submit" disabled={state === "sending"}>{state === "sending" ? "Getting your code…" : `Get my ${brandConfig.firstOrder.discountLabel} code`}</button>
-        {state === "err" && <p className="offer-err" role="alert">Please enter a valid email and agree to emails.</p>}
-        <small>{brandConfig.consent}</small>
-        <button type="button" className="text-button offer-decline" onClick={onContinue}>No thanks &mdash; continue to checkout</button>
-      </form>}
+      </div> : <>
+        <div className="offer-head">
+          <p className="eyebrow">WELCOME TO WYNN ESSENTIALS</p>
+          <h2 className="offer-headline">You&rsquo;ve got <em>{brandConfig.firstOrder.discountLabel}</em></h2>
+          <p className="offer-sub">{brandConfig.firstOrder.headline}. Two quick questions and your code is yours.</p>
+          <div className="offer-progress" aria-hidden="true"><span style={{ width: `${(step + 1) / 3 * 100}%` }} /></div>
+          <p className="offer-progress-label">Step {step + 1} of 3</p>
+        </div>
+        {quiz ? <div className="offer-step" key={quiz.id}>
+          <h3 ref={heading} tabIndex={-1}>{quiz.question}</h3>
+          <p className="offer-note">{quiz.note}</p>
+          <div className="offer-options">
+            {quiz.options.map((option, index) => <button
+              type="button"
+              key={option.tag}
+              className={`offer-option${picking === option.tag ? " is-picked" : ""}`}
+              style={{ animationDelay: `${70 + index * 55}ms` }}
+              onClick={() => choose(option)}
+            >{option.label}<span aria-hidden="true" className="offer-option-mark">→</span></button>)}
+          </div>
+          <div className="offer-step-foot">
+            {step > 0 && <button type="button" className="text-button offer-back" onClick={() => { if (!picking) setStep(s => Math.max(0, s - 1)); }}>&larr; Back</button>}
+            <button type="button" className="text-button offer-decline" onClick={onContinue}>No thanks &mdash; continue to checkout</button>
+          </div>
+        </div> : <form className="offer-step" key="email" onSubmit={submit}>
+          <h3 ref={heading} tabIndex={-1}>Last step &mdash; where should we send it?</h3>
+          <p className="offer-note">Join The Wynn Edit for routine guidance and early access &mdash; and take {brandConfig.firstOrder.discountLabel} one eligible order.</p>
+          <label>Email address<input type="email" required placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} /></label>
+          <label className="offer-consent"><input type="checkbox" required checked={consent} onChange={e => setConsent(e.target.checked)} /> I agree to receive marketing emails.</label>
+          <button className="button full" type="submit" disabled={state === "sending"}>{state === "sending" ? "Getting your code…" : `Get my ${brandConfig.firstOrder.discountLabel} code`}</button>
+          {state === "err" && <p className="offer-err" role="alert">Please enter a valid email and agree to emails.</p>}
+          <small>{brandConfig.consent}</small>
+          <div className="offer-step-foot">
+            <button type="button" className="text-button offer-back" onClick={() => setStep(s => Math.max(0, s - 1))}>&larr; Back</button>
+            <button type="button" className="text-button offer-decline" onClick={onContinue}>No thanks &mdash; continue to checkout</button>
+          </div>
+        </form>}
+      </>}
+      </div>
+      {/* Last in the source, first in the layout: the panel is placed by grid,
+          so the reading and tab order still start at the copy. */}
+      <div className="offer-scene">
+        <img className="offer-scene-still" key={scene.src} src={scene.src} alt="" width={scene.width} height={scene.height} style={{ objectPosition: scene.focus }} />
+        {film && <QuietVideo src={film.video!} className="offer-scene-film" ariaLabel={`${film.name} ${film.subtitle}`} autoPlay loop preload="auto" />}
+        <span className="offer-scene-veil" aria-hidden="true" />
+      </div>
     </div>
   </ModalShell>;
 }
@@ -587,7 +783,7 @@ function Header({ count, wishCount, openCart, openSearch, openWishlist, viewInvi
   </>;
 }
 
-function Cart({ items, setItems, onClose, add, suggest }: { items: CartItem[]; setItems: (x: CartItem[]) => void; onClose: () => void; add: (p: Product) => void; suggest: Product[] }) {
+function Cart({ items, setItems, onClose, add, suggest, inStock }: { items: CartItem[]; setItems: (x: CartItem[]) => void; onClose: () => void; add: (p: Product) => void; suggest: Product[]; inStock: Product[] }) {
   const detailed = items.map(i => ({ ...i, product: products.find(p => p.slug === i.slug)! }));
   const unitPrice = (x: { product: Product; variantId?: string }) => x.product.variants?.find(v => v.id === x.variantId)?.price ?? x.product.price ?? null;
   const subtotal = detailed.reduce((sum, x) => sum + (unitPrice(x) ?? 0) * x.quantity, 0);
@@ -648,6 +844,10 @@ function Cart({ items, setItems, onClose, add, suggest }: { items: CartItem[]; s
       {checkoutError && <p role="alert">{checkoutError}</p>}
       <button className="button full" disabled={unknown || unconfigured} onClick={() => { if (offerShouldShow()) setShowOffer(true); else startCheckout(); }}>Checkout securely with Stripe</button>
       {showOffer && <FirstOrderOffer
+        add={add}
+        // The quiz only ever matches something she can actually buy and doesn't
+        // already have in the bag.
+        pool={inStock.filter(p => !items.some(i => i.slug === p.slug))}
         onClose={() => { markOfferSeen(); setShowOffer(false); }}
         onContinue={() => { markOfferSeen(); setShowOffer(false); startCheckout(); }}
       />}</>}
@@ -800,7 +1000,11 @@ function ProductDetail({ product, add, onClose, soldOut, submittedReviews, wishe
   const [vcolor, setVcolor] = useState(product.variants?.[0]?.color ?? "");
   const [wlEmail, setWlEmail] = useState("");
   const [wlState, setWlState] = useState<"" | "sending" | "ok" | "err">("");
-  const joinWaitlist = async (e: FormEvent<HTMLFormElement>) => { e.preventDefault(); if (wlState === "sending") return; setWlState("sending"); try { const r = await fetch("/api/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: wlEmail, consent: true, source: `waitlist:${product.slug}` }) }); setWlState(r.ok ? "ok" : "err"); } catch { setWlState("err"); } };
+  // The optional newsletter opt-in. It never gates the restock alert — an
+  // unticked box still joins the waitlist — it only decides whether this signup
+  // also records marketing consent.
+  const [wlOptIn, setWlOptIn] = useState(false);
+  const joinWaitlist = async (e: FormEvent<HTMLFormElement>) => { e.preventDefault(); if (wlState === "sending") return; setWlState("sending"); try { const r = await fetch("/api/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: wlEmail, consent: wlOptIn, source: `waitlist:${product.slug}` }) }); setWlState(r.ok ? "ok" : "err"); } catch { setWlState("err"); } };
   const isHair = !product.kind;
   const needsColor = Boolean(product.colors?.length);
   // Braiding-hair length/color variants. Selectors appear only when there is
@@ -834,7 +1038,7 @@ function ProductDetail({ product, add, onClose, soldOut, submittedReviews, wishe
   return <ModalShell label={`${product.name} product details`} onClose={onClose} className="product-shell"><article className="product-modal">
     <button className="product-close" onClick={onClose}>Close</button>
     <div className="product-gallery">{product.video && <div className="product-art product-photo product-video" key="video"><QuietVideo src={product.video} autoPlay loop preload="metadata" ariaLabel={`${product.name} product video`}/></div>}{(galleryImages.length ? galleryImages : [null, null]).map((image,index)=>image ? <div className="product-art product-photo" key={image.src}><img src={image.src} alt={image.alt} width="1600" height="1600" loading={index ? "lazy" : undefined}/></div> : <ProductArt product={product} key={index}/>)}</div>
-    <div className="product-info"><p className="eyebrow">{isHair ? `THE WYNN METHOD · STEP ${product.methodStep} OF 6` : product.subtitle.toUpperCase()}</p><h2>{product.name}<span>{product.subtitle}</span></h2><p className="product-price">{money(displayPrice)}{selVariant ? ` · ${selVariant.length}` : product.size ? ` · ${product.size}` : ""}</p><PayInFour price={displayPrice} /><p>{product.description}</p>{needsColor && <fieldset className="color-picker"><legend>Color{color ? `: ${color}` : ""}</legend>{product.colors!.map(c=><button type="button" key={c} className={color===c?"active":""} aria-pressed={color===c} onClick={()=>setColor(c)}>{c}</button>)}</fieldset>}{showLen && <fieldset className="color-picker"><legend>{variantLegend}{!product.variantLabel && len ? `: ${len}` : ""}</legend>{lengths.map(l=><button type="button" key={l} className={len===l?"active":""} aria-pressed={len===l} onClick={()=>setLen(l)}>{l}</button>)}</fieldset>}{showCol && <fieldset className="color-picker"><legend>Color{vcolor ? `: ${vcolor}` : ""}</legend>{colorOpts.map(c=><button type="button" key={c} className={vcolor===c?"active":""} aria-pressed={vcolor===c} onClick={()=>setVcolor(c)}>{c}</button>)}</fieldset>}{soldOut && !preorder ?<div className="waitlist"><p className="waitlist-heading">Sold Out</p>{wlState==="ok" ? <p className="waitlist-done">You’re on the list — we’ll email you the moment {product.name} is back in stock.</p> : <form onSubmit={joinWaitlist}><label htmlFor="wl-email">Join the waitlist and we’ll email you when it’s restocked.</label><input id="wl-email" type="email" required placeholder="Enter your email" value={wlEmail} onChange={e=>setWlEmail(e.target.value)} /><button className="button full" type="submit" disabled={wlState==="sending"}>{wlState==="sending"?"Joining…":"Join the Waitlist"}</button>{wlState==="err" && <p className="waitlist-err" role="alert">Something went wrong — please try again.</p>}<small>{brandConfig.waitlistConsent}</small></form>}</div> : <>{preorder && <div className="product-preorder"><p className="preorder-label">PRE-ORDER</p><PreorderDetails compact /></div>}<label>Quantity<select value={qty} onChange={e=>setQty(Number(e.target.value))}>{[1,2,3,4].map(n=><option key={n}>{n}</option>)}</select></label><button className="button full" disabled={(needsColor && !color) || variantSoldOut} onClick={()=>add(product,qty,color||undefined,selVariant?.id)}>{variantSoldOut ? "This option is sold out" : needsColor && !color ? "Select a color" : preorder ? "PRE-ORDER" : "Add to Cart"}</button><button type="button" className="outline-button full wish-toggle" aria-pressed={wished} onClick={onToggleWish}>{wished ? "♥ Saved to favorites" : "♡ Save to favorites"}</button></>}
+    <div className="product-info"><p className="eyebrow">{isHair ? `THE WYNN METHOD · STEP ${product.methodStep} OF 6` : product.subtitle.toUpperCase()}</p><h2>{product.name}<span>{product.subtitle}</span></h2><p className="product-price">{money(displayPrice)}{selVariant ? ` · ${selVariant.length}` : product.size ? ` · ${product.size}` : ""}</p><PayInFour price={displayPrice} /><p>{product.description}</p>{needsColor && <fieldset className="color-picker"><legend>Color{color ? `: ${color}` : ""}</legend>{product.colors!.map(c=><button type="button" key={c} className={color===c?"active":""} aria-pressed={color===c} onClick={()=>setColor(c)}>{c}</button>)}</fieldset>}{showLen && <fieldset className="color-picker"><legend>{variantLegend}{!product.variantLabel && len ? `: ${len}` : ""}</legend>{lengths.map(l=><button type="button" key={l} className={len===l?"active":""} aria-pressed={len===l} onClick={()=>setLen(l)}>{l}</button>)}</fieldset>}{showCol && <fieldset className="color-picker"><legend>Color{vcolor ? `: ${vcolor}` : ""}</legend>{colorOpts.map(c=><button type="button" key={c} className={vcolor===c?"active":""} aria-pressed={vcolor===c} onClick={()=>setVcolor(c)}>{c}</button>)}</fieldset>}{soldOut && !preorder ?<div className="waitlist"><p className="waitlist-heading">Sold Out</p>{wlState==="ok" ? <p className="waitlist-done">You’re on the list — we’ll email you the moment {product.name} is back in stock.</p> : <form onSubmit={joinWaitlist}><label htmlFor="wl-email">Join the waitlist and we’ll email you when it’s restocked.</label><input id="wl-email" type="email" required placeholder="Enter your email" value={wlEmail} onChange={e=>setWlEmail(e.target.value)} /><label className="waitlist-optin" htmlFor="wl-optin"><input id="wl-optin" type="checkbox" checked={wlOptIn} onChange={e=>setWlOptIn(e.target.checked)} /><span>{brandConfig.waitlistMarketingOptIn}</span></label><button className="button full" type="submit" disabled={wlState==="sending"}>{wlState==="sending"?"Joining…":"Join the Waitlist"}</button>{wlState==="err" && <p className="waitlist-err" role="alert">Something went wrong — please try again.</p>}<small>{brandConfig.waitlistConsent}</small></form>}</div> : <>{preorder && <div className="product-preorder"><p className="preorder-label">PRE-ORDER</p><PreorderDetails compact /></div>}<label>Quantity<select value={qty} onChange={e=>setQty(Number(e.target.value))}>{[1,2,3,4].map(n=><option key={n}>{n}</option>)}</select></label><button className="button full" disabled={(needsColor && !color) || variantSoldOut} onClick={()=>add(product,qty,color||undefined,selVariant?.id)}>{variantSoldOut ? "This option is sold out" : needsColor && !color ? "Select a color" : preorder ? "PRE-ORDER" : "Add to Cart"}</button><button type="button" className="outline-button full wish-toggle" aria-pressed={wished} onClick={onToggleWish}>{wished ? "♥ Saved to favorites" : "♡ Save to favorites"}</button></>}
       <h3>Why You’ll Love It</h3><ul className="benefit-list">{(product.featured ? hydrateBenefits : [product.benefit,"Supports a consistent routine","Created for textured-hair care"]).map(x=><li key={x}>{x}</li>)}</ul>
       <div className="accordions">{Object.entries(accordions).map(([title,body])=><details key={title}><summary>{title}</summary><p>{body}</p></details>)}</div>
     </div>
@@ -863,6 +1067,74 @@ function RoutineFinder({ add, openProduct }: { add: (p: Product) => void; openPr
     <form onSubmit={e=>e.preventDefault()}>{questions.map(([q,opts],i)=><fieldset key={q}><legend>{i+1}. {q}</legend><div>{opts.map(o=><label key={o}><input type="radio" name={`q${i}`} checked={answers[i]===o} onChange={()=>setAnswers(a=>{const n=[...a];n[i]=o;return n;})}/><span>{o}</span></label>)}</div></fieldset>)}</form>
     {answers.filter(Boolean).length===4 && <div className="recommendation" aria-live="polite"><h3>Your editable routine</h3><p>Based on your answers, start with these essentials. This is routine guidance, not medical advice or diagnosis.</p>{recommendation.map(p=><div key={p.slug}><button onClick={()=>openProduct(p)}>{p.name} <span>{p.subtitle}</span></button><button className="outline-button" onClick={()=>add(p)}>Add</button></div>)}</div>}
   </section>;
+}
+
+// The Wynn Edit signup. On a successful submission the form is REPLACED by a
+// branded confirmation rather than a toast, so the outcome is unmissable and
+// stays on screen.
+//
+// There is exactly ONE success message, and it is the same whether the address
+// was brand new, already subscribed, or previously unsubscribed and therefore
+// suppressed. That is deliberate: any variation would let someone type an
+// address into a public form and learn whether it is on the list. It also
+// promises nothing about an email having been sent, so it stays honest when the
+// provider has not accepted anything.
+//
+// What actually happened is decided entirely server-side and recorded in the
+// subscribers table — never inferred here from the response.
+type SignupState = "idle" | "sending" | "done";
+
+const SIGNUP_CONFIRMATION = {
+  heading: "You’re all set.",
+  body: "If this email is eligible, The Wynn Edit will be in touch.",
+};
+
+function WynnEditSignup() {
+  const [state,setState]=useState<SignupState>("idle");
+  const [error,setError]=useState("");
+  const [consent,setConsent]=useState(false);
+
+  const submit=async(e:FormEvent<HTMLFormElement>)=>{
+    e.preventDefault();
+    // A double-click, an impatient second tap on a slow connection, or a
+    // resubmitted form must not fire a second request.
+    if(state==="sending") return;
+    const data=new FormData(e.currentTarget);
+    const email=String(data.get("email")||"").trim();
+    const agreed=data.get("consent")==="on";
+    // Consent is enforced server-side too; checking here keeps a stray
+    // submission from making a pointless round trip.
+    if(!agreed){setError("Please agree to receive marketing emails to join.");return;}
+    setError("");setState("sending");
+    try{
+      const res=await fetch("/api/subscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,consent:agreed,source:"the-wynn-edit"})});
+      const result=await res.json() as {ok?:boolean;error?:string};
+      if(!res.ok||!result.ok)throw new Error(result.error||"Signup is unavailable right now.");
+      // Nothing in the response is read beyond "accepted" — there is nothing
+      // else in it, by design.
+      setState("done");
+    }catch(err){
+      setState("idle");
+      setError(err instanceof Error?err.message:"Signup is unavailable right now. Please try again later.");
+    }
+  };
+
+  if(state==="done"){
+    return <div className="newsletter-done" role="status" aria-live="polite">
+      <p className="eyebrow">THE WYNN EDIT</p>
+      <h3>{SIGNUP_CONFIRMATION.heading}</h3>
+      <p>{SIGNUP_CONFIRMATION.body}</p>
+      <p className="newsletter-done-note">Healthy hair is a practice. You can unsubscribe at any time from the footer of any edition.</p>
+    </div>;
+  }
+
+  return <form onSubmit={submit} noValidate={false}>
+    <label>Email address<input name="email" required type="email" autoComplete="email" placeholder="you@example.com" disabled={state==="sending"}/></label>
+    <label className="consent"><input name="consent" required type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} disabled={state==="sending"}/> I agree to receive marketing emails.</label>
+    <button className="button" type="submit" disabled={state==="sending"}>{state==="sending"?"Joining…":"Join the List"}</button>
+    {error && <p className="newsletter-error" role="alert">{error}</p>}
+    <small>{brandConfig.consent}</small>
+  </form>;
 }
 
 export default function WynnShop() {
@@ -969,6 +1241,10 @@ export default function WynnShop() {
     const score=(p:Product)=>{let s=p.featured?1:0;for(const st of steps){if(Math.abs(p.methodStep-st)===1)s+=2;}return s;};
     return products.filter(p=>!p.kind&&p.price!=null&&!inCart.has(p.slug)&&!soldOut(p)).sort((a,b)=>score(b)-score(a)).slice(0,3);
   };
+  // The pool the welcome-offer quiz matches against. Inventory-aware and
+  // priced, so a quiz answer can never hand back something that cannot be
+  // bought; bulk braiding hair is left out because it answers no routine need.
+  const offerPool=products.filter(p=>p.kind!=="hair"&&p.price!=null&&!soldOut(p));
   // Bulk hair has its own Premium Human Hair section below, so it is kept out of
   // the Shop the Essentials grid.
   // The ingredient library uses short names (e.g. "Jojoba Oil") while product
@@ -1049,17 +1325,17 @@ export default function WynnShop() {
         <div className="founder-intro"><p className="eyebrow">WHY WYNN ESSENTIALS EXISTS</p><h2>Intentional care,<br />at every stage.</h2><p>Wynn Essentials was founded in 2020 from a shared belief that textured hair deserves thoughtful care at every stage of the routine. The collection brings cleansing, conditioning, moisture, scalp care, styling support, protective-style essentials, and premium hair together so customers can build a routine that feels clear, consistent, and made for them.</p><img className="founder-story-image" src="/wynn-essentials-scarf-story.jpeg" width="1206" height="1800" loading="lazy" alt="Pink Wynn Essentials scarf featuring the brand silhouette and established 2020 pattern"/></div>
         <div className="founders-panel"><p className="eyebrow">MEET THE FOUNDERS</p><h3>The Wynn Sisters</h3><p>Patricia Wynn, Karina Wynn, and Sheree Wynn are the three sisters behind Wynn Essentials. Together, they created a family-led brand that makes textured-hair care feel more intentional and less overwhelming. Their collection supports the full routine—from cleansing, conditioning, and daily moisture to scalp care, protective styling, and finishing—so every customer can care for her crown with confidence, consistency, and pride.</p><ul className="founders-list"><li>Patricia Wynn</li><li>Karina Wynn</li><li>Sheree Wynn</li></ul><ul className="founder-facts"><li>{brandConfig.founder.ownership}</li><li>{brandConfig.founder.established}</li><li>{brandConfig.founder.location}</li></ul><div className="founder-gallery"><img src="/collections/wynn-essentials-linen-bag.webp" alt="Wynn Essentials linen drawstring pouch in a kraft gift box" width="900" height="1200" loading="lazy"/><img src="/collections/wynn-essentials-oils-giftbox.webp" alt="Wynn Essentials gift box with Edge Control, Nourish, Relief, and Grow" width="900" height="1200" loading="lazy"/><img src="/collections/wynn-essentials-brand-bag.webp" alt="Wynn Essentials kraft shopping bag with Grow oil and a wooden brush on a table" width="900" height="1200" loading="lazy"/><img src="/collections/wynn-essentials-spa-shelf.webp" alt="Wynn Essentials Lathyr, Uplyft, and Revaivl styled on a spa bathroom shelf" width="900" height="1200" loading="lazy"/><img src="/collections/wynn-essentials-gold-editorial.webp" alt="Wynn Essentials Nourish oil in a gold editorial vanity flat lay" width="900" height="1200" loading="lazy"/><img src="/collections/wynn-essentials-natural-girlies.webp" alt="Wynn Essentials full collection in a basket beside a Natural Girlies magazine" width="900" height="1200" loading="lazy"/><img src="/collections/wynn-essentials-nourish-hair.webp" alt="Nourish oil bottles nestled in styled natural hair" width="900" height="1200" loading="lazy"/><img src="/collections/wynn-essentials-vending-machine.webp" alt="Wynn Essentials branded vending machine stocked with Hydrate on a Los Angeles street" width="900" height="1200" loading="lazy"/><img src="/collections/wynn-essentials-three-hands.webp" alt="Three hands reaching for Wynn Essentials Grow, Nourish, and Relief oils" width="900" height="1200" loading="lazy"/></div></div>
       </section>
-      <section className="newsletter"><div className="newsletter-gallery" aria-hidden="true">{[0,1,2,3,4].map(col=>{const picks=[0,1,2,3,4,5].map(k=>newsletterGallery[(col*2+k)%newsletterGallery.length]);const tiles=[...picks,...picks];return <div className="newsletter-col" key={col}>{tiles.map((ph,i)=><img key={i} src={ph.src} alt="" width={ph.w} height={ph.h} loading="lazy" decoding="async"/>)}</div>;})}</div><div className="newsletter-content"><p className="eyebrow">THE WYNN EDIT</p><h2>Good Hair Information<br />Belongs in Your Inbox.</h2><p>Receive routine guidance, ingredient education, product releases, and early access from Wynn Essentials.</p><form onSubmit={async (e:FormEvent<HTMLFormElement>)=>{e.preventDefault();const form=e.currentTarget;const data=new FormData(form);const email=String(data.get("email")||"").trim();const consent=data.get("consent")==="on";try{const res=await fetch("/api/subscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,consent})});const result=await res.json() as {ok?:boolean;error?:string};if(!res.ok||!result.ok)throw new Error(result.error||"Signup is unavailable right now.");setNotice("Thanks for joining The Wynn Edit. We'll be in touch soon.");form.reset();}catch(err){setNotice(err instanceof Error?err.message:"Signup is unavailable right now.");}}}><label>Email address<input name="email" required type="email" placeholder="you@example.com"/></label><label className="consent"><input name="consent" required type="checkbox"/> I agree to receive marketing emails.</label><button className="button">Join the List</button><small>{brandConfig.consent}</small></form></div></section>
+      <section className="newsletter"><div className="newsletter-gallery" aria-hidden="true">{[0,1,2,3,4].map(col=>{const picks=[0,1,2,3,4,5].map(k=>newsletterGallery[(col*2+k)%newsletterGallery.length]);const tiles=[...picks,...picks];return <div className="newsletter-col" key={col}>{tiles.map((ph,i)=><img key={i} src={ph.src} alt="" width={ph.w} height={ph.h} loading="lazy" decoding="async"/>)}</div>;})}</div><div className="newsletter-content"><p className="eyebrow">THE WYNN EDIT</p><h2>Good Hair Information<br />Belongs in Your Inbox.</h2><p>Receive routine guidance, ingredient education, product releases, and early access from Wynn Essentials.</p><WynnEditSignup /></div></section>
     </main>
     <footer id="footer">
       <div className="footer-brand"><span className="logo"><BrandLogo /></span><p>Healthy hair is a practice.</p><small>{brandConfig.founder.ownership}<br/>{brandConfig.founder.established}<br/>{brandConfig.founder.location}</small></div>
       <div><h3>Shop</h3><a href="#shop">All Products</a><a href="#best-sellers">Best Sellers</a><a href="#bundle">Hair Wellness Bundle</a><a href="#shop-by-concern">Shop by Concern</a><a href="#shop-by-style">Shop by Style</a><Link href="/shop-by-crownprint">Shop by CrownPrint</Link><Link href="/crownprint">Shop by CrownPrint Code</Link><a href="#boho-hair">Boho Hair</a></div>
       <div><h3>Discover</h3><Link href="/blog">Wynn Essentials Insights</Link><Link href="/about">About Us</Link><a href="#the-wynn-method">The Wynn Method</a><a href="#routine-finder">Routine Finder</a><a href="#ingredients">Ingredient Library</a><a href="#essential-oils-care">Essential Oils Care</a></div>
       <div><h3>Help</h3><button className="footer-link" onClick={()=>setFooterInfo("contact")}>Contact</button><Link className="footer-link" href="/shipping">Shipping</Link><Link className="footer-link" href="/returns">Returns</Link><Link className="footer-link" href="/refunds">Refunds</Link><button className="footer-link" onClick={()=>setFooterInfo("faq")}>FAQ</button><button className="footer-link" onClick={()=>setFooterInfo("track")}>Track Order</button><Link className="footer-link" href="/accessibility">Accessibility</Link></div>
-      <div><h3>Legal</h3><Link className="footer-link" href="/privacy">Privacy</Link><Link className="footer-link" href="/terms">Terms</Link><Link className="footer-link" href="/refunds">Refund Policy</Link><Link className="footer-link" href="/cookies">Cookie Information</Link><Link className="footer-link" href="/privacy#rights">Your Privacy Choices</Link></div>
+      <div><h3>Legal</h3><Link className="footer-link" href="/privacy">Privacy</Link><Link className="footer-link" href="/terms">Terms</Link><Link className="footer-link" href="/refunds">Refund Policy</Link><Link className="footer-link" href="/contact-information">Contact Information</Link><Link className="footer-link" href="/cookies">Cookie Information</Link><Link className="footer-link" href="/privacy#rights">Your Privacy Choices</Link></div>
         <div className="footer-bottom"><button className="text-button" onClick={()=>setInvitation("manual")}>View Invitation</button><div><a href="https://www.instagram.com/wynnessentials/" target="_blank" rel="noreferrer">Instagram</a><a href="https://www.tiktok.com/@wynnessentials" target="_blank" rel="noreferrer">TikTok</a><a href="mailto:wynnessentialsllc@gmail.com">Email</a><a href="tel:+12132670825">Call</a></div><span>© {new Date().getFullYear()} Wynn Essentials. All rights reserved.</span></div>
     </footer>
-    {cartOpen&&<Cart items={cart} setItems={setCart} add={add} suggest={recommendFor(cart)} onClose={()=>setCartOpen(false)}/>}
+    {cartOpen&&<Cart items={cart} setItems={setCart} add={add} suggest={recommendFor(cart)} inStock={offerPool} onClose={()=>setCartOpen(false)}/>}
     {searchOpen&&<Search add={add} onClose={()=>setSearchOpen(false)} openProduct={openProduct}/>}
     {wishOpen&&<Wishlist slugs={wishlist} add={add} openProduct={openProduct} onToggle={toggleWish} onClose={()=>setWishOpen(false)}/>}
     {product&&<ProductDetail product={product} add={add} soldOut={soldOut(product)} submittedReviews={reviewsBySlug[product.slug] ?? []} wished={inWishlist(product.slug)} onToggleWish={()=>toggleWish(product.slug)} onClose={()=>{setProduct(null);history.replaceState(null,"",location.pathname)}}/>}
