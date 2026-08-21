@@ -369,10 +369,8 @@ function HeroMedia({ play, invitationOpen, onReveal }: { play: boolean; invitati
     return () => window.clearTimeout(t);
   }, [play, invitationOpen]);
   return (
-    <>
-      <div className="hero-image">
-        <img src="/hero-nourish-sky-full.webp" width={1200} height={1600} alt="Model holding eight Wynn Essentials Nourish boxes against a bright blue sky" fetchPriority="high" />
-      </div>
+    <div className="hero-image">
+      <img src="/hero-nourish-sky-full.webp" width={1200} height={1600} alt="Model holding eight Wynn Essentials Nourish boxes against a bright blue sky" fetchPriority="high" />
       {play && (
         <>
           <video ref={bgRef} className={`hero-intro-bg${done ? " is-done" : ""}`} muted playsInline preload="auto" aria-hidden="true" tabIndex={-1}>
@@ -385,7 +383,7 @@ function HeroMedia({ play, invitationOpen, onReveal }: { play: boolean; invitati
           </video>
         </>
       )}
-    </>
+    </div>
   );
 }
 
