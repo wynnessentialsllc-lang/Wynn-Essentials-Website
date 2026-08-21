@@ -88,7 +88,7 @@ export type EmailInput = {
  * send-once claim use this to decide whether releasing that claim risks a
  * duplicate: release only when the non-delivery is certain.
  */
-export type EmailResult = { ok: boolean; certainNotSent: boolean };
+export type EmailResult = { ok: boolean; certainNotSent: boolean; providerMessageId?: string };
 
 /** Sends via Resend and reports how it went. Never throws. */
 export async function deliverEmail({ to, subject, html, text, replyTo, headers, fromName }: EmailInput): Promise<EmailResult> {
@@ -115,7 +115,12 @@ export async function deliverEmail({ to, subject, html, text, replyTo, headers, 
       // Resend answered and refused: the message was never queued.
       return { ok: false, certainNotSent: true };
     }
-    return { ok: true, certainNotSent: false };
+    const result = await response.json().catch(() => null) as { id?: unknown } | null;
+    return {
+      ok: true,
+      certainNotSent: false,
+      ...(typeof result?.id === "string" ? { providerMessageId: result.id } : {}),
+    };
   } catch (error) {
     // The request may or may not have been accepted before this threw.
     console.error("Email error", error instanceof Error ? error.message : "Unknown error");
