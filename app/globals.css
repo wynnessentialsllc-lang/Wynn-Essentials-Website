@@ -376,7 +376,7 @@
 /* First-visit Nourish film, played inside the hero image panel: it covers the
    model image (brightened so its studio background reads clean), plays once,
    then fades to reveal the image. The hero copy is held until it finishes. */
-.hero-intro-video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center;background:transparent;z-index:2;filter:brightness(1.16) contrast(1.02) saturate(1.05);transition:opacity .9s ease}
+.hero-intro-video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center;background:#fff;z-index:2;filter:brightness(1.16) contrast(1.02) saturate(1.05);transition:opacity .9s ease}
 .hero-intro-video.is-done{opacity:0;pointer-events:none}
 .hero-intro-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;z-index:1;transform:scale(1.2);filter:blur(34px) brightness(1.12) saturate(1.15);transition:opacity .9s ease}
 .hero-intro-bg.is-done{opacity:0;pointer-events:none}
