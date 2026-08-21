@@ -57,7 +57,7 @@ function Icon({ type }: { type: "order" | "processing" | "preparing" | "quality"
 const steps = [
   { type: "order" as const, title: "1. ORDER", copy: "Place your order before Friday at 12 PM PT." },
   { type: "processing" as const, title: "2. PROCESSING", copy: "We process all pre-orders every Friday." },
-  { type: "preparing" as const, title: "3. PREPARING", copy: "Please allow 7–13 days for processing." },
+  { type: "preparing" as const, title: "3. PREPARING", copy: PREORDER_POLICY.processing },
   { type: "quality" as const, title: "4. QUALITY CHECK", copy: "We inspect, prep and package your hair with care." },
   { type: "shipping" as const, title: "5. ON THE WAY", copy: "Your order ships and tracking is sent to you!" },
 ];
