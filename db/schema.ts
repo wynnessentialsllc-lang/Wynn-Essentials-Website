@@ -82,6 +82,44 @@ export const subscribers = pgTable("subscribers", {
 
 export type Subscriber = typeof subscribers.$inferSelect;
 
+// Marketing campaign reporting. A campaign has one delivery row per recipient;
+// the composite key is the duplicate-send guard used by scheduled jobs.
+export const emailCampaigns = pgTable("email_campaigns", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  subject: text("subject").notNull(),
+  status: text("status").notNull().default("draft"),
+  scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const campaignDeliveries = pgTable("campaign_deliveries", {
+  campaignId: text("campaign_id").notNull(),
+  email: text("email").notNull(),
+  providerMessageId: text("provider_message_id"),
+  status: text("status").notNull().default("claimed"),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+  openedAt: timestamp("opened_at", { withTimezone: true }),
+  bouncedAt: timestamp("bounced_at", { withTimezone: true }),
+  complainedAt: timestamp("complained_at", { withTimezone: true }),
+  unsubscribedAt: timestamp("unsubscribed_at", { withTimezone: true }),
+  error: text("error"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, table => [primaryKey({ columns: [table.campaignId, table.email] })]);
+
+// Resend may retry webhook events. Recording the provider event id makes those
+// retries harmless and gives us an audit trail for campaign status changes.
+export const campaignEmailEvents = pgTable("campaign_email_events", {
+  eventId: text("event_id").primaryKey(),
+  eventType: text("event_type").notNull(),
+  providerMessageId: text("provider_message_id"),
+  receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // Live sold-out overrides, managed in /admin/inventory. A row with sold_out=true
 // hides a product's Add to Cart and blocks its checkout, without a code change.
 export const productInventory = pgTable("product_inventory", {

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "../../../db";
-import { subscribers } from "../../../db/schema";
+import { campaignDeliveries, subscribers } from "../../../db/schema";
 import { verifyUnsubscribe, normalizeEmail } from "../../../lib/unsubscribe";
 
 // Processes a confirmed unsubscribe. Two callers land here, both on the signed
@@ -43,6 +43,12 @@ export async function POST(request: Request) {
       .update(subscribers)
       .set({ marketingConsent: false, unsubscribedAt: new Date(), consentText: "Unsubscribed via email link", updatedAt: new Date() })
       .where(eq(subscribers.email, email));
+    // Reflect the address's current opt-out state in campaign reporting. This
+    // is deliberately idempotent and does not alter transactional order mail.
+    await db
+      .update(campaignDeliveries)
+      .set({ unsubscribedAt: new Date(), updatedAt: new Date() })
+      .where(eq(campaignDeliveries.email, email));
     return done("done", true);
   } catch {
     return done("error", false);

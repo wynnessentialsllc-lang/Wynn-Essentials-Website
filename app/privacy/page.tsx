@@ -11,9 +11,9 @@ export default function Privacy() {
   return (
     <InfoPage title="Privacy Notice" updated="August 2026" lead="This notice explains what we collect, why, and the choices you have.">
       <h2>Information we collect</h2>
-      <p>We collect the information needed to process orders and support customers: your name, email address, shipping address, order details, and how you interact with the site. When you check out, our payment processor (Stripe) collects the details needed to complete payment and shipping. Wynn Essentials never sees or stores your full card number.</p>
+      <p>We collect the information needed to process orders and support customers: your name, email address, shipping address, order details, and how you interact with the site. If you subscribe to marketing, our email provider may also report delivery, open, bounce, complaint, and unsubscribe events so we can operate the list and understand campaign performance. When you check out, our payment processor (Stripe) collects the details needed to complete payment and shipping. Wynn Essentials never sees or stores your full card number.</p>
       <h2>How we use it</h2>
-      <p>We use your information to fulfill and support orders, prevent fraud, operate and improve the site, and — only if you opt in — to send marketing emails. You can unsubscribe from marketing at any time using the link in any email.</p>
+      <p>We use your information to fulfill and support orders, prevent fraud, operate and improve the site, and — only if you opt in — to send and measure marketing emails. You can unsubscribe from marketing at any time using the link in any email.</p>
       <h2>Who we share it with</h2>
       <p>We share information only with the service providers that operate checkout, payments, hosting, shipping, email, and security on our behalf. We do not sell or rent your personal information, and we do not share it for cross-context behavioral advertising in exchange for money.</p>
       <h2 id="rights">Your privacy rights</h2>
