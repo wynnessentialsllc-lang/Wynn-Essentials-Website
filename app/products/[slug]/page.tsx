@@ -9,7 +9,8 @@ import WishlistButton from "../../WishlistButton";
 import QuietVideo from "../../QuietVideo";
 import WaitlistForm from "./WaitlistForm";
 import ProductPageReviews from "./ProductPageReviews";
-import { isPreorderEligible, PREORDER_POLICY } from "../../../lib/preorder";
+import PreorderDetails from "../../PreorderDetails";
+import { isPreorderEligible } from "../../../lib/preorder";
 
 // Pre-render one static page per catalog product. Each gets its own crawlable
 // URL, unique metadata, and Product structured data — the pieces the modal-only
@@ -110,10 +111,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           {preorder ? (
             <div className="pdp-preorder">
               <p className="preorder-label">PRE-ORDER</p>
-              <h2>Pre-order details</h2>
-              <p><strong>{PREORDER_POLICY.cutoff}</strong></p>
-              <p>{PREORDER_POLICY.batch}</p>
-              <p>{PREORDER_POLICY.processing}</p>
+              <PreorderDetails />
               <Link className="button" href={shopHref}>PRE-ORDER</Link>
               <WishlistButton slug={product.slug} name={product.name} />
             </div>
