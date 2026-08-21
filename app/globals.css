@@ -56,7 +56,7 @@
 
 .shop .product-art.product-photo{background:var(--linen)}.shop .product-art.product-photo img{width:100%;height:100%;padding:0;object-fit:cover;object-position:center}
 .editorial-shop{background:#f8f3eb}.editorial-shop .section-heading>p{max-width:430px;font-size:14px;line-height:1.6}.editorial-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.editorial-card{position:relative;display:block;height:600px;padding:0;border:0;background:#111;color:#fff;overflow:hidden;text-align:left;text-decoration:none;cursor:pointer}.editorial-card img{width:100%;height:100%;object-fit:cover;transition:transform .5s ease}.editorial-card:after{content:"";position:absolute;inset:45% 0 0;background:linear-gradient(transparent,rgba(0,0,0,.8))}.editorial-card span{position:absolute;z-index:1;left:24px;right:24px;bottom:22px;display:grid;gap:3px}.editorial-card b{font-family:var(--font-display);font-size:34px;font-weight:400}.editorial-card small{font-size:11px;letter-spacing:.08em}.editorial-card em{margin-top:10px;font-size:10px;font-style:normal;font-weight:800;text-transform:uppercase;letter-spacing:.18em}.editorial-card:hover img,.editorial-card:focus-visible img{transform:scale(1.035)}.editorial-card:focus-visible{outline:3px solid var(--kraft);outline-offset:3px}.editorial-shop-dark{background:#171513;color:#fff}.editorial-shop-dark .section-heading>p{color:#d8d0c6}.editorial-grid-wide{grid-template-columns:repeat(4,minmax(0,1fr))}.editorial-grid-wide .editorial-card{display:flex;min-width:0;height:auto;aspect-ratio:auto;flex-direction:column;background:#0d0c0b}.editorial-grid-wide .editorial-card:after{display:none}.editorial-grid-wide .editorial-card img{display:block;width:100%;height:auto;aspect-ratio:2/3;object-fit:cover;object-position:center;background:#0d0c0b}.editorial-grid-wide .editorial-card span{position:static;min-height:126px;padding:20px 22px 22px;box-sizing:border-box}.editorial-grid-wide .editorial-card b{font-size:clamp(24px,2.1vw,32px);line-height:1.05;overflow-wrap:anywhere}.editorial-grid-wide .editorial-card small{line-height:1.35}.editorial-grid-wide .editorial-card em{align-self:start}@media(max-width:1050px){.editorial-grid{grid-template-columns:repeat(2,1fr)}.editorial-card{height:560px}.editorial-grid-wide{grid-template-columns:repeat(2,minmax(0,1fr))}.editorial-grid-wide .editorial-card{height:auto}}@media(max-width:760px){.editorial-shop .section-heading>p{margin-top:18px}.editorial-grid{display:flex;overflow:auto;scroll-snap-type:x mandatory;padding-bottom:14px}.editorial-card{min-width:82vw;height:540px;scroll-snap-align:start}.editorial-grid-wide .editorial-card{min-width:82vw;height:auto}.editorial-card b{font-size:30px}.editorial-grid-wide .editorial-card b{font-size:28px}}
-.boho-hair{position:relative;overflow:hidden;background:#f4eadc;color:#2d211c}.boho-hair:before{position:absolute;inset:0;background:radial-gradient(circle at 88% 72%,rgba(198,180,224,.28),transparent 25%),radial-gradient(circle at 12% 84%,rgba(235,174,194,.2),transparent 22%);content:"";pointer-events:none}.boho-editorial{position:relative;display:grid;grid-template-columns:minmax(0,1.06fr) minmax(360px,.94fr);min-height:650px;margin:-70px -6vw 0}.boho-portrait{display:grid;place-items:center;padding:72px 8vw 72px 6vw;background:linear-gradient(145deg,#50aee7 0%,#84cef1 52%,#b9e2f5 100%)}.boho-portrait figure{position:relative;width:min(100%,560px);margin:0;overflow:hidden;border:10px solid rgba(255,255,255,.4);box-shadow:0 22px 60px rgba(39,81,111,.28);transform:rotate(-1deg)}.boho-portrait figure:after{position:absolute;inset:0;border:1px solid rgba(255,255,255,.56);content:"";pointer-events:none}.boho-portrait img{display:block;width:100%;height:auto;transition:transform .7s ease}.boho-portrait figure:hover img{transform:scale(1.018)}.boho-intro{display:flex;align-items:flex-start;justify-content:center;flex-direction:column;padding:80px clamp(34px,6vw,96px);background:rgba(248,239,226,.96)}.boho-intro>.eyebrow{color:#826e64}.boho-intro h2{display:flex;align-items:flex-start;flex-direction:column;margin:18px 0 24px;font-family:var(--font-display);font-weight:400;line-height:.86}.boho-intro h2 span{max-width:600px;font-size:clamp(46px,5vw,78px);letter-spacing:-.035em}.boho-intro h2 em{align-self:center;margin:12px 16% 3px 0;color:#db8da9;font-family:var(--font-display);font-size:clamp(28px,3vw,44px);font-weight:400}.boho-intro h2 strong{position:relative;color:#e695b2;font-size:clamp(58px,7vw,108px);font-weight:700;letter-spacing:.025em;line-height:.8;text-shadow:-2px 0 #fff,0 3px #fff,3px 0 #fff,0 -2px #fff,5px 8px 0 rgba(185,157,210,.45),0 12px 24px rgba(182,122,151,.2)}.boho-intro h2 strong:after{position:absolute;right:-27px;top:-16px;color:#bca3d3;content:"✦";font-family:serif;font-size:23px;text-shadow:none}.boho-lede{max-width:510px;margin:0;font-size:15px;line-height:1.75;color:#675650}.boho-flourish{display:flex;gap:14px;margin-top:46px;color:#bd9bd1;font-size:12px}.boho-flourish span:nth-child(2){color:#e6a1b8;transform:translateY(8px)}.boho-product-heading{position:relative;padding:76px 0 34px;text-align:center}.boho-product-heading h3{margin:12px 0 10px;font-family:var(--font-display);font-size:clamp(42px,5vw,72px);font-weight:400;letter-spacing:.03em}.boho-product-heading>p:last-child{margin:0;color:#9d6689;font-family:var(--font-display);font-size:clamp(16px,2vw,24px);font-style:italic;letter-spacing:.02em}.boho-product-heading>p span{padding:0 .35em;color:#79bfe6}.boho-grid{position:relative;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px}.boho-card{display:flex;min-width:0;flex-direction:column;padding:12px 12px 18px;background:rgba(255,251,245,.74);border:1px solid rgba(133,102,91,.12);box-shadow:0 12px 35px rgba(83,57,47,.07);color:inherit;text-decoration:none}.boho-card>div{position:relative;width:100%;height:auto;aspect-ratio:1/1;overflow:hidden;background:#d7c3a6}.boho-card img{display:block;width:100%;height:100%;object-fit:cover;object-position:center;transition:transform .45s ease}.boho-card>.eyebrow{margin-top:18px;color:#927a70}.boho-card h3{margin:5px 0 8px;font-family:var(--font-display);font-size:32px;font-weight:400}.boho-card>p:not(.eyebrow){margin:0;min-height:58px;font-size:13px;line-height:1.55;color:var(--muted)}.boho-card strong{margin-top:auto;padding-top:14px;font-family:var(--font-display);font-size:25px;font-weight:500}.boho-card>b{margin-top:10px;width:max-content;border-bottom:1px solid currentColor;font-size:10px;letter-spacing:.14em;text-transform:uppercase}.boho-card:hover img,.boho-card:focus-within img{transform:scale(1.035)}.boho-card:focus-within{outline:3px solid #47332b;outline-offset:4px}.boho-card .outline-button{background:#fdfaf6;border-color:#7f655a}.boho-card .outline-button:hover{background:#47332b;color:#fff}@media(max-width:1050px){.boho-editorial{grid-template-columns:1fr 1fr;margin-top:-60px}.boho-portrait{padding:60px 5vw}.boho-intro{padding:60px 5vw}.boho-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:760px){.boho-editorial{grid-template-columns:1fr;margin:-42px -6vw 0}.boho-portrait{padding:52px 9vw}.boho-portrait figure{max-width:430px;border-width:7px}.boho-intro{padding:54px 8vw 64px;text-align:center}.boho-intro h2{align-items:center;width:100%}.boho-intro h2 em{align-self:center;margin:10px 0 6px}.boho-intro h2 strong{font-size:clamp(54px,18vw,86px)}.boho-lede{margin-inline:auto}.boho-flourish{align-self:center;margin-top:34px}.boho-product-heading{padding:58px 0 28px}.boho-grid{display:flex;overflow:auto;scroll-snap-type:x mandatory;padding:4px 3px 22px}.boho-card{min-width:82vw;scroll-snap-align:start}}
+.boho-hair{position:relative;overflow:hidden;background:#f4eadc;color:#2d211c}.boho-hair:before{position:absolute;inset:0;background:radial-gradient(circle at 88% 72%,rgba(198,180,224,.28),transparent 25%),radial-gradient(circle at 12% 84%,rgba(235,174,194,.2),transparent 22%);content:"";pointer-events:none}.boho-editorial{position:relative;display:grid;grid-template-columns:minmax(0,1.06fr) minmax(360px,.94fr);min-height:650px;margin:-70px -6vw 0}.boho-portrait{display:grid;place-items:center;padding:72px 8vw 72px 6vw;background:linear-gradient(145deg,#50aee7 0%,#84cef1 52%,#b9e2f5 100%)}.boho-portrait figure{position:relative;width:min(100%,560px);margin:0;overflow:hidden;border:10px solid rgba(255,255,255,.4);box-shadow:0 22px 60px rgba(39,81,111,.28);transform:rotate(-1deg)}.boho-portrait figure:after{position:absolute;inset:0;border:1px solid rgba(255,255,255,.56);content:"";pointer-events:none}.boho-portrait img{display:block;width:100%;height:auto;transition:transform .7s ease}.boho-portrait figure:hover img{transform:scale(1.018)}.boho-portrait video{display:block;width:100%;height:auto;aspect-ratio:900/1196;object-fit:cover;object-position:center;transition:transform .7s ease}.boho-portrait figure:hover video{transform:scale(1.018)}.boho-intro{display:flex;align-items:flex-start;justify-content:center;flex-direction:column;padding:80px clamp(34px,6vw,96px);background:rgba(248,239,226,.96)}.boho-intro>.eyebrow{color:#826e64}.boho-intro h2{display:flex;align-items:flex-start;flex-direction:column;margin:18px 0 24px;font-family:var(--font-display);font-weight:400;line-height:.86}.boho-intro h2 span{max-width:600px;font-size:clamp(46px,5vw,78px);letter-spacing:-.035em}.boho-intro h2 em{align-self:center;margin:12px 16% 3px 0;color:#db8da9;font-family:var(--font-display);font-size:clamp(28px,3vw,44px);font-weight:400}.boho-intro h2 strong{position:relative;color:#e695b2;font-size:clamp(58px,7vw,108px);font-weight:700;letter-spacing:.025em;line-height:.8;text-shadow:-2px 0 #fff,0 3px #fff,3px 0 #fff,0 -2px #fff,5px 8px 0 rgba(185,157,210,.45),0 12px 24px rgba(182,122,151,.2)}.boho-intro h2 strong:after{position:absolute;right:-27px;top:-16px;color:#bca3d3;content:"✦";font-family:serif;font-size:23px;text-shadow:none}.boho-lede{max-width:510px;margin:0;font-size:15px;line-height:1.75;color:#675650}.boho-flourish{display:flex;gap:14px;margin-top:46px;color:#bd9bd1;font-size:12px}.boho-flourish span:nth-child(2){color:#e6a1b8;transform:translateY(8px)}.boho-product-heading{position:relative;padding:76px 0 34px;text-align:center}.boho-product-heading h3{margin:12px 0 10px;font-family:var(--font-display);font-size:clamp(42px,5vw,72px);font-weight:400;letter-spacing:.03em}.boho-product-heading>p:last-child{margin:0;color:#9d6689;font-family:var(--font-display);font-size:clamp(16px,2vw,24px);font-style:italic;letter-spacing:.02em}.boho-product-heading>p span{padding:0 .35em;color:#79bfe6}.boho-grid{position:relative;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px}.boho-card{display:flex;min-width:0;flex-direction:column;padding:12px 12px 18px;background:rgba(255,251,245,.74);border:1px solid rgba(133,102,91,.12);box-shadow:0 12px 35px rgba(83,57,47,.07);color:inherit;text-decoration:none}.boho-card>div{position:relative;width:100%;height:auto;aspect-ratio:1/1;overflow:hidden;background:#d7c3a6}.boho-card img{display:block;width:100%;height:100%;object-fit:cover;object-position:center;transition:transform .45s ease}.boho-card>.eyebrow{margin-top:18px;color:#927a70}.boho-card h3{margin:5px 0 8px;font-family:var(--font-display);font-size:32px;font-weight:400}.boho-card>p:not(.eyebrow){margin:0;min-height:58px;font-size:13px;line-height:1.55;color:var(--muted)}.boho-card strong{margin-top:auto;padding-top:14px;font-family:var(--font-display);font-size:25px;font-weight:500}.boho-card>b{margin-top:10px;width:max-content;border-bottom:1px solid currentColor;font-size:10px;letter-spacing:.14em;text-transform:uppercase}.boho-card:hover img,.boho-card:focus-within img{transform:scale(1.035)}.boho-card:focus-within{outline:3px solid #47332b;outline-offset:4px}.boho-card .outline-button{background:#fdfaf6;border-color:#7f655a}.boho-card .outline-button:hover{background:#47332b;color:#fff}@media(max-width:1050px){.boho-editorial{grid-template-columns:1fr 1fr;margin-top:-60px}.boho-portrait{padding:60px 5vw}.boho-intro{padding:60px 5vw}.boho-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:760px){.boho-editorial{grid-template-columns:1fr;margin:-42px -6vw 0}.boho-portrait{padding:52px 9vw}.boho-portrait figure{max-width:430px;border-width:7px}.boho-intro{padding:54px 8vw 64px;text-align:center}.boho-intro h2{align-items:center;width:100%}.boho-intro h2 em{align-self:center;margin:10px 0 6px}.boho-intro h2 strong{font-size:clamp(54px,18vw,86px)}.boho-lede{margin-inline:auto}.boho-flourish{align-self:center;margin-top:34px}.boho-product-heading{padding:58px 0 28px}.boho-grid{display:flex;overflow:auto;scroll-snap-type:x mandatory;padding:4px 3px 22px}.boho-card{min-width:82vw;scroll-snap-align:start}}
 .footer-link{border:0;background:none;padding:0;color:inherit;font:inherit;font-size:12px;text-align:left;cursor:pointer}footer a,.footer-link{text-underline-offset:3px}footer a:hover,.footer-link:hover{text-decoration:underline}.footer-info-shell{z-index:1000;padding:clamp(12px,3vw,32px);overflow-y:auto;overscroll-behavior:contain;background:#111c;backdrop-filter:blur(4px)}.footer-info-shell .modal{position:relative;display:block;width:min(720px,100%);max-height:min(820px,calc(100dvh - 32px));overflow:hidden;border:1px solid var(--line);border-radius:4px;background:#fcfbf8;color:var(--black);box-shadow:0 24px 80px #0008;isolation:isolate}.footer-info-modal{box-sizing:border-box;width:100%;max-height:min(820px,calc(100dvh - 32px));overflow-y:auto;overscroll-behavior:contain;background:#fcfbf8;padding:clamp(28px,5vw,58px)}.footer-info-modal header{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);background:#fcfbf8;padding:10px 0 16px}.footer-info-modal header button{border:0;background:none;color:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:3px}.footer-info-modal h2{font-family:var(--font-display);font-size:clamp(34px,6vw,54px);line-height:1.04;margin:30px 0;overflow-wrap:anywhere}.footer-info-body{position:relative;display:grid;gap:16px;line-height:1.65}.footer-info-body h3{font-size:15px;margin:14px 0 0}.footer-info-body p,.footer-info-body li{font-size:14px}.footer-info-body ul{margin:0;padding-left:20px;display:grid;gap:8px}.footer-info-body a{text-decoration:underline;text-underline-offset:3px}
 @media(max-width:760px){.footer-info-shell{padding:0;align-items:stretch}.footer-info-shell .modal,.footer-info-modal{height:100dvh;max-height:100dvh;border-radius:0}.footer-info-modal{padding:24px 20px 40px}.footer-info-modal h2{font-size:clamp(36px,12vw,48px);margin:24px 0}}
 .footer-info-body h4{font-size:14px;font-weight:800;margin:14px 0 0}.footer-info-body h4+p{margin-top:2px}.footer-info-body .faq-group{font-family:var(--font-display);font-weight:400;font-size:22px;letter-spacing:-.01em;margin:26px 0 4px;padding-bottom:8px;border-bottom:1px solid var(--line)}.footer-info-body .faq-group:first-of-type{margin-top:14px}.footer-info-body .text-button{font-size:14px}
@@ -751,11 +751,23 @@
 @media(max-width:760px){.boho-intro>.eyebrow{font-size:20px!important}.boho-intro .boho-lede{width:90vw;margin-top:32px;font-size:25px;line-height:1.35}.boho-intro .boho-collection-link{width:88vw;margin-top:30px;font-size:22px}.boho-product-heading>p:last-child{width:90vw;min-height:0;margin-top:42px;padding:0;font-size:25px;line-height:1.45;-webkit-text-stroke:.3px #fff}}
 
 /* A small golden plane and curling vapor trail complete the skywriting story. */
-.boho-sky-plane{width:min(330px,58vw);margin:4px auto -18px;pointer-events:none;filter:drop-shadow(0 5px 8px rgba(28,75,112,.25))}
+.boho-sky-plane{width:min(330px,58vw);margin:4px auto -18px;pointer-events:none;filter:drop-shadow(0 5px 8px rgba(28,75,112,.25));animation:boho-flight-path 7s ease-in-out infinite;transform-origin:70% 45%}
 .boho-sky-plane{position:relative}
-.boho-sky-plane svg{display:block;width:100%;height:auto;overflow:visible}
-.boho-sky-plane>img{position:absolute;z-index:1;right:-4%;top:-27%;width:52%;height:auto;object-fit:contain;transform:rotate(-7deg);filter:drop-shadow(0 7px 7px rgba(20,55,84,.32))}
-.boho-vapor-trail{fill:none;stroke:#fff;stroke-width:5;stroke-linecap:round;opacity:.94;filter:drop-shadow(0 0 5px #fff)}
+.boho-sky-plane svg{display:block;width:100%;height:auto;overflow:visible;animation:boho-vapor-drift 4.8s ease-in-out infinite;transform-origin:62% 55%}
+.boho-sky-plane>.boho-sky-aircraft{position:absolute;z-index:1;right:-4%;top:-27%;width:52%;height:auto;object-fit:contain;transform:rotate(-7deg);filter:sepia(.48) saturate(.62) brightness(1.12) contrast(.92) drop-shadow(0 7px 7px rgba(20,55,84,.32));animation:boho-aircraft-bank 3.6s ease-in-out infinite;transform-origin:58% 55%}
+.boho-portrait>a{display:block;color:inherit;text-decoration:none;cursor:pointer}
+.boho-portrait>a:focus-visible{outline:4px solid #fff;outline-offset:8px}
+.boho-vapor-mist,.boho-vapor-body,.boho-vapor-trail{fill:none;stroke:url(#bohoVaporFade);stroke-linecap:round}
+.boho-vapor-mist{stroke-width:20;opacity:.3;filter:url(#bohoVaporCloud);animation:boho-vapor-mist 4.8s ease-in-out infinite}
+.boho-vapor-body{stroke-width:11;opacity:.54;filter:blur(2.2px) drop-shadow(0 0 7px rgba(255,255,255,.72));animation:boho-vapor-body 4.8s ease-in-out infinite}
+.boho-vapor-trail{stroke-width:3.6;opacity:.74;stroke-dasharray:34 2 18 1.5;filter:blur(.65px) drop-shadow(0 0 5px rgba(255,255,255,.78));animation:boho-vapor-wisp 5.6s linear infinite}
+@keyframes boho-flight-path{0%,100%{translate:0 0;rotate:-.5deg}35%{translate:5px -5px;rotate:1deg}70%{translate:-3px 3px;rotate:-1deg}}
+@keyframes boho-aircraft-bank{0%,100%{translate:0 0;rotate:0deg}50%{translate:4px -4px;rotate:2.4deg}}
+@keyframes boho-vapor-drift{0%,100%{transform:scaleY(1) translateY(0)}50%{transform:scaleY(1.08) translateY(1.5px)}}
+@keyframes boho-vapor-mist{0%,100%{stroke-width:18;opacity:.24}50%{stroke-width:23;opacity:.38}}
+@keyframes boho-vapor-body{0%,100%{stroke-width:9.5;opacity:.46}50%{stroke-width:13;opacity:.64}}
+@keyframes boho-vapor-wisp{to{stroke-dashoffset:-55.5}}
+@media(prefers-reduced-motion:reduce){.boho-sky-plane,.boho-sky-plane svg,.boho-sky-plane>.boho-sky-aircraft,.boho-vapor-mist,.boho-vapor-body,.boho-vapor-trail{animation:none!important}}
 @media(max-width:760px){.boho-sky-plane{width:min(250px,72vw);margin:2px auto -10px}}
 
 /* Bold pink edging keeps the white skywriting legible across the moving sky. */
@@ -822,3 +834,217 @@
 
 /* Replace the brown cart interaction with the campaign's neon-pink light. */
 .boho-card .outline-button:hover,.boho-card .outline-button:focus-visible,.boho-card .outline-button:active{background:linear-gradient(180deg,#ff8fc0 0%,#f53f92 100%);border-color:#ffb6d4;color:#fff;box-shadow:0 0 4px #fff,0 0 12px #ffc2dc,0 0 24px #ff65a8,0 0 38px rgba(242,45,136,.62);text-shadow:0 1px 2px rgba(104,17,57,.42)}
+
+/* Keep the Boho campaign centered, legible, and complete on phone screens. */
+@media(max-width:760px){
+  .boho-hair{max-width:100vw;overflow-x:clip}
+  .boho-editorial{width:auto;min-width:0}
+  .boho-intro{align-items:center;padding:58px 6vw 68px;overflow:visible;text-align:center}
+  .boho-intro,.boho-portrait{box-sizing:border-box;min-width:0;max-width:100vw;overflow-x:clip}
+  .boho-intro>.eyebrow{max-width:88vw;margin-bottom:18px;font-size:14px!important;letter-spacing:.14em;line-height:1.35}
+  .boho-intro h2{box-sizing:border-box;width:100%;max-width:94vw;margin:12px auto 18px;overflow:visible;text-align:center}
+  .boho-intro h2 span{font-size:clamp(42px,12.5vw,56px);line-height:1.02}
+  .boho-intro h2 em{margin:8px 0 4px;font-size:clamp(29px,9vw,38px);line-height:1}
+  .boho-intro h2 strong{max-width:92vw;font-size:clamp(48px,15.5vw,66px);letter-spacing:-.025em;line-height:.92}
+  .boho-sky-plane{position:relative;display:block;width:min(290px,82vw);height:104px;margin:12px auto 2px;overflow:visible}
+  .boho-sky-plane svg{position:absolute;inset:0;display:block;width:100%;height:100%}
+  .boho-sky-plane>.boho-sky-aircraft{display:block!important;visibility:visible!important;opacity:1!important;left:50%;right:auto;top:2px;width:48%;transform:translateX(8%) rotate(-7deg)}
+  .boho-intro .boho-lede{width:min(92vw,560px);max-width:92vw;margin:20px auto 0;font-size:clamp(20px,5.8vw,24px);font-weight:700;line-height:1.42;letter-spacing:.005em;-webkit-text-stroke:.15px rgba(255,255,255,.95);text-shadow:0 1px 2px rgba(13,57,98,.95),0 2px 5px rgba(13,57,98,.72),0 0 5px #fff,0 0 11px rgba(255,255,255,.78)}
+  .boho-intro .boho-collection-link{width:min(90vw,520px);max-width:90vw;margin:26px auto 0;font-size:clamp(19px,5.4vw,22px);font-weight:700;line-height:1.35;text-shadow:0 1px 2px rgba(13,57,98,.95),0 2px 5px rgba(13,57,98,.7),0 0 5px #fff,0 0 10px rgba(255,255,255,.75)}
+  .boho-product-heading h3{max-width:94vw;margin-inline:auto;font-size:clamp(43px,13vw,58px);line-height:.98}
+  .boho-product-heading>p:last-child{width:calc(100vw - 28px);max-width:calc(100vw - 28px);font-size:clamp(12px,3.15vw,16px);font-weight:700;line-height:1.25;letter-spacing:0;white-space:nowrap;text-shadow:0 1px 2px rgba(13,57,98,.95),0 0 5px #fff,0 0 10px rgba(255,255,255,.72)}
+  .boho-portrait{padding-inline:18px}
+  .boho-portrait figure{box-sizing:border-box;width:calc(100% - 12px);max-width:430px;margin-inline:auto;transform:translate3d(0,-12px,24px) rotateX(.8deg);animation:boho-portrait-hover-mobile 6s ease-in-out infinite}
+}
+@keyframes boho-portrait-hover-mobile{0%,100%{transform:translate3d(0,-8px,24px) rotateX(.8deg)}50%{transform:translate3d(0,-18px,32px) rotateX(.25deg)}}
+@media(max-width:760px) and (prefers-reduced-motion:reduce){.boho-portrait figure{animation:none;transform:translate3d(0,-10px,24px)}}
+
+/* Keep the two-column campaign contained and centered on smaller laptops. */
+@media(min-width:761px) and (max-width:1180px){
+  .boho-hair{max-width:100vw;overflow-x:clip}
+  .boho-editorial{width:auto;min-width:0;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .boho-editorial>*{box-sizing:border-box;min-width:0}
+  .boho-portrait{padding:60px clamp(26px,4vw,48px);overflow:visible}
+  .boho-portrait figure{box-sizing:border-box;width:min(100%,460px);margin-inline:auto;transform:translate3d(0,-10px,28px) rotateX(1deg) rotateY(-1.5deg) rotateZ(-.5deg)}
+  .boho-intro{align-items:center;padding:64px clamp(28px,4vw,54px);overflow-x:clip;text-align:center}
+  .boho-intro h2{align-items:center;width:100%;max-width:100%;margin-inline:auto}
+  .boho-intro h2 span{max-width:100%;font-size:clamp(44px,5.4vw,64px);line-height:.96;text-align:center}
+  .boho-intro h2 em{align-self:center;margin-right:0}
+  .boho-intro h2 strong{max-width:100%;font-size:clamp(62px,7.2vw,88px);letter-spacing:-.015em}
+  .boho-sky-plane{margin-inline:auto}
+  .boho-intro .boho-lede,.boho-intro .boho-collection-link{margin-left:auto;margin-right:auto}
+}
+
+/* Final Boho typography pass: safer desktop spacing and crisp campaign labels. */
+@media(min-width:761px){
+  .boho-intro{box-sizing:border-box;padding-left:clamp(24px,3.5vw,58px);padding-right:clamp(72px,8vw,144px);overflow-x:clip}
+  .boho-intro h2{align-items:center;width:100%;max-width:100%;margin-inline:auto;text-align:center}
+  .boho-intro h2 span{max-width:100%;color:#2d211c;font-size:clamp(42px,4.7vw,74px);font-weight:900;letter-spacing:-.025em;line-height:.98;text-wrap:balance;text-shadow:0 2px 0 #fff,0 0 4px rgba(255,255,255,.95),0 5px 16px rgba(24,55,84,.38)}
+  .boho-intro h2 em{align-self:center;margin-right:0}
+  .boho-intro h2 strong{max-width:100%;font-size:clamp(62px,6.7vw,104px);letter-spacing:-.015em}
+  .boho-intro .boho-lede,.boho-intro .boho-collection-link{max-width:min(92%,560px);margin-left:auto;margin-right:auto}
+}
+.boho-product-heading>.eyebrow{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:min(54%,520px);min-height:96px;margin-inline:auto;padding:30px 54px 18px;background:url("/collections/boho-copy-cloud-v1.png") center/100% 100% no-repeat;border:0;filter:drop-shadow(0 9px 12px rgba(25,68,105,.25));color:#34231e;font-family:var(--font-sans),Arial,sans-serif;font-size:clamp(13px,1.15vw,17px);font-style:normal;font-weight:900;letter-spacing:.13em;line-height:1.15;text-align:center;text-shadow:none;white-space:nowrap}
+.boho-product-heading>p:last-child{position:relative;isolation:auto;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:center;gap:clamp(2px,.7vw,10px);box-sizing:border-box;width:min(94%,1100px);min-height:122px;margin:34px auto 0;padding:10px 0 8px;background:none;border:0;color:transparent;font-size:0;line-height:1;text-align:center;white-space:nowrap;animation:none;filter:none}
+.boho-product-heading>p:last-child::before,.boho-product-heading>p:last-child span{position:static;inset:auto;z-index:auto;display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:100%;height:auto;min-height:0;aspect-ratio:2.45/1;padding:8% 8% 3%;background:url("/collections/boho-copy-cloud-v1.png") center/contain no-repeat;box-shadow:none;filter:drop-shadow(0 6px 8px rgba(25,68,105,.2));color:#603452;font-family:var(--font-sans),Arial,sans-serif;font-size:clamp(12px,1vw,16px);font-style:normal;font-weight:900;letter-spacing:-.01em;line-height:1.05;text-align:center;white-space:nowrap;-webkit-text-stroke:0}
+.boho-product-heading>p:last-child::after{display:none!important;content:none!important}
+.boho-product-heading>p:last-child span{font-size:0}
+.boho-product-heading>p:last-child span::before{font-size:clamp(12px,1vw,16px)}
+.boho-product-heading>p:last-child::before{content:"Body Wave";transform:translateY(-7px)}
+.boho-product-heading>p:last-child span:nth-of-type(1)::before{content:"Bohemian Curl"}
+.boho-product-heading>p:last-child span:nth-of-type(2)::before{content:"Deep Wave"}
+.boho-product-heading>p:last-child span:nth-of-type(3)::before{content:"Spanish Curl"}
+.boho-product-heading>p:last-child span:nth-of-type(1){transform:translateY(7px)}
+.boho-product-heading>p:last-child span:nth-of-type(2){transform:translateY(-5px)}
+.boho-product-heading>p:last-child span:nth-of-type(3){transform:translateY(8px)}
+@media(max-width:760px){
+  .boho-intro h2 span{max-width:88vw;color:#2d211c;font-size:clamp(38px,10.8vw,49px);font-weight:900;letter-spacing:-.02em;line-height:1.07;text-wrap:balance;text-shadow:0 2px 0 #fff,0 0 4px #fff,0 5px 14px rgba(19,51,80,.44);-webkit-text-stroke:.35px rgba(255,255,255,.8)}
+  .boho-product-heading>.eyebrow{width:min(82vw,390px);max-width:none;min-height:78px;padding:25px 32px 15px;font-size:clamp(11px,3.25vw,14px);letter-spacing:.1em;white-space:nowrap}
+  .boho-product-heading>p:last-child{grid-template-columns:repeat(2,minmax(0,1fr));gap:0 4px;width:calc(100vw - 20px);max-width:430px;min-height:170px;margin-top:26px;padding:4px 0}
+  .boho-product-heading>p:last-child::before,.boho-product-heading>p:last-child span{aspect-ratio:2.35/1;min-height:0;padding:9% 7% 3%;font-size:clamp(10px,2.75vw,12px);letter-spacing:-.025em}
+  .boho-product-heading>p:last-child span{font-size:0}
+  .boho-product-heading>p:last-child span::before{font-size:clamp(10px,2.85vw,13px)}
+  .boho-product-heading>p:last-child::before{transform:translateY(-4px)}
+  .boho-product-heading>p:last-child span:nth-of-type(1){transform:translateY(5px)}
+  .boho-product-heading>p:last-child span:nth-of-type(2){transform:translateY(-3px)}
+  .boho-product-heading>p:last-child span:nth-of-type(3){transform:translateY(6px)}
+}
+
+/* Each texture cloud is a direct, accessible product link. */
+.boho-texture-clouds{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:center;gap:clamp(8px,1vw,14px);box-sizing:border-box;width:min(90%,1080px);max-width:calc(100vw - 48px);min-height:122px;margin:34px auto 0;padding:10px 0 8px}
+.boho-texture-clouds a{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:100%;max-width:100%;min-width:0;aspect-ratio:2.45/1;padding:8% 8% 3%;background:url("/collections/boho-copy-cloud-v1.png") center/contain no-repeat;filter:drop-shadow(0 2px 3px rgba(255,255,255,.88)) drop-shadow(0 8px 11px rgba(239,81,151,.5));color:#603452;font-family:var(--font-sans),Arial,sans-serif;font-size:clamp(12px,1vw,16px);font-weight:900;letter-spacing:-.01em;line-height:1.05;text-align:center;text-decoration:none;white-space:nowrap;transition:filter .2s ease,transform .2s ease}
+.boho-texture-clouds a:nth-child(1){transform:translateY(-7px)}
+.boho-texture-clouds a:nth-child(2){transform:translateY(7px)}
+.boho-texture-clouds a:nth-child(3){transform:translateY(-5px)}
+.boho-texture-clouds a:nth-child(4){transform:translateY(8px)}
+.boho-texture-clouds a:hover,.boho-texture-clouds a:focus-visible{filter:drop-shadow(0 2px 4px #fff) drop-shadow(0 10px 14px rgba(239,81,151,.72));outline:2px solid transparent}
+@media(max-width:760px){
+  .boho-texture-clouds{grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 8px;width:min(calc(100vw - 40px),400px);max-width:calc(100vw - 40px);min-height:170px;margin:26px auto 0;padding:4px 0}
+  .boho-texture-clouds a{width:100%;max-width:100%;min-width:0;aspect-ratio:2.35/1;padding:9% 7% 3%;font-size:clamp(10px,2.75vw,12px);letter-spacing:-.025em}
+  .boho-texture-clouds a:nth-child(1){transform:translateY(-4px)}
+  .boho-texture-clouds a:nth-child(2){transform:translateY(5px)}
+  .boho-texture-clouds a:nth-child(3){transform:translateY(-3px)}
+  .boho-texture-clouds a:nth-child(4){transform:translateY(6px)}
+}
+
+/* Keep the section label centered inside a natural, responsive cloud. */
+.boho-product-heading>.eyebrow{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-sizing:border-box;
+  width:clamp(320px,36vw,460px);
+  min-height:0;
+  aspect-ratio:2.65/1;
+  margin:0 auto;
+  padding:8% 14% 3%;
+  background:url("/collections/boho-copy-cloud-v1.png") center/contain no-repeat;
+  filter:drop-shadow(0 8px 12px rgba(25,68,105,.22));
+  font-size:clamp(12px,1vw,16px);
+  letter-spacing:.11em;
+  line-height:1.1;
+  text-align:center;
+  white-space:nowrap;
+}
+@media(max-width:760px){
+  .boho-product-heading>.eyebrow{
+    width:min(82vw,340px);
+    aspect-ratio:2.55/1;
+    padding:9% 13% 3%;
+    font-size:clamp(10px,3vw,13px);
+    letter-spacing:.08em;
+  }
+}
+
+/* A restrained highlight glides across DREAMS without obscuring the neon lettering. */
+.boho-intro h2 strong::before{
+  position:absolute;
+  inset:0;
+  z-index:1;
+  display:block;
+  background:linear-gradient(108deg,transparent 34%,rgba(255,255,255,.18) 43%,rgba(255,255,255,.82) 50%,rgba(255,255,255,.2) 57%,transparent 66%);
+  background-position:145% 50%;
+  background-size:250% 100%;
+  background-clip:text;
+  -webkit-background-clip:text;
+  color:transparent;
+  content:"DREAMS";
+  font:inherit;
+  letter-spacing:inherit;
+  line-height:inherit;
+  pointer-events:none;
+  -webkit-text-fill-color:transparent;
+  -webkit-text-stroke:0 transparent;
+  animation:boho-dreams-glare 6s ease-in-out infinite;
+}
+@keyframes boho-dreams-glare{
+  0%,62%{background-position:145% 50%;opacity:0}
+  68%{opacity:.28}
+  82%{background-position:-45% 50%;opacity:.72}
+  88%,100%{background-position:-45% 50%;opacity:0}
+}
+@media(prefers-reduced-motion:reduce){
+  .boho-intro h2 strong::before{background-position:50% 50%;opacity:.22;animation:none}
+}
+
+/* Give each linked texture cloud its own soft, staggered drift. */
+@keyframes boho-linked-cloud-float{
+  0%,100%{transform:translate3d(0,var(--cloud-offset,0),0)}
+  50%{transform:translate3d(var(--cloud-drift-x,0),calc(var(--cloud-offset,0px) - 9px),0)}
+}
+.boho-texture-clouds a{
+  --cloud-offset:0px;
+  --cloud-drift-x:3px;
+  animation:boho-linked-cloud-float 5.8s ease-in-out infinite;
+  will-change:transform;
+}
+.boho-texture-clouds a:nth-child(1){--cloud-offset:-7px;animation-delay:-.8s}
+.boho-texture-clouds a:nth-child(2){--cloud-offset:7px;--cloud-drift-x:-3px;animation-delay:-2.4s}
+.boho-texture-clouds a:nth-child(3){--cloud-offset:-5px;--cloud-drift-x:-2px;animation-delay:-3.7s}
+.boho-texture-clouds a:nth-child(4){--cloud-offset:8px;animation-delay:-1.6s}
+@media(max-width:760px){
+  .boho-texture-clouds a:nth-child(1){--cloud-offset:-4px}
+  .boho-texture-clouds a:nth-child(2){--cloud-offset:5px}
+  .boho-texture-clouds a:nth-child(3){--cloud-offset:-3px}
+  .boho-texture-clouds a:nth-child(4){--cloud-offset:6px}
+}
+@media(prefers-reduced-motion:reduce){
+  .boho-texture-clouds a{animation:none;transform:translateY(var(--cloud-offset,0))}
+}
+
+/* Skywriting section label, matching the white vapor lettering in this story. */
+.boho-product-heading{border-top:0;border-bottom:0}
+.boho-product-heading>.eyebrow{
+  display:block;
+  width:max-content;
+  max-width:calc(100vw - 32px);
+  min-height:0;
+  aspect-ratio:auto;
+  margin:0 auto;
+  padding:0;
+  background:none;
+  filter:none;
+  color:#fff;
+  font-family:"Dancing Script","Segoe Script",cursive;
+  font-size:clamp(40px,4.2vw,64px)!important;
+  font-style:normal;
+  font-weight:600;
+  letter-spacing:.025em;
+  line-height:1.2;
+  text-align:center;
+  text-transform:none;
+  -webkit-text-stroke:.2px rgba(255,255,255,.9);
+  text-shadow:0 1px 1px rgba(29,84,130,.72),0 0 2px #fff,0 0 5px rgba(255,255,255,.96),0 0 10px rgba(255,255,255,.72),0 0 18px rgba(255,255,255,.4);
+  white-space:nowrap;
+}
+@media(max-width:760px){
+  .boho-product-heading>.eyebrow{
+    width:max-content;
+    max-width:calc(100vw - 24px);
+    aspect-ratio:auto;
+    padding:0;
+    font-size:clamp(29px,8.2vw,36px)!important;
+    letter-spacing:.015em;
+    -webkit-text-stroke:.15px rgba(255,255,255,.9);
+  }
+}
