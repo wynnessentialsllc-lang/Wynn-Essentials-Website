@@ -337,6 +337,8 @@ export async function notifyCustomerPreorderQualityCheck(order: PreorderUpdateIn
     subject: `Your Boho Hair pre-order passed quality check${order.orderReference ? ` — ${order.orderReference}` : ""}`,
     html: customerShell("Quality check complete", `Hi ${esc(firstName)}, your pre-order is one step closer to you.`, body),
   });
+}
+
 /**
  * Welcome email for a brand-new subscriber. When productName is set, it's a
  * restock-waitlist signup and the copy confirms we'll notify them when that
