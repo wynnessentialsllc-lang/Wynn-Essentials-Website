@@ -73,7 +73,7 @@ export default function BraidingHairPage() {
             <article className="collection-card" key={p.slug}>
               <Link href={`/products/${p.slug}`} className="collection-art" aria-label={`View ${p.name} details`}>
                 {img ? <img src={img.src} alt={img.alt} width={1200} height={1500} loading="lazy" /> : <span className="collection-art-fallback" aria-hidden="true" />}
-                {allOut && <span className="sold-out-badge">Sold Out</span>}
+                {allOut && !preorder && <span className="sold-out-badge">Sold Out</span>}
               </Link>
               <div className="collection-card-body">
                 <p className="eyebrow">BOHO BRAID HAIR</p>
