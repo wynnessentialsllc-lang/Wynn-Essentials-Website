@@ -66,7 +66,7 @@ export async function sendPreorderUpdate(formData: FormData) {
   if (!order?.customerEmail) throw new Error("This order has no customer email.");
   const items = Array.isArray(order.items) ? order.items as { name?: string | null }[] : [];
   if (!items.some(item => item.name?.includes("PRE-ORDER"))) throw new Error("This is not a preorder.");
-  const info = { customerEmail: order.customerEmail, customerName: order.customerName, orderReference: order.orderReference };
+  const info = { customerEmail: order.customerEmail, customerName: order.customerName, orderReference: order.orderReference, items };
   const sentAtColumn = stage === "processing" ? orders.preorderProcessingEmailedAt : orders.preorderQualityEmailedAt;
   const alreadySent = stage === "processing" ? order.preorderProcessingEmailedAt : order.preorderQualityEmailedAt;
   if (alreadySent && !force) return;

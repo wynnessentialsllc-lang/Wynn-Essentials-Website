@@ -234,11 +234,35 @@ const itemsTable = (items: OrderInfo["items"], currency: string) => {
   return `<table style="width:100%;border-collapse:collapse;font-size:14px">${lines}</table>`;
 };
 
-const preorderPanel = (title: string, copy: string, step: number) => `<div style="margin:20px 0;padding:20px;border:1px solid #ff8ac7;border-radius:12px;background:linear-gradient(135deg,#fff 0%,#fff0f8 100%)">
-  <p style="margin:0 0 8px;color:#ff3fa4;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase">Pre-order update · Step ${step} of 4</p>
-  <h2 style="margin:0 0 8px;color:#10215d;font-family:Georgia,serif;font-size:22px;font-weight:400">${title}</h2>
-  <p style="margin:0;color:#10215d;font-size:14px;line-height:1.65">${copy}</p>
-</div>`;
+const STORE = "https://wynnessentialsllc.us";
+const TEXTURE_PROFILES = [
+  { match: "body wave", name: "Body Wave", image: `${STORE}/collections/boho-card-body-wave.webp`, detail: "Soft, flowing waves with natural movement and effortless blending." },
+  { match: "bohemian curl", name: "Bohemian Curl", image: `${STORE}/collections/boho-card-bohemian-curl.webp`, detail: "Loose, romantic curls with airy volume and a naturally bohemian finish." },
+  { match: "deep wave", name: "Deep Wave", image: `${STORE}/collections/boho-card-deep-wave.webp`, detail: "Defined, dimensional waves with rich texture and lasting visual depth." },
+  { match: "spanish curl", name: "Spanish Curl", image: `${STORE}/collections/boho-card-spanish-curl.webp`, detail: "Springy, polished curls with soft definition and lively movement." },
+] as const;
+
+const orderedTextures = (items: OrderInfo["items"] = []) => {
+  const names = items.map(item => (item.name ?? "").toLowerCase());
+  const found = TEXTURE_PROFILES.filter(profile => names.some(name => name.includes(profile.match)));
+  return found.length ? found : [TEXTURE_PROFILES[0]];
+};
+
+const preorderPanel = (title: string, copy: string, step: number, items: OrderInfo["items"] = []) => {
+  const textures = orderedTextures(items);
+  const hero = textures[0];
+  const textureCards = textures.map(texture => `<td style="padding:6px;text-align:center;vertical-align:top"><img src="${texture.image}" alt="${texture.name}" width="150" style="display:block;width:100%;max-width:150px;height:auto;margin:0 auto 8px;border-radius:10px"><strong style="font-size:12px;color:#4b352a">${texture.name}</strong></td>`).join("");
+  return `<table role="presentation" style="width:100%;margin:20px 0;border-collapse:separate;border-spacing:0;overflow:hidden;border:1px solid #ff8ac7;border-radius:16px;background:#fffaf5">
+    <tr><td style="padding:14px 22px;background:#cfb089;color:#302218;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase">Pre-order update · Step ${step} of 4</td></tr>
+    <tr><td style="padding:0"><img src="${hero.image}" alt="${hero.name} Boho Hair" width="558" style="display:block;width:100%;height:auto;max-height:390px;object-fit:cover"></td></tr>
+    <tr><td style="padding:26px 24px;text-align:center;background:#fffaf5">
+      <h2 style="margin:0 0 9px;color:#3f2d25;font-family:Georgia,serif;font-size:27px;font-weight:400">${title}</h2>
+      <p style="margin:0 auto;max-width:470px;color:#55443c;font-size:14px;line-height:1.7">${copy}</p>
+      <p style="margin:15px auto 0;color:#8a5971;font-size:13px;line-height:1.6"><strong>${hero.name}</strong> · ${hero.detail}</p>
+      ${textures.length > 1 ? `<table role="presentation" style="width:100%;margin-top:18px;table-layout:fixed"><tr>${textureCards}</tr></table>` : ""}
+    </td></tr>
+  </table>`;
+};
 
 const preorderReference = (reference: string | null | undefined) =>
   `<p style="font-size:13px;color:#6d675f;margin:18px 0 0">Order reference: <strong>${esc(reference ?? "—")}</strong></p>`;
@@ -250,7 +274,7 @@ export async function notifyCustomerOrderConfirmation(order: OrderInfo): Promise
   const firstName = (order.customerName ?? "").trim().split(/\s+/)[0] || "there";
   const includesPreorder = (order.items ?? []).some(item => item.name?.includes("PRE-ORDER"));
   const preorderNote = includesPreorder
-    ? preorderPanel("Your place in the batch is confirmed", "Pre-orders close every Friday at 12 PM PT. Order before the cutoff to be included in the current pre-order batch. Please allow approximately 7–13 days for processing before shipment.", 1)
+    ? preorderPanel("Your place in the batch is confirmed", "Pre-orders close every Friday at 12 PM PT. Order before the cutoff to be included in the current pre-order batch. Please allow approximately 7–13 days for processing before shipment.", 1, order.items)
     : "";
   const body = `
     ${itemsTable(order.items, currency)}
@@ -267,13 +291,13 @@ export async function notifyCustomerOrderConfirmation(order: OrderInfo): Promise
   });
 }
 
-type PreorderUpdateInfo = Pick<OrderInfo, "customerEmail" | "customerName" | "orderReference">;
+type PreorderUpdateInfo = Pick<OrderInfo, "customerEmail" | "customerName" | "orderReference" | "items">;
 
 /** Sent from the order dashboard when the Friday batch begins processing. */
 export async function notifyCustomerPreorderProcessing(order: PreorderUpdateInfo): Promise<boolean> {
   if (!order.customerEmail) return false;
   const firstName = (order.customerName ?? "").trim().split(/\s+/)[0] || "there";
-  const body = `${preorderPanel("Your hair is now processing", "Your Boho Hair pre-order is officially in our current batch. Please allow approximately 7–13 days for processing before shipment. We’ll email you again after your hair has been prepared and quality checked.", 2)}${preorderReference(order.orderReference)}`;
+  const body = `${preorderPanel("Your hair is now processing", "Your Boho Hair pre-order is officially in our current batch. Please allow approximately 7–13 days for processing before shipment. We’ll email you again after your hair has been prepared and quality checked.", 2, order.items)}${preorderReference(order.orderReference)}`;
   return sendEmail({
     to: order.customerEmail,
     subject: `Your Boho Hair pre-order is processing${order.orderReference ? ` — ${order.orderReference}` : ""}`,
@@ -285,7 +309,7 @@ export async function notifyCustomerPreorderProcessing(order: PreorderUpdateInfo
 export async function notifyCustomerPreorderQualityCheck(order: PreorderUpdateInfo): Promise<boolean> {
   if (!order.customerEmail) return false;
   const firstName = (order.customerName ?? "").trim().split(/\s+/)[0] || "there";
-  const body = `${preorderPanel("Prepared with care", "Your Boho Hair has been prepared, inspected, and packaged with care. It is now being readied for shipment. Your next email will include tracking as soon as your package is on the way.", 3)}${preorderReference(order.orderReference)}`;
+  const body = `${preorderPanel("Prepared with care", "Your Boho Hair has been prepared, inspected, and packaged with care. It is now being readied for shipment. Your next email will include tracking as soon as your package is on the way.", 3, order.items)}${preorderReference(order.orderReference)}`;
   return sendEmail({
     to: order.customerEmail,
     subject: `Your Boho Hair pre-order passed quality check${order.orderReference ? ` — ${order.orderReference}` : ""}`,
@@ -389,7 +413,8 @@ export async function notifyCustomerShipped(order: ShippedInfo): Promise<boolean
        </table>
        ${url ? `<p style="margin:20px 0 0"><a href="${url}" style="display:inline-block;background:#c8aa82;color:#111;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.06em;padding:14px 22px">TRACK YOUR PACKAGE</a></p>` : ""}`
     : `<p style="font-size:14px">Your order is on its way.</p>`;
-  const body = `${includesPreorder ? preorderPanel("Your pre-order is on the way", "Your Boho Hair has completed processing and quality check, and your package is now on the way to you. Use the tracking information below to follow its journey.", 4) : ""}${trackingLine}
+  const care = includesPreorder ? `<div style="margin:24px 0;padding:22px;background:#f2e2cc;border-radius:12px"><h3 style="margin:0 0 10px;font-family:Georgia,serif;font-size:21px;font-weight:400">Keep your dream hair beautiful</h3><p style="margin:0;color:#55443c;font-size:13px;line-height:1.7">Detangle gently from the ends upward, refresh with lightweight product, protect nightly with satin, and always let the hair dry completely before bed.</p><p style="margin:16px 0 0"><a href="${STORE}/braiding-hair#care-guide" style="display:inline-block;background:#ff3fa4;color:#fff;text-decoration:none;font-weight:800;font-size:11px;letter-spacing:.08em;padding:12px 18px">VIEW THE FULL CARE GUIDE</a></p></div>` : "";
+  const body = `${includesPreorder ? preorderPanel("Your pre-order is on the way", "Your Boho Hair has completed processing and quality check, and your package is now on the way to you. Use the tracking information below to follow its journey.", 4, order.items) : ""}${trackingLine}${care}
     <p style="font-size:13px;color:#6d675f;margin:20px 0 0">Order reference: <strong>${esc(order.orderReference ?? "—")}</strong></p>`;
   return sendEmail({
     to: order.customerEmail,
