@@ -7,7 +7,7 @@
     { "path": "/api/cron/product-education", "schedule": "0 14 * * *" },
     { "path": "/api/cron/review-requests", "schedule": "0 15 * * *" },
     { "path": "/api/cron/reconcile-orders", "schedule": "15 * * * *" },
-    { "path": "/api/cron/labor-day-2026", "schedule": "0 * * * *" },
+    { "path": "/api/cron/annual-promotions", "schedule": "0 * * * *" },
     { "path": "/api/cron/labor-day-emails", "schedule": "*/10 * * * *" }
   ]
 }
