@@ -385,6 +385,7 @@
 .hero.hero-holding .hero-copy{display:none;opacity:0;transition:none}
 .hero.hero-holding .hero-image{width:100%;height:100%;min-height:0}
 .hero.hero-holding .hero-image>img{height:100%}
+.hero.hero-holding .hero-intro-video{object-fit:cover}
 
 /* On narrow screens the hidden copy used to remain in the flex layout while
    the opening film played, squeezing the media panel into a thin strip. Give
