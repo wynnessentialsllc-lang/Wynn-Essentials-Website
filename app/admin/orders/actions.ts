@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { orders } from "../../../db/schema";
 import { isAuthenticated, verifyPassword, createSession, destroySession } from "../../../lib/admin-auth";
-import { notifyCustomerShipped } from "../../../lib/notify";
+import { notifyCustomerPreorderProcessing, notifyCustomerPreorderQualityCheck, notifyCustomerShipped } from "../../../lib/notify";
 
 const attempts = new Map<string, { count: number; reset: number }>();
 
@@ -52,6 +52,25 @@ export async function setFulfillment(formData: FormData) {
 
 const CARRIERS = ["USPS", "UPS", "FedEx", "DHL", "Other"] as const;
 
+const PREORDER_EMAIL_STAGES = ["processing", "quality-check"] as const;
+
+export async function sendPreorderUpdate(formData: FormData) {
+  if (!(await isAuthenticated())) throw new Error("Not authorized.");
+  const sessionId = formData.get("sessionId");
+  const stage = formData.get("stage");
+  if (typeof sessionId !== "string" || !/^cs_[A-Za-z0-9_]+$/.test(sessionId)) throw new Error("Invalid order.");
+  if (typeof stage !== "string" || !PREORDER_EMAIL_STAGES.includes(stage as (typeof PREORDER_EMAIL_STAGES)[number])) throw new Error("Invalid preorder stage.");
+
+  const [order] = await getDb().select().from(orders).where(eq(orders.sessionId, sessionId)).limit(1);
+  if (!order?.customerEmail) throw new Error("This order has no customer email.");
+  const items = Array.isArray(order.items) ? order.items as { name?: string | null }[] : [];
+  if (!items.some(item => item.name?.includes("PRE-ORDER"))) throw new Error("This is not a preorder.");
+  const info = { customerEmail: order.customerEmail, customerName: order.customerName, orderReference: order.orderReference };
+  const sent = stage === "processing" ? await notifyCustomerPreorderProcessing(info) : await notifyCustomerPreorderQualityCheck(info);
+  if (!sent) throw new Error("The preorder email could not be sent. Check the Resend configuration.");
+  revalidatePath("/admin/orders");
+}
+
 // Marks an order shipped: records the carrier + tracking number, flips
 // fulfillment to "fulfilled", and emails the customer their tracking link.
 // The email is best-effort and never blocks the status update.
@@ -80,6 +99,7 @@ export async function setShipped(formData: FormData) {
       orderReference: updated.orderReference,
       carrier: updated.carrier,
       trackingNumber: updated.trackingNumber,
+      items: Array.isArray(updated.items) ? updated.items as { name?: string | null; quantity?: number | null; totalAmount?: number | null }[] : [],
     }).catch(() => {});
   }
 

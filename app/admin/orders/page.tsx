@@ -5,7 +5,7 @@ import { getDb } from "../../../db";
 import { orders as ordersTable } from "../../../db/schema";
 import { isAuthenticated, adminTokenConfigured } from "../../../lib/admin-auth";
 import { trackingUrl } from "../../../lib/notify";
-import { signOut, setFulfillment, setShipped } from "./actions";
+import { sendPreorderUpdate, signOut, setFulfillment, setShipped } from "./actions";
 import SignInForm from "./SignInForm";
 
 // Carriers offered in the "Mark shipped" picker. Kept here (not imported from
@@ -94,6 +94,7 @@ export default async function AdminOrders() {
               <tbody>
                 {rows.map(row => {
                   const items = (Array.isArray(row.items) ? row.items : []) as OrderItem[];
+                  const isPreorder = items.some(item => item.name?.includes("PRE-ORDER"));
                   const ship = (row.shippingAddress ?? null) as ShippingAddress | null;
                   const a = ship?.address;
                   return (
@@ -121,6 +122,13 @@ export default async function AdminOrders() {
                         <div style={{ opacity: 0.75 }}>{row.paymentStatus}</div>
                       </td>
                       <td style={{ padding: "0.6rem 0.5rem", minWidth: "230px" }}>
+                        {isPreorder && row.fulfillmentStatus !== "fulfilled" && <div style={{ marginBottom: "0.65rem", padding: "0.6rem", border: "1px solid #ff8ac7", background: "#fff0f8" }}>
+                          <strong style={{ display: "block", marginBottom: "0.4rem", color: "#c21873", fontSize: "0.78rem" }}>PRE-ORDER EMAILS</strong>
+                          <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
+                            <form action={sendPreorderUpdate}><input type="hidden" name="sessionId" value={row.sessionId}/><input type="hidden" name="stage" value="processing"/><button className="text-button" type="submit" style={{ fontSize: "0.75rem" }}>Send processing</button></form>
+                            <form action={sendPreorderUpdate}><input type="hidden" name="sessionId" value={row.sessionId}/><input type="hidden" name="stage" value="quality-check"/><button className="text-button" type="submit" style={{ fontSize: "0.75rem" }}>Send quality check</button></form>
+                          </div>
+                        </div>}
                         {row.fulfillmentStatus === "fulfilled" && (
                           <div style={{ marginBottom: "0.5rem" }}>
                             <span style={{ color: "#15803d", fontWeight: 700 }}>✓ Fulfilled</span>

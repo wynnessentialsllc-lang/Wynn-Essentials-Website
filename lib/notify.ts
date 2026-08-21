@@ -234,6 +234,15 @@ const itemsTable = (items: OrderInfo["items"], currency: string) => {
   return `<table style="width:100%;border-collapse:collapse;font-size:14px">${lines}</table>`;
 };
 
+const preorderPanel = (title: string, copy: string, step: number) => `<div style="margin:20px 0;padding:20px;border:1px solid #ff8ac7;border-radius:12px;background:linear-gradient(135deg,#fff 0%,#fff0f8 100%)">
+  <p style="margin:0 0 8px;color:#ff3fa4;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase">Pre-order update · Step ${step} of 4</p>
+  <h2 style="margin:0 0 8px;color:#10215d;font-family:Georgia,serif;font-size:22px;font-weight:400">${title}</h2>
+  <p style="margin:0;color:#10215d;font-size:14px;line-height:1.65">${copy}</p>
+</div>`;
+
+const preorderReference = (reference: string | null | undefined) =>
+  `<p style="font-size:13px;color:#6d675f;margin:18px 0 0">Order reference: <strong>${esc(reference ?? "—")}</strong></p>`;
+
 /** Order confirmation sent to the customer right after payment. */
 export async function notifyCustomerOrderConfirmation(order: OrderInfo): Promise<boolean> {
   if (!order.customerEmail) return false;
@@ -241,7 +250,7 @@ export async function notifyCustomerOrderConfirmation(order: OrderInfo): Promise
   const firstName = (order.customerName ?? "").trim().split(/\s+/)[0] || "there";
   const includesPreorder = (order.items ?? []).some(item => item.name?.includes("PRE-ORDER"));
   const preorderNote = includesPreorder
-    ? `<div style="margin:18px 0;padding:14px;border:1px solid #ef8fbd;background:#fff0f8"><strong>Pre-order details</strong><p style="margin:7px 0 0;line-height:1.55">Pre-orders close every Friday at 12 PM PT. Order before the cutoff to be included in the current pre-order batch. Please allow approximately 7–13 days for processing before shipment.</p></div>`
+    ? preorderPanel("Your place in the batch is confirmed", "Pre-orders close every Friday at 12 PM PT. Order before the cutoff to be included in the current pre-order batch. Please allow approximately 7–13 days for processing before shipment.", 1)
     : "";
   const body = `
     ${itemsTable(order.items, currency)}
@@ -253,8 +262,34 @@ export async function notifyCustomerOrderConfirmation(order: OrderInfo): Promise
     <p style="font-size:14px;line-height:1.6;margin:18px 0 0">We'll send a shipping confirmation with tracking as soon as your order is on its way.${includesPreorder ? "" : " Orders typically process within 3 business days."}</p>`;
   return sendEmail({
     to: order.customerEmail,
-    subject: `Your Wynn Essentials order is confirmed${order.orderReference ? ` — ${order.orderReference}` : ""}`,
-    html: customerShell("Thank you for your order!", `Hi ${esc(firstName)}, we've received your order and payment. Here's your confirmation:`, body),
+    subject: `${includesPreorder ? "Your Boho Hair pre-order is confirmed" : "Your Wynn Essentials order is confirmed"}${order.orderReference ? ` — ${order.orderReference}` : ""}`,
+    html: customerShell(includesPreorder ? "Your pre-order is confirmed!" : "Thank you for your order!", `Hi ${esc(firstName)}, we've received your order and payment. Here's your confirmation:`, body),
+  });
+}
+
+type PreorderUpdateInfo = Pick<OrderInfo, "customerEmail" | "customerName" | "orderReference">;
+
+/** Sent from the order dashboard when the Friday batch begins processing. */
+export async function notifyCustomerPreorderProcessing(order: PreorderUpdateInfo): Promise<boolean> {
+  if (!order.customerEmail) return false;
+  const firstName = (order.customerName ?? "").trim().split(/\s+/)[0] || "there";
+  const body = `${preorderPanel("Your hair is now processing", "Your Boho Hair pre-order is officially in our current batch. Please allow approximately 7–13 days for processing before shipment. We’ll email you again after your hair has been prepared and quality checked.", 2)}${preorderReference(order.orderReference)}`;
+  return sendEmail({
+    to: order.customerEmail,
+    subject: `Your Boho Hair pre-order is processing${order.orderReference ? ` — ${order.orderReference}` : ""}`,
+    html: customerShell("Your pre-order is in progress", `Hi ${esc(firstName)}, your Boho Hair order has moved into processing.`, body),
+  });
+}
+
+/** Sent from the order dashboard after the hair is inspected and packed. */
+export async function notifyCustomerPreorderQualityCheck(order: PreorderUpdateInfo): Promise<boolean> {
+  if (!order.customerEmail) return false;
+  const firstName = (order.customerName ?? "").trim().split(/\s+/)[0] || "there";
+  const body = `${preorderPanel("Prepared with care", "Your Boho Hair has been prepared, inspected, and packaged with care. It is now being readied for shipment. Your next email will include tracking as soon as your package is on the way.", 3)}${preorderReference(order.orderReference)}`;
+  return sendEmail({
+    to: order.customerEmail,
+    subject: `Your Boho Hair pre-order passed quality check${order.orderReference ? ` — ${order.orderReference}` : ""}`,
+    html: customerShell("Quality check complete", `Hi ${esc(firstName)}, your pre-order is one step closer to you.`, body),
   });
 }
 
@@ -344,6 +379,7 @@ type ShippedInfo = OrderInfo & { trackingNumber?: string | null; carrier?: strin
 export async function notifyCustomerShipped(order: ShippedInfo): Promise<boolean> {
   if (!order.customerEmail) return false;
   const firstName = (order.customerName ?? "").trim().split(/\s+/)[0] || "there";
+  const includesPreorder = (order.items ?? []).some(item => item.name?.includes("PRE-ORDER"));
   const url = trackingUrl(order.carrier, order.trackingNumber);
   const carrierLabel = order.carrier ? esc(order.carrier.toUpperCase()) : "Carrier";
   const trackingLine = order.trackingNumber
@@ -353,12 +389,12 @@ export async function notifyCustomerShipped(order: ShippedInfo): Promise<boolean
        </table>
        ${url ? `<p style="margin:20px 0 0"><a href="${url}" style="display:inline-block;background:#c8aa82;color:#111;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.06em;padding:14px 22px">TRACK YOUR PACKAGE</a></p>` : ""}`
     : `<p style="font-size:14px">Your order is on its way.</p>`;
-  const body = `${trackingLine}
+  const body = `${includesPreorder ? preorderPanel("Your pre-order is on the way", "Your Boho Hair has completed processing and quality check, and your package is now on the way to you. Use the tracking information below to follow its journey.", 4) : ""}${trackingLine}
     <p style="font-size:13px;color:#6d675f;margin:20px 0 0">Order reference: <strong>${esc(order.orderReference ?? "—")}</strong></p>`;
   return sendEmail({
     to: order.customerEmail,
-    subject: `Your Wynn Essentials order has shipped${order.orderReference ? ` — ${order.orderReference}` : ""}`,
-    html: customerShell("Your order is on its way!", `Hi ${esc(firstName)}, good news — your order has shipped.`, body),
+    subject: `${includesPreorder ? "Your Boho Hair pre-order is on the way" : "Your Wynn Essentials order has shipped"}${order.orderReference ? ` — ${order.orderReference}` : ""}`,
+    html: customerShell(includesPreorder ? "Your pre-order is on the way!" : "Your order is on its way!", `Hi ${esc(firstName)}, good news — your order has shipped.`, body),
   });
 }
 
