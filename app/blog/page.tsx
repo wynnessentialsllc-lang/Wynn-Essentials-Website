@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, lte } from "drizzle-orm";
 import { getDb } from "../../db";
 import { blogPosts } from "../../db/schema";
 import { SITE_URL, abs, ldJson } from "../seo";
+import { liveScheduledInsights } from "../../lib/scheduled-insights";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -18,10 +19,15 @@ export const metadata: Metadata = {
 const when = (d: Date | null) => (d ? new Intl.DateTimeFormat("en-US", { dateStyle: "long" }).format(d) : "");
 
 export default async function BlogIndex() {
-  let posts: (typeof blogPosts.$inferSelect)[] = [];
+  const scheduled = liveScheduledInsights();
+  let stored: (typeof blogPosts.$inferSelect)[] = [];
   try {
-    posts = await getDb().select().from(blogPosts).where(eq(blogPosts.status, "published")).orderBy(desc(blogPosts.publishedAt)).limit(60);
-  } catch { posts = []; }
+    stored = await getDb().select().from(blogPosts).where(and(eq(blogPosts.status, "published"), lte(blogPosts.publishedAt, new Date()))).orderBy(desc(blogPosts.publishedAt)).limit(60);
+  } catch { stored = []; }
+  const scheduledSlugs = new Set(scheduled.map(post => post.slug));
+  const posts = [...scheduled, ...stored.filter(post => !scheduledSlugs.has(post.slug))]
+    .sort((a, b) => (b.publishedAt?.getTime() ?? 0) - (a.publishedAt?.getTime() ?? 0))
+    .slice(0, 100);
 
   // Names the hub as a Blog and lists what is on it, so a crawler sees an
   // article index rather than an anonymous grid of links. Built from the same
