@@ -71,7 +71,9 @@ const topics: Topic[] = [
 
 const excludedCampaignIds = new Set(["labor-day-2026-final-hours", "cyber-2026", "final-2026", "shipping-2026"]);
 const allCampaigns = [...laborDayCampaigns, ...fallCampaigns, ...annualMarketingCampaigns];
-const campaigns = new Map(allCampaigns.map(campaign => [campaign.id, campaign]));
+const campaigns = new Map<string, (typeof allCampaigns)[number]>(
+  allCampaigns.map(campaign => [campaign.id, campaign]),
+);
 
 const campaignImages: Record<string, string> = {
   "labor-day-2026-reset": "/email/labor-day-reset.jpg",
