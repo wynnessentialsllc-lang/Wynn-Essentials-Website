@@ -10,7 +10,7 @@ export const fallCampaigns = [
 
 const logo = `<img src="${emailUrl("/email/wynn-essentials-logo.png")}" width="230" alt="Wynn Essentials" style="display:block;width:230px;max-width:70%;height:auto;margin:0 auto">`;
 const image = (src: string, alt: string) => `<img class="fluid" src="${emailUrl(src)}" width="600" alt="${esc(alt)}" style="display:block;width:100%;max-width:600px;height:auto;border:0">`;
-const heading = (copy: string, color = BRAND.black) => `<h1 class="h-lg" style="margin:14px 0 18px;font-family:${BRAND.serif};font-size:48px;line-height:.98;font-weight:normal;letter-spacing:-.04em;color:${color}">${copy}</h1>`;
+const heading = (copy: string, color: string = BRAND.black) => `<h1 class="h-lg" style="margin:14px 0 18px;font-family:${BRAND.serif};font-size:48px;line-height:.98;font-weight:normal;letter-spacing:-.04em;color:${color}">${copy}</h1>`;
 const brand = (tag: string) => `<tr><td style="padding:24px 22px 18px;text-align:center;background:#fff">${logo}<p style="margin:7px 0 0;font:9px ${BRAND.sans};letter-spacing:.3em;text-transform:uppercase">${tag}</p></td></tr>`;
 const footer = (email: string, note = "") => `<tr><td class="px" style="padding:28px 34px;background:#f4eee6;text-align:center;font-family:${BRAND.sans};font-size:10px;line-height:18px;color:#675d54">WYNN ESSENTIALS · Healthy Hair Is a Practice${note}<br>${BUSINESS_ADDRESS}<br><a href="${emailUrl("/")}" style="color:#675d54">Shop</a> · <a href="${emailUrl("/#routine-finder")}" style="color:#675d54">Find Your Routine</a> · <a href="${unsubscribeUrl(email)}" style="color:#675d54">Unsubscribe</a></td></tr>`;
 
