@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next";
-import { eq } from "drizzle-orm";
+import { and, eq, lte } from "drizzle-orm";
 import { SITE_URL } from "./seo";
 import { allPages, pageUrl } from "../lib/agent-catalog";
+import { liveScheduledInsights } from "../lib/scheduled-insights";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Published blog posts, best-effort: if the DB or table is unavailable the
@@ -10,9 +11,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const { getDb } = await import("../db");
     const { blogPosts } = await import("../db/schema");
-    const rows = await getDb().select({ slug: blogPosts.slug, updatedAt: blogPosts.updatedAt }).from(blogPosts).where(eq(blogPosts.status, "published"));
+    const rows = await getDb().select({ slug: blogPosts.slug, updatedAt: blogPosts.updatedAt }).from(blogPosts).where(and(eq(blogPosts.status, "published"), lte(blogPosts.publishedAt, new Date())));
     blog = rows.map((r) => ({ url: `${SITE_URL}/blog/${r.slug}`, priority: 0.6, changeFrequency: "monthly" as const, ...(r.updatedAt ? { lastModified: r.updatedAt } : {}) }));
   } catch { blog = []; }
+  const campaignInsights: MetadataRoute.Sitemap = liveScheduledInsights().map(post => ({
+    url: `${SITE_URL}/blog/${post.slug}`,
+    priority: 0.7,
+    changeFrequency: "monthly" as const,
+    lastModified: post.updatedAt,
+  }));
+  const campaignSlugs = new Set(campaignInsights.map(item => item.url));
 
   // Every indexable page — the storefront, the CrownPrint pages, the editorial
   // hub, the About page, one crawlable URL per catalog product, and the policy
@@ -35,6 +43,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: page.priority,
       changeFrequency: page.changeFrequency,
     })),
-    ...blog,
+    ...campaignInsights,
+    ...blog.filter(item => !campaignSlugs.has(item.url)),
   ];
 }

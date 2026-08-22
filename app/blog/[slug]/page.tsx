@@ -6,11 +6,14 @@ import { getDb } from "../../../db";
 import { blogPosts, type BlogPost } from "../../../db/schema";
 import { SITE_URL, abs, ldJson } from "../../seo";
 import { renderMarkdown } from "../../../lib/markdown";
+import { scheduledInsightBySlug, type ScheduledInsight } from "../../../lib/scheduled-insights";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-async function getPost(slug: string): Promise<BlogPost | null> {
+async function getPost(slug: string): Promise<BlogPost | ScheduledInsight | null> {
+  const scheduled = scheduledInsightBySlug(slug);
+  if (scheduled) return scheduled;
   try {
     const [post] = await getDb().select().from(blogPosts).where(and(eq(blogPosts.slug, slug), eq(blogPosts.status, "published"))).limit(1);
     return post ?? null;
@@ -30,6 +33,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title: `${post.title} | Wynn Essentials`,
     description,
+    keywords: "keywords" in post ? post.keywords : undefined,
     alternates: { canonical: `/blog/${slug}` },
     openGraph: { title: post.title, description, url: `/blog/${slug}`, siteName: "Wynn Essentials", type: "article", ...(post.coverImage ? { images: [{ url: post.coverImage }] } : {}) },
     twitter: { card: "summary_large_image", title: post.title, description, ...(post.coverImage ? { images: [post.coverImage] } : {}) },
@@ -64,9 +68,20 @@ export default async function BlogArticle({ params }: { params: Promise<{ slug: 
     ...(post.updatedAt ? { dateModified: new Date(post.updatedAt).toISOString() } : {}),
     inLanguage: "en-US",
     wordCount: post.body.split(/\s+/).filter(Boolean).length,
+    ...( "keywords" in post ? { keywords: post.keywords.join(", "), about: post.keywords.map(name => ({ "@type": "Thing", name })) } : {}),
     isPartOf: { "@type": "Blog", name: "Wynn Essentials Insights", url: `${SITE_URL}/blog` },
     mainEntityOfPage: { "@type": "WebPage", "@id": url },
   };
+
+  const faqSchema = "faqs" in post ? {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: post.faqs.map(faq => ({
+      "@type": "Question",
+      name: faq.question,
+      acceptedAnswer: { "@type": "Answer", text: faq.answer },
+    })),
+  } : null;
 
   // The page already renders this trail visually; emitting it as data is what
   // puts "Home › Insights › Title" in the search result instead of a raw URL.
@@ -83,6 +98,7 @@ export default async function BlogArticle({ params }: { params: Promise<{ slug: 
   return (
     <div className="collection">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(articleSchema) }} />
+      {faqSchema && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(faqSchema) }} />}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(breadcrumbSchema) }} />
 
       <header className="collection-bar">

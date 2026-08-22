@@ -7,6 +7,7 @@ import { isAuthenticated, adminTokenConfigured } from "../../../lib/admin-auth";
 import { signOut } from "../orders/actions";
 import SignInForm from "../orders/SignInForm";
 import { savePost, deletePost } from "./actions";
+import { scheduledInsights } from "../../../lib/scheduled-insights";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -16,6 +17,7 @@ export const metadata: Metadata = {
 };
 
 const when = (d: Date | null) => (d ? new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(d) : "—");
+const scheduledWhen = (d: Date) => new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Los_Angeles", timeZoneName: "short" }).format(d);
 const input: React.CSSProperties = { width: "100%", padding: "0.55rem 0.7rem", border: "1px solid var(--line)", borderRadius: 4, font: "inherit" };
 const label: React.CSSProperties = { display: "block", fontSize: 12, fontWeight: 700, margin: "0.9rem 0 0.3rem" };
 
@@ -67,6 +69,25 @@ export default async function AdminBlog({ searchParams }: { searchParams: Promis
             {editing && <Link className="outline-button" href="/admin/blog">Cancel edit</Link>}
           </div>
         </form>
+      </section>
+
+      <section style={{ border: "1px solid var(--line)", borderRadius: 6, padding: "1.25rem 1.4rem", margin: "1rem 0 2rem" }}>
+        <p className="eyebrow">CAMPAIGN-ALIGNED EDITORIAL CALENDAR</p>
+        <h2 style={{ fontSize: "1.2rem", margin: "0 0 0.35rem" }}>Scheduled Insights ({scheduledInsights.length})</h2>
+        <p style={{ opacity: 0.72, marginTop: 0, fontSize: 13 }}>Each article becomes public automatically when its matching subscriber email is scheduled to send. Promotional-only reminders are intentionally excluded.</p>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.86rem" }}>
+            <thead><tr>{["Article", "Publishes", "Status"].map(h => <th key={h} style={{ textAlign: "left", padding: "0.5rem", borderBottom: "2px solid currentColor" }}>{h}</th>)}</tr></thead>
+            <tbody>{scheduledInsights.map(post => {
+              const live = post.publishedAt <= new Date();
+              return <tr key={post.slug} style={{ borderBottom: "1px solid rgba(128,128,128,0.25)" }}>
+                <td style={{ padding: "0.5rem" }}>{live ? <Link href={`/blog/${post.slug}`} target="_blank">{post.title} ↗</Link> : post.title}</td>
+                <td style={{ padding: "0.5rem", whiteSpace: "nowrap" }}>{scheduledWhen(post.publishedAt)}</td>
+                <td style={{ padding: "0.5rem", color: live ? "#15803d" : "#b45309", fontWeight: 700 }}>{live ? "Published" : "Scheduled"}</td>
+              </tr>;
+            })}</tbody>
+          </table>
+        </div>
       </section>
 
       <h2 style={{ fontSize: "1.2rem", margin: "0 0 0.6rem" }}>All posts ({posts.length})</h2>

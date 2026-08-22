@@ -1,4 +1,6 @@
 import { renderLlmsTxt } from "../../lib/agent-catalog";
+import { liveScheduledInsights } from "../../lib/scheduled-insights";
+import { SITE_URL } from "../seo";
 
 // /llms.txt — the llms.txt convention: a short, curated map of the site written
 // for an AI assistant rather than a browser. An agent fetches this first to
@@ -11,7 +13,9 @@ export const dynamic = "force-static";
 export const revalidate = 3600;
 
 export function GET() {
-  return new Response(renderLlmsTxt(), {
+  const insights = liveScheduledInsights();
+  const insightIndex = insights.length ? `\n\n## Wynn Essentials Insights\n${insights.map(post => `- [${post.title}](${SITE_URL}/blog/${post.slug}): ${post.excerpt}`).join("\n")}` : "";
+  return new Response(`${renderLlmsTxt()}${insightIndex}`, {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
