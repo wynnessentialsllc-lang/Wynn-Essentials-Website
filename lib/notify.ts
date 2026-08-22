@@ -23,7 +23,7 @@ const DEFAULT_TO = "wynnessentialsllc@gmail.com";
 // The Resend API key, read from the environment. RESEND_API_KEY is the standard
 // name; wynnessentials_site is also accepted so the Vercel variable can be named
 // either way. First match wins.
-import { listUnsubscribeHeaders, canSignUnsubscribe, unsubscribeUrl } from "./unsubscribe";
+import { listUnsubscribeHeaders, canSignUnsubscribe } from "./unsubscribe";
 import { renderOrderConfirmationEmail, type OrderEmailData } from "./order-confirmation-email";
 import { wynnEditWelcomeEmail } from "./wynn-edit-email";
 import { firstOrderWelcomeEmail } from "./first-order-welcome-email";
@@ -42,7 +42,7 @@ export { SENDER };
 // welcomes, and the education email. Nothing customer-facing renders on the
 // plain block below any more — see lib/customer-email.ts.
 import { customerEmail, productLine, totalLine, detailRows, noteCard, mailableImage } from "./customer-email";
-import { BRAND, BUSINESS_ADDRESS, button, emailUrl } from "./email-brand";
+import { BRAND, button, emailUrl } from "./email-brand";
 
 // The mailing address and the opt-out link now live with the shells that render
 // them — lib/email-brand.ts and lib/customer-email.ts — so there is no second
@@ -294,18 +294,6 @@ export async function notifyNewSupportMessage(msg: SupportInfo): Promise<boolean
 // Like everything here, they are best-effort and never throw.
 // ---------------------------------------------------------------------------
 
-const customerShell = (heading: string, intro: string, body: string, opts: { unsubscribeEmail?: string | null } = {}) => `
-  <div style="font-family:Arial,Helvetica,sans-serif;color:#111;max-width:560px;margin:0 auto;padding:8px 0">
-    <p style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#b39067;font-weight:700;margin:0 0 6px">Wynn Essentials</p>
-    <h1 style="font-family:Georgia,serif;font-weight:400;font-size:28px;margin:0 0 14px">${heading}</h1>
-    <p style="font-size:15px;line-height:1.6;margin:0 0 20px">${intro}</p>
-    ${body}
-    <p style="font-size:13px;color:#6d675f;line-height:1.6;margin:26px 0 0">Questions? Just reply to this email or reach us at <a href="mailto:wynnessentialsllc@gmail.com" style="color:#b39067">wynnessentialsllc@gmail.com</a>.</p>
-    <p style="font-size:12px;color:#a98f72;margin:22px 0 0">Wynn Essentials · Healthy hair is a practice.</p>
-    <p style="font-size:11px;color:#9a938a;line-height:1.6;margin:10px 0 0">${BUSINESS_ADDRESS}</p>
-    ${opts.unsubscribeEmail ? `<p style="font-size:11px;color:#9a938a;line-height:1.6;margin:6px 0 0">You're receiving this because you subscribed to Wynn Essentials emails. <a href="${unsubscribeUrl(opts.unsubscribeEmail)}" style="color:#846743">Unsubscribe</a> at any time.</p>` : ""}
-  </div>`;
-
 const STORE = "https://wynnessentialsllc.us";
 const TEXTURE_PROFILES = [
   { match: "body wave", name: "Body Wave", image: `${STORE}/collections/boho-card-body-wave.webp`, detail: "Soft, flowing waves with natural movement and effortless blending." },
@@ -353,11 +341,16 @@ export async function notifyCustomerPreorderProcessing(order: PreorderUpdateInfo
   if (!order.customerEmail) return false;
   const firstName = (order.customerName ?? "").trim().split(/\s+/)[0] || "there";
   const body = `${preorderPanel("Your hair is now processing", "Your Boho Hair pre-order is officially in our current batch. Please allow approximately 7–13 days for processing before shipment. We’ll email you again after your hair has been prepared and quality checked.", 2, order.items)}${preorderReference(order.orderReference)}`;
-  return sendEmail({
-    to: order.customerEmail,
+  const message = customerEmail({
     subject: `Your Boho Hair pre-order is processing${order.orderReference ? ` — ${order.orderReference}` : ""}`,
-    html: customerShell("Your pre-order is in progress", `Hi ${esc(firstName)}, your Boho Hair order has moved into processing.`, body),
+    preheader: "Your Boho Hair order has moved into processing.",
+    eyebrow: "Pre-order update",
+    heading: "Your pre-order is in progress",
+    intro: `Hi ${esc(firstName)}, your Boho Hair order has moved into processing.`,
+    bodyHtml: body,
+    text: "Your Boho Hair pre-order is officially in our current batch. Please allow approximately 7–13 days for processing before shipment.",
   });
+  return sendEmail({ to: order.customerEmail, subject: message.subject, html: message.html, text: message.text, fromName: SENDER.care });
 }
 
 /** Sent from the order dashboard after the hair is inspected and packed. */
@@ -365,11 +358,16 @@ export async function notifyCustomerPreorderQualityCheck(order: PreorderUpdateIn
   if (!order.customerEmail) return false;
   const firstName = (order.customerName ?? "").trim().split(/\s+/)[0] || "there";
   const body = `${preorderPanel("Prepared with care", "Your Boho Hair has been prepared, inspected, and packaged with care. It is now being readied for shipment. Your next email will include tracking as soon as your package is on the way.", 3, order.items)}${preorderReference(order.orderReference)}`;
-  return sendEmail({
-    to: order.customerEmail,
+  const message = customerEmail({
     subject: `Your Boho Hair pre-order passed quality check${order.orderReference ? ` — ${order.orderReference}` : ""}`,
-    html: customerShell("Quality check complete", `Hi ${esc(firstName)}, your pre-order is one step closer to you.`, body),
+    preheader: "Your Boho Hair has been inspected and prepared with care.",
+    eyebrow: "Pre-order update",
+    heading: "Quality check complete",
+    intro: `Hi ${esc(firstName)}, your pre-order is one step closer to you.`,
+    bodyHtml: body,
+    text: "Your Boho Hair has been prepared, inspected, and packaged with care. Your next email will include tracking as soon as your package is on the way.",
   });
+  return sendEmail({ to: order.customerEmail, subject: message.subject, html: message.html, text: message.text, fromName: SENDER.care });
 }
 
 /**
@@ -527,6 +525,21 @@ export async function notifyCustomerRestock({ email, productName, productUrl }: 
 
 type ShippedInfo = OrderInfo & { trackingNumber?: string | null; carrier?: string | null };
 
+function preorderShippedEmail(order: ShippedInfo, firstName: string, url: string | null) {
+  const carrierLabel = order.carrier ? esc(order.carrier.toUpperCase()) : "Carrier";
+  const trackingLine = order.trackingNumber
+    ? `<table style="width:100%;border-collapse:collapse;font-size:15px"><tr><td style="padding:8px 0;color:#6d675f;width:130px">Carrier</td><td style="padding:8px 0;font-weight:600">${carrierLabel}</td></tr><tr><td style="padding:8px 0;color:#6d675f">Tracking #</td><td style="padding:8px 0;font-weight:600">${esc(order.trackingNumber)}</td></tr></table>${url ? `<p style="margin:20px 0 0"><a href="${url}" style="display:inline-block;background:#c8aa82;color:#111;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.06em;padding:14px 22px">TRACK YOUR PACKAGE</a></p>` : ""}`
+    : `<p style="font-size:14px">Your order is on its way.</p>`;
+  const care = `<div style="margin:24px 0;padding:22px;background:#f2e2cc;border-radius:12px"><h3 style="margin:0 0 10px;font-family:Georgia,serif;font-size:21px;font-weight:400">Keep your dream hair beautiful</h3><p style="margin:0;color:#55443c;font-size:13px;line-height:1.7">Detangle gently from the ends upward, refresh with lightweight product, protect nightly with satin, and always let the hair dry completely before bed.</p><p style="margin:16px 0 0"><a href="${STORE}/braiding-hair#care-guide" style="display:inline-block;background:#ff3fa4;color:#fff;text-decoration:none;font-weight:800;font-size:11px;letter-spacing:.08em;padding:12px 18px">VIEW THE FULL CARE GUIDE</a></p></div>`;
+  const body = `${preorderPanel("Your pre-order is on the way", "Your Boho Hair has completed processing and quality check, and your package is now on the way to you. Use the tracking information below to follow its journey.", 4, order.items)}${trackingLine}${care}<p style="font-size:13px;color:#6d675f;margin:20px 0 0">Order reference: <strong>${esc(order.orderReference ?? "—")}</strong></p>`;
+  return customerEmail({
+    subject: `Your Boho Hair pre-order is on the way${order.orderReference ? ` — ${order.orderReference}` : ""}`,
+    preheader: "Your Boho Hair order has shipped and tracking is ready.", eyebrow: "Pre-order update", heading: "Your pre-order is on the way!",
+    intro: `Hi ${esc(firstName)}, good news — your order has shipped.`, bodyHtml: body,
+    text: `Your Boho Hair has completed processing and quality check and is now on the way.${order.trackingNumber ? ` Tracking: ${order.trackingNumber}.` : ""}`,
+  });
+}
+
 /** Shipping confirmation with tracking, sent when an order is marked shipped. */
 export async function notifyCustomerShipped(order: ShippedInfo): Promise<boolean> {
   if (!order.customerEmail) return false;
@@ -534,22 +547,8 @@ export async function notifyCustomerShipped(order: ShippedInfo): Promise<boolean
   const includesPreorder = (order.items ?? []).some(item => item.name?.includes("PRE-ORDER"));
   const url = trackingUrl(order.carrier, order.trackingNumber);
   if (includesPreorder) {
-    const carrierLabel = order.carrier ? esc(order.carrier.toUpperCase()) : "Carrier";
-    const trackingLine = order.trackingNumber
-      ? `<table style="width:100%;border-collapse:collapse;font-size:15px">
-           <tr><td style="padding:8px 0;color:#6d675f;width:130px">Carrier</td><td style="padding:8px 0;font-weight:600">${carrierLabel}</td></tr>
-           <tr><td style="padding:8px 0;color:#6d675f">Tracking #</td><td style="padding:8px 0;font-weight:600">${esc(order.trackingNumber)}</td></tr>
-         </table>
-         ${url ? `<p style="margin:20px 0 0"><a href="${url}" style="display:inline-block;background:#c8aa82;color:#111;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.06em;padding:14px 22px">TRACK YOUR PACKAGE</a></p>` : ""}`
-      : `<p style="font-size:14px">Your order is on its way.</p>`;
-    const care = `<div style="margin:24px 0;padding:22px;background:#f2e2cc;border-radius:12px"><h3 style="margin:0 0 10px;font-family:Georgia,serif;font-size:21px;font-weight:400">Keep your dream hair beautiful</h3><p style="margin:0;color:#55443c;font-size:13px;line-height:1.7">Detangle gently from the ends upward, refresh with lightweight product, protect nightly with satin, and always let the hair dry completely before bed.</p><p style="margin:16px 0 0"><a href="${STORE}/braiding-hair#care-guide" style="display:inline-block;background:#ff3fa4;color:#fff;text-decoration:none;font-weight:800;font-size:11px;letter-spacing:.08em;padding:12px 18px">VIEW THE FULL CARE GUIDE</a></p></div>`;
-    const body = `${preorderPanel("Your pre-order is on the way", "Your Boho Hair has completed processing and quality check, and your package is now on the way to you. Use the tracking information below to follow its journey.", 4, order.items)}${trackingLine}${care}<p style="font-size:13px;color:#6d675f;margin:20px 0 0">Order reference: <strong>${esc(order.orderReference ?? "—")}</strong></p>`;
-    return sendEmail({
-      to: order.customerEmail,
-      subject: `Your Boho Hair pre-order is on the way${order.orderReference ? ` — ${order.orderReference}` : ""}`,
-      html: customerShell("Your pre-order is on the way!", `Hi ${esc(firstName)}, good news — your order has shipped.`, body),
-      fromName: SENDER.shipping,
-    });
+    const message = preorderShippedEmail(order, firstName, url);
+    return sendEmail({ to: order.customerEmail, subject: message.subject, html: message.html, text: message.text, fromName: SENDER.shipping });
   }
 
   const rows: { label: string; value: string }[] = [];

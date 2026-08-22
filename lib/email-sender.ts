@@ -32,7 +32,7 @@ export const SENDER = {
   /** Welcomes: The Wynn Edit, the first-order offer, a restock waitlist join. */
   welcome: "Wynn Essentials Welcome",
   /** Scheduled newsletters and seasonal promotional campaigns. */
-  campaign: "The Wynn Edit",
+  campaign: "Wynn Essentials Edit",
   /** A waitlisted product coming back into stock. */
   restock: "Wynn Essentials Restock",
   /** Abandoned-cart reminder. */
